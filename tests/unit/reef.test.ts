@@ -1,9 +1,10 @@
-import { Vector3 } from "three";
+import { Box3, Mesh, type MeshBasicMaterial, Vector3 } from "three";
 import { describe, expect, it } from "vitest";
 import { config } from "../../src/config";
 import { constrainToBay, isSolidAt, rocks, setFrameColumns } from "../../src/game/bay";
 import type { HudState } from "../../src/game/hud-state";
 import { aimDirection } from "../../src/game/follow-camera";
+import { createReefView } from "../../src/game/reef-model";
 import { frameStatus, patchStatus, ReefField } from "../../src/game/reef-sites";
 import { findAimPoint, SeedLauncher } from "../../src/game/seed-launcher";
 import { Session } from "../../src/game/session";
@@ -437,5 +438,25 @@ describe("texts (REQ-004, G-003, G-004)", () => {
         if (/sampah|trash/i.test(value)) expect(value).toMatch(/Setor sampah di stasiun|Deposit trash at the station/);
       }
     }
+  });
+});
+
+describe("site markers show through the murk (REQ-004 AC-1)", () => {
+  it("every reef site and seagrass patch has a fog-free marker that rises well above the floor", () => {
+    const field = new ReefField();
+    const view = createReefView(field);
+    view.group.updateMatrixWorld(true);
+    const sites = [...field.frames, ...field.patches];
+    expect(view.group.children).toHaveLength(sites.length);
+    view.group.children.forEach((siteGroup, i) => {
+      const fogFree: Mesh[] = [];
+      siteGroup.traverse((object) => {
+        if (object instanceof Mesh && object.visible && (object.material as MeshBasicMaterial).fog === false) fogFree.push(object);
+      });
+      expect(fogFree.length).toBeGreaterThan(0);
+      const top = Math.max(...fogFree.map((m) => new Box3().setFromObject(m).max.y));
+      // Visible beyond the murky fog distance: the marker stands at least 5 m above the floor.
+      expect(top).toBeGreaterThan(sites[i].y + 5);
+    });
   });
 });
