@@ -3,11 +3,26 @@ import type { Vector3 } from "three";
 
 const { bay } = config;
 
-/** Height of the sea floor at (x, z). Shared by the floor mesh and collision, so they always agree. */
-export function floorHeight(x: number, z: number): number {
+function naturalFloorHeight(x: number, z: number): number {
   const towardSouth = (z / bay.boundaryRadius) * bay.southSlope;
   const bumps = 0.9 * Math.sin(x * 0.11) * Math.cos(z * 0.09) + 0.5 * Math.sin(x * 0.23 + z * 0.19);
   return bay.floorDepth - towardSouth + bumps;
+}
+
+const { station } = config;
+const stationFloor = naturalFloorHeight(station.x, station.z);
+
+/**
+ * Height of the sea floor at (x, z). Shared by the floor mesh and collision, so they always agree.
+ * It is level around the recycling station, so the deposit zone sits flat on the floor.
+ */
+export function floorHeight(x: number, z: number): number {
+  const natural = naturalFloorHeight(x, z);
+  const distance = Math.hypot(x - station.x, z - station.z);
+  if (distance >= station.padRadius + station.padBlend) return natural;
+  const k = Math.min(1, Math.max(0, (distance - station.padRadius) / station.padBlend));
+  const blend = k * k * (3 - 2 * k);
+  return stationFloor + (natural - stationFloor) * blend;
 }
 
 /** Distance from the bay's centre to the cliff face at this angle and height; never closer than cliffRadius - cliffJag. */

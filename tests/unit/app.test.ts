@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App, type AppDeps } from "../../src/app";
+import type { HudState } from "../../src/game/hud-state";
+import { Session } from "../../src/game/session";
 import type { StorageLike } from "../../src/i18n/i18n";
 import type { PointerLock } from "../../src/ui/pointer-lock";
 
@@ -41,7 +43,7 @@ function fakePointerLock(): FakePointerLock {
 function setup(overrides: Partial<AppDeps> = {}) {
   document.body.innerHTML = '<div id="ui"></div>';
   const ui = document.querySelector<HTMLElement>("#ui")!;
-  const game = { play: vi.fn(), pause: vi.fn(), resume: vi.fn() };
+  const game = { play: vi.fn(), pause: vi.fn(), resume: vi.fn(), onHud: vi.fn() };
   const lock = fakePointerLock();
   const deps: AppDeps = {
     ui,
@@ -143,6 +145,48 @@ describe("starting the dive (REQ-001 AC-3)", () => {
   });
 });
 
+describe("HUD (REQ-002)", () => {
+  const hudState = (tank: number): HudState => ({
+    tool: "vacuum",
+    tank,
+    capacity: 8,
+    tankFull: tank >= 8,
+    score: tank * 10,
+    materials: 0,
+    cleanliness: 0,
+    objectives: new Session(40).objectives,
+    notice: null,
+    inStationZone: false,
+    stationDistance: 30,
+    marker: { left: 10, top: 10, onScreen: false, angle: 0 },
+    sucking: false,
+  });
+  const emit = (game: { onHud: ReturnType<typeof vi.fn> }, state: HudState) => game.onHud.mock.calls[0][0](state);
+
+  it("shows the game's state while playing, and the goals from the first frame", async () => {
+    const { ui, game } = await startPlaying();
+    emit(game, hudState(3));
+    expect(ui.querySelector(".stat-tank")?.textContent).toBe("Tangki3/8");
+    expect(ui.querySelector(".stat-score")?.textContent).toBe("Skor30");
+    expect(ui.querySelectorAll(".goal")).toHaveLength(3);
+  });
+
+  it("is hidden while paused and comes back in the new language, with the same numbers", async () => {
+    const { ui, game } = await startPlaying();
+    emit(game, hudState(8));
+    pressEscape();
+    expect(ui.querySelector(".hud")).toBeNull();
+    emit(game, hudState(8)); // a late frame while paused must not draw anything
+    expect(ui.querySelector(".hud")).toBeNull();
+    await clickButton(ui, "Bahasa");
+    await clickButton(ui, "English");
+    await clickButton(ui, "Back");
+    await clickButton(ui, "Resume");
+    expect(ui.querySelector(".message-full")?.textContent).toBe("Tank full, deposit at the station");
+    expect(ui.querySelector(".stat-tank")?.textContent).toBe("Tank8/8");
+  });
+});
+
 describe("pause (REQ-001 AC-5)", () => {
   it("Esc pauses and shows Lanjut, Kontrol and Bahasa", async () => {
     const { ui, app, game, lock } = await startPlaying();
@@ -191,6 +235,9 @@ describe("pause (REQ-001 AC-5)", () => {
       "Spasi = Naik",
       "Shift = Turun",
       "Mouse = Mengarahkan ROV",
+      "Klik kiri = Pakai alat (tahan)",
+      "2 = Pilih Vacuum",
+      "E = Setor sampah di stasiun",
       "Esc = Jeda",
     ]);
     await clickButton(ui, "Kembali");

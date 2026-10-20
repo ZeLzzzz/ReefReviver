@@ -1,9 +1,27 @@
-import { PerspectiveCamera, Scene, Vector3, WebGLRenderer } from "three";
+import {
+  AdditiveBlending,
+  ConeGeometry,
+  Mesh,
+  MeshBasicMaterial,
+  PerspectiveCamera,
+  Scene,
+  Vector3,
+  WebGLRenderer,
+} from "three";
 import { config } from "../config";
-import { followCamera, keepCameraInWater } from "./follow-camera";
+import { rocks } from "./bay";
+import { aimDirection, followCamera, keepCameraInWater } from "./follow-camera";
+import type { HudState } from "./hud-state";
 import { Input } from "./input";
+import { placeMarker } from "./marker";
 import { createRovModel } from "./rov-model";
 import { createRovState, rightVector, steer, stepRov, type RovState } from "./rov";
+import { Session } from "./session";
+import { distanceToStation, inStationZone, stationPosition } from "./station";
+import { createStationModel, STATION_MARKER_HEIGHT } from "./station-model";
+import { toolForKey } from "./tools";
+import { TrashField } from "./trash";
+import { createTrashView } from "./trash-model";
 import { buildWorld, type World } from "./world";
 
 /** What the app shell needs from the game. */
@@ -13,9 +31,24 @@ export interface GameView {
   /** Freezes the game; nothing moves until resume(). */
   pause(): void;
   resume(): void;
+  /** The HUD listens here; it gets the state once per frame while playing. */
+  onHud(listener: (state: HudState) => void): void;
 }
 
 type Mode = "title" | "playing" | "paused";
+
+/** A faint cone from the ROV along the aim, shown while the vacuum is pulling. Apex at the origin, base toward +Z. */
+function createVacuumBeam(): Mesh {
+  const { range, coneHalfAngle } = config.vacuum;
+  const geometry = new ConeGeometry(range * Math.tan(coneHalfAngle), range, 20, 1, true);
+  geometry.translate(0, -range / 2, 0);
+  geometry.rotateX(-Math.PI / 2);
+  const material = new MeshBasicMaterial({ color: 0xbfefff, transparent: true, opacity: 0.06, blending: AdditiveBlending, depthWrite: false });
+  const beam = new Mesh(geometry, material);
+  beam.visible = false;
+  beam.frustumCulled = false;
+  return beam;
+}
 
 export class Game implements GameView {
   private readonly renderer: WebGLRenderer;
@@ -25,6 +58,16 @@ export class Game implements GameView {
   private readonly rovModel = createRovModel();
   private readonly world: World;
   private readonly input: Input;
+  private readonly field = new TrashField();
+  private readonly trashView = createTrashView(this.field.items);
+  private readonly beam = createVacuumBeam();
+  private readonly aim = new Vector3();
+  private readonly stationAnchor = new Vector3(stationPosition.x, stationPosition.y + STATION_MARKER_HEIGHT, stationPosition.z);
+  private readonly viewPoint = new Vector3();
+  private session = new Session(this.field.total);
+  private hudListener: ((state: HudState) => void) | null = null;
+  private lastHud: HudState | null = null;
+  private sucking = false;
   private rov: RovState = createRovState();
   private mode: Mode = "title";
   private titleTime = 0;
@@ -34,7 +77,8 @@ export class Game implements GameView {
     this.renderer = new WebGLRenderer({ canvas, context, antialias: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.world = buildWorld(this.scene);
-    this.scene.add(this.rovModel);
+    this.scene.add(this.rovModel, createStationModel(), this.trashView.group, this.beam);
+    this.trashView.sync(this.field.items);
     this.input = new Input(canvas.ownerDocument);
     this.syncRovModel();
 
@@ -48,12 +92,32 @@ export class Game implements GameView {
         mode: () => this.mode,
         rovPosition: () => this.rov.position.toArray(),
         rovYaw: () => this.rov.yaw,
+        hud: () => this.lastHud,
+        // Free trash only: where it lies, for tests that fly to it.
+        trash: () => this.field.items.filter((i) => i.state === "free").map((i) => i.position.toArray()),
+        trashTotal: () => this.field.total,
+        rocks: () => rocks.map((r) => [r.x, r.y, r.z, r.size]),
+        station: () => [stationPosition.x, stationPosition.y, stationPosition.z],
+        placeRov: (x: number, y: number, z: number, yaw: number, pitch: number) => {
+          this.rov.position.set(x, y, z);
+          this.rov.velocity.set(0, 0, 0);
+          this.rov.yaw = yaw;
+          this.rov.pitch = pitch;
+        },
       };
     }
   }
 
+  onHud(listener: (state: HudState) => void): void {
+    this.hudListener = listener;
+  }
+
   play(): void {
     this.rov = createRovState();
+    this.session = new Session(this.field.total);
+    this.field.reset();
+    this.trashView.sync(this.field.items);
+    this.sucking = false;
     this.input.clear();
     this.mode = "playing";
   }
@@ -76,6 +140,7 @@ export class Game implements GameView {
       const [dx, dy] = this.input.takeMouse();
       steer(this.rov, dx, dy);
       stepRov(this.rov, this.input.move(), dt);
+      this.stepTools(dt);
       this.syncRovModel();
       followCamera(this.rov, this.camera.position, this.cameraTarget);
     } else if (this.mode === "title") {
@@ -84,7 +149,56 @@ export class Game implements GameView {
     if (this.mode !== "paused") this.world.update(dt, this.camera.position);
 
     this.camera.lookAt(this.cameraTarget);
+    if (this.mode === "playing") this.publishHud();
     this.renderer.render(this.scene, this.camera);
+  }
+
+  /** The vacuum, the tool keys and E, for one simulated frame. */
+  private stepTools(dt: number): void {
+    const { session, rov } = this;
+    for (const code of this.input.takePressed()) {
+      session.select(toolForKey(code));
+      if (code === "KeyE" && inStationZone(rov.position)) session.deposit();
+    }
+
+    aimDirection(rov.yaw, rov.pitch, this.aim);
+    const held = this.input.primaryHeld() && session.tool === "vacuum";
+    const room = session.tankSpace - this.field.pulling;
+    this.sucking = held && room > 0;
+    for (const _item of this.field.update(dt, rov.position, this.aim, held, room)) session.collect();
+    session.tick(dt);
+    this.trashView.sync(this.field.items);
+
+    this.beam.visible = this.sucking;
+    if (this.sucking) {
+      this.beam.position.copy(rov.position);
+      this.beam.lookAt(rov.position.x + this.aim.x, rov.position.y + this.aim.y, rov.position.z + this.aim.z);
+      (this.beam.material as MeshBasicMaterial).opacity = 0.07 + 0.03 * Math.sin(performance.now() / 60);
+    }
+  }
+
+  private publishHud(): void {
+    const { session } = this;
+    this.camera.updateMatrixWorld();
+    this.viewPoint.copy(this.stationAnchor).applyMatrix4(this.camera.matrixWorldInverse);
+    const tanHalfFov = Math.tan((config.camera.fov * Math.PI) / 360);
+    const state: HudState = {
+      tool: session.tool,
+      tank: session.tank,
+      capacity: session.capacity,
+      tankFull: session.tankFull,
+      score: session.score,
+      materials: session.materials,
+      cleanliness: session.cleanliness,
+      objectives: session.objectives,
+      notice: session.currentNotice,
+      inStationZone: inStationZone(this.rov.position),
+      stationDistance: Math.round(distanceToStation(this.rov.position)),
+      marker: placeMarker(this.viewPoint, tanHalfFov, window.innerWidth, window.innerHeight, config.hud.markerMargin),
+      sucking: this.sucking,
+    };
+    this.lastHud = state;
+    this.hudListener?.(state);
   }
 
   /** Behind the title screen, the camera sways slowly behind the ROV, which sits below the title text. */

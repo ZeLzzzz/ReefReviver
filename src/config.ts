@@ -37,6 +37,59 @@ export const config = {
     floorGap: 0.5,
     titleOrbitSpeed: 0.05,
   },
+  trash: {
+    // D-012: about 40 items of plastic bottles, plastic bags and cans on the floor.
+    count: 40,
+    seed: 11,
+    // Items stay inside this ring around the bay centre, apart from each other and from rocks.
+    minRadius: 5,
+    maxRadius: 40,
+    spacing: 2.5,
+    // How far the item's centre sits above the floor.
+    restHeight: 0.15,
+    // Kept clear of the start position and the station's deposit zone.
+    clearOfStart: 6,
+  },
+  vacuum: {
+    // Trash within this distance of the ROV and this angle around the aim direction (crosshair) can be sucked.
+    range: 8,
+    coneHalfAngle: 0.4,
+    // A sucked item flies to the ROV in this time, then disappears into the tank.
+    pullDuration: 0.45,
+    // Seconds between two items starting to be sucked while the button is held.
+    interval: 0.2,
+  },
+  tank: {
+    capacity: 8,
+  },
+  station: {
+    // The recycling station stands on the west side of the bay (D-011), clear of every rock.
+    x: -24,
+    z: 20,
+    // Pressing E inside this circle (and under zoneHeight above the floor) deposits the tank.
+    zoneRadius: 5,
+    zoneHeight: 8,
+    // The floor is levelled inside padRadius and blends back to the natural floor over padBlend.
+    padRadius: 6.5,
+    padBlend: 4,
+  },
+  rewards: {
+    scorePerTrash: 10,
+    // D-014: 1 deposited trash = 1 material.
+    materialPerTrash: 1,
+  },
+  phase1: {
+    // Bloom threshold shown in the objective list (D-013).
+    cleanTarget: 80,
+    // Nets (and trapped animals) are built in REQ-003; the totals count toward cleanliness already.
+    nets: 2,
+    animals: 2,
+  },
+  hud: {
+    noticeSeconds: 2.5,
+    // How far from the screen edge the station marker stays, in pixels.
+    markerMargin: 56,
+  },
   water: {
     murky: { color: 0x55695c, fogNear: 2, fogFar: 24 },
     snowCount: 600,

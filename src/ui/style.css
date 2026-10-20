@@ -197,3 +197,188 @@ kbd {
   border-radius: 50%;
   background: rgba(241, 243, 236, 0.95);
 }
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* HUD panels: semi-transparent, text at least 16 px (D-030). */
+.hud-panel {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: var(--panel);
+  line-height: 1.35;
+}
+
+.hud-panel h2 {
+  margin: 0 0 2px;
+  font-size: 16px;
+  color: var(--ink-soft);
+}
+
+.hud-goals {
+  top: 16px;
+  left: 16px;
+  max-width: 300px;
+}
+
+.goal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.goal {
+  display: flex;
+  gap: 8px;
+}
+
+.goal-mark {
+  width: 1.1em;
+  flex: none;
+  text-align: center;
+}
+
+.goal.done .goal-text {
+  text-decoration: line-through;
+  color: var(--ink-soft);
+}
+
+.goal.done .goal-mark {
+  color: var(--accent);
+  font-weight: 800;
+}
+
+.hud-stats {
+  top: 16px;
+  right: 16px;
+  min-width: 210px;
+}
+
+.stat {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.stat-label {
+  color: var(--ink-soft);
+}
+
+.stat.full .stat-value {
+  color: var(--accent);
+}
+
+.stat.full .stat-value::after {
+  content: " !";
+}
+
+.tank-meter {
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(241, 243, 236, 0.18);
+  overflow: hidden;
+}
+
+.tank-meter-fill {
+  height: 100%;
+  background: var(--ink);
+}
+
+.hud-tool {
+  bottom: 16px;
+  left: 16px;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.tool-label,
+.tool-hint {
+  color: var(--ink-soft);
+}
+
+.hud.sucking .tool-name {
+  color: var(--accent);
+}
+
+.hud-messages {
+  position: absolute;
+  left: 50%;
+  bottom: 72px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  transform: translateX(-50%);
+  width: min(90vw, 560px);
+}
+
+.message {
+  margin: 0;
+  padding: 8px 16px;
+  border-radius: 8px;
+  background: var(--panel);
+  text-align: center;
+}
+
+.message[hidden] {
+  display: none;
+}
+
+.message-full {
+  border: 2px solid var(--accent);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.station-marker {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+}
+
+.marker-arrow {
+  font-size: 22px;
+  line-height: 1;
+  color: var(--ink);
+}
+
+.marker-label {
+  padding: 2px 10px;
+  border-radius: 6px;
+  background: var(--panel);
+}
+
+.station-marker.urgent .marker-arrow,
+.station-marker.urgent .marker-label {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.station-marker.urgent .marker-label {
+  border: 1px solid var(--accent);
+}
+
+/* In view, the marker hangs a pointer over the station instead of an arrow to the side. */
+.station-marker.on-screen .marker-arrow {
+  transform: rotate(180deg) !important;
+}

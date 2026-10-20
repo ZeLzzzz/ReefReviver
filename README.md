@@ -6,6 +6,8 @@ Game browser 3D low-poly: pemain mengendalikan ROV untuk membersihkan teluk yang
 
 - Layar judul dengan pilihan bahasa Indonesia/English. Bahasa awal mengikuti bahasa browser, dan pilihan yang diganti diingat browser.
 - Menyelam dengan ROV di teluk yang keruh: kamera orang ketiga dan crosshair di tengah layar. ROV tidak bisa menembus dasar laut, tebing, batu, batas teluk, atau permukaan air.
+- Menyedot sampah dengan Vacuum (tahan klik kiri). Tangki muat 8 item; kalau penuh, setor di stasiun daur ulang dengan E untuk mendapat bahan. Penanda di layar menunjukkan arah stasiun.
+- HUD berisi tangki, bahan, skor, kebersihan teluk, alat aktif, dan daftar tujuan Fase 1.
 - Menu jeda (Esc) berisi Lanjut, Kontrol, dan Bahasa. Game juga otomatis berhenti kalau kursor lepas, misalnya karena alt-tab.
 - Di HP/tablet muncul pesan "Mainkan di komputer". Di browser tanpa WebGL 2 muncul penjelasan, bukan layar hitam.
 
@@ -18,6 +20,9 @@ Model 3D masih berupa bentuk sederhana sampai model GLB dari artist masuk.
 | W A S D | Maju, mundur, geser ke samping |
 | Spasi / Shift | Naik / turun |
 | Mouse | Mengarahkan ROV |
+| Klik kiri (tahan) | Pakai alat |
+| 2 | Pilih Vacuum |
+| E | Setor sampah di stasiun |
 | Esc | Jeda |
 
 ## Menjalankan
@@ -47,5 +52,5 @@ Sebelum `test:e2e` pertama kali, pasang Chromium-nya dengan `npx playwright inst
 | `src/config.ts` | Semua angka yang bisa disetel saat playtest (ukuran teluk, kecepatan ROV, kabut, kamera) |
 | `src/i18n/id.json`, `en.json` | Semua teks di game. Kedua file harus punya kunci yang sama |
 | `src/app.ts`, `src/ui/` | Alur layar: judul, bermain, jeda, pesan perangkat/WebGL |
-| `src/game/` | Adegan Three.js: teluk, ROV, tabrakan, kamera, input |
+| `src/game/` | Adegan Three.js dan aturan main: teluk, ROV, tabrakan, kamera, input, sampah, vacuum, stasiun, sesi (tangki, skor, kebersihan, tujuan) |
 | `tests/unit/`, `tests/e2e/` | Unit test dan tes browser |

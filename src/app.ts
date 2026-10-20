@@ -1,7 +1,9 @@
 import type { GameView } from "./game/game";
+import type { HudState } from "./game/hud-state";
 import { initialLanguage, saveLanguage, type Lang, type StorageLike, type StringKey } from "./i18n/i18n";
 import type { PointerLock } from "./ui/pointer-lock";
-import { hud, messageScreen, pauseMenu, titleScreen, type PauseView } from "./ui/screens";
+import { createHud, type HudView } from "./ui/hud";
+import { messageScreen, pauseMenu, titleScreen, type PauseView } from "./ui/screens";
 
 export type Screen = "title" | "playing" | "paused" | "unsupported" | "noWebgl";
 
@@ -23,6 +25,8 @@ export class App {
   private pauseView: PauseView = "main";
   private notice: StringKey | null = null;
   private game: GameView | null = null;
+  private hudView: HudView | null = null;
+  private hudState: HudState | null = null;
 
   constructor(private readonly deps: AppDeps) {
     this.lang = initialLanguage(deps.storage, deps.browserLanguages);
@@ -36,6 +40,10 @@ export class App {
     if (!context) return this.show("noWebgl");
 
     this.game = this.deps.createGame(context);
+    this.game.onHud((state) => {
+      this.hudState = state;
+      this.hudView?.update(state);
+    });
     this.deps.pointerLock.onChange((locked) => this.lockChanged(locked));
     doc.defaultView!.addEventListener("keydown", (event) => this.keyDown(event));
     // Losing the cursor or the window (alt-tab, another tab) pauses the game (AC-6).
@@ -96,6 +104,7 @@ export class App {
 
   private render(): void {
     const { lang, notice } = this;
+    this.hudView = null;
     const onLanguage = (choice: Lang) => this.setLanguage(choice);
     let content: HTMLElement;
     switch (this.screen) {
@@ -103,7 +112,10 @@ export class App {
         content = titleScreen({ lang, notice, onStart: () => this.lockCursor("title.lockFailed"), onLanguage });
         break;
       case "playing":
-        content = hud();
+        // The HUD is rebuilt for the current language and shows the latest state at once.
+        this.hudView = createHud(lang);
+        if (this.hudState) this.hudView.update(this.hudState);
+        content = this.hudView.element;
         break;
       case "paused":
         content = pauseMenu({

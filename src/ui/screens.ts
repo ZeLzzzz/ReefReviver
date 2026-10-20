@@ -4,7 +4,7 @@ type Child = Node | string | null | undefined | false;
 type Attrs = Record<string, string | ((event: Event) => void)>;
 
 /** Builds an element; `onclick`-style keys become listeners, strings are added as text, never as HTML. */
-function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Attrs = {}, ...children: Child[]): HTMLElementTagNameMap[K] {
+export function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Attrs = {}, ...children: Child[]): HTMLElementTagNameMap[K] {
   const element = document.createElement(tag);
   for (const [name, value] of Object.entries(attrs)) {
     if (typeof value === "function") element.addEventListener(name.slice(2), value);
@@ -66,7 +66,7 @@ export interface PauseProps {
 }
 
 // Only the controls that work so far; each REQ that adds a control adds its row (D-019).
-const CONTROLS = ["move", "rise", "dive", "look", "pause"] as const;
+const CONTROLS = ["move", "rise", "dive", "look", "use", "vacuum", "interact", "pause"] as const;
 
 export function pauseMenu({ lang, view, notice: noticeKey, onResume, onView, onLanguage }: PauseProps): HTMLElement {
   const back = button(t(lang, "pause.back"), () => onView("main"));
@@ -98,10 +98,6 @@ export function pauseMenu({ lang, view, notice: noticeKey, onResume, onView, onL
     { class: "screen pause-screen" },
     h("section", { class: "panel", role: "dialog", "aria-label": t(lang, "pause.title") }, h("h2", {}, t(lang, "pause.title")), ...body),
   );
-}
-
-export function hud(): HTMLElement {
-  return h("div", { class: "hud" }, h("div", { class: "crosshair", "aria-hidden": "true" }));
 }
 
 export function messageScreen(lang: Lang, titleKey: StringKey, bodyKey: StringKey, reloadKey?: StringKey): HTMLElement {
