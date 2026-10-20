@@ -265,7 +265,7 @@ export class Game implements GameView {
       notice: session.currentNotice,
       inStationZone: inStationZone(this.rov.position),
       stationDistance: Math.round(distanceToStation(this.rov.position)),
-      marker: placeMarker(this.viewPoint, tanHalfFov, window.innerWidth, window.innerHeight, config.hud.markerMargin),
+      marker: placeMarker(this.viewPoint, tanHalfFov, window.innerWidth, window.innerHeight, config.hud.markerMargin, config.hud.markerBottomMargin),
       sucking: this.sucking,
       cutProgress: this.rescue.progress, // REQ-003
       reef: {

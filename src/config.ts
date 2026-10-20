@@ -209,6 +209,8 @@ export const config = {
     noticeSeconds: 2.5,
     // How far from the screen edge the station marker stays, in pixels.
     markerMargin: 56,
+    // At the bottom the marker stays above the tool panel and the notices.
+    markerBottomMargin: 190,
   },
   water: {
     murky: { color: 0x55695c, fogNear: 2, fogFar: 24 },

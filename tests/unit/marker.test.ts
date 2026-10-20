@@ -74,3 +74,29 @@ describe("station marker (REQ-002 AC-2)", () => {
     }
   });
 });
+
+describe("station marker stays clear of the bottom HUD (REQ-002 AC-2)", () => {
+  // The tool panel and the notices fill the bottom of the screen; the marker must never cover them.
+  const BOTTOM = 190;
+
+  it("a target behind the camera puts the marker above the bottom band", () => {
+    const p = placeMarker({ x: 0, y: 0, z: 20 }, TAN, W, H, MARGIN, BOTTOM);
+    expect(p.onScreen).toBe(false);
+    expect(p.top).toBeLessThanOrEqual(H - BOTTOM + 1e-9);
+    expect(p.angle).toBeCloseTo(Math.PI);
+  });
+
+  it("a target low on screen, inside the bottom band, is shown at the band's edge with an arrow down", () => {
+    const p = placeMarker({ x: 0, y: -12, z: -20 }, TAN, W, H, MARGIN, BOTTOM);
+    expect(p.onScreen).toBe(false);
+    expect(p.top).toBeCloseTo(H - BOTTOM);
+    expect(p.angle).toBeCloseTo(Math.PI);
+  });
+
+  it("the top and side margins are unchanged", () => {
+    const up = placeMarker({ x: 0, y: 40, z: -10 }, TAN, W, H, MARGIN, BOTTOM);
+    expect(up.top).toBeCloseTo(MARGIN);
+    const right = placeMarker({ x: 40, y: 0, z: -10 }, TAN, W, H, MARGIN, BOTTOM);
+    expect(right.left).toBeCloseTo(W - MARGIN);
+  });
+});
