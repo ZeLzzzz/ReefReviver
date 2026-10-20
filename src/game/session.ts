@@ -1,11 +1,13 @@
 import { config } from "../config";
 import type { StringKey } from "../i18n/i18n";
+import { LOGBOOK_ENTRIES } from "../logbook/entries";
+import { bloomReady } from "./bloom";
 import type { AnimalSpecies } from "./nets";
 import { START_TOOL, type ToolId } from "./tools";
 
 const { tank, rewards, phase1, hud, nets, reef } = config;
 
-export type ObjectiveId = "clean" | "free" | "deposit" | "frames" | "coral" | "seagrass";
+export type ObjectiveId = "clean" | "free" | "deposit" | "frames" | "coral" | "seagrass" | "scan";
 
 export interface Objective {
   id: ObjectiveId;
@@ -43,6 +45,9 @@ export class Session {
   framesInstalled = 0;
   framesPlanted = 0;
   patchesPlanted = 0;
+  // REQ-005: the Bloom has finished, which opens the Scanner and the Phase 3 list; entries scanned (REQ-006 counts them).
+  bloomDone = false;
+  entriesScanned = 0;
   private notice: Notice | null = null;
   private noticeLeft = 0;
 
@@ -164,5 +169,23 @@ export class Session {
       row("coral", this.framesPlanted, reef.frameSites.length),
       row("seagrass", this.patchesPlanted, reef.seagrassPatches.length),
     ];
+  }
+
+  /** REQ-005 AC-1: cleanliness 80 % or more, three frames and two seagrass patches planted. */
+  get bloomReady(): boolean {
+    return bloomReady({ cleanliness: this.cleanliness, framesPlanted: this.framesPlanted, patchesPlanted: this.patchesPlanted });
+  }
+
+  /** REQ-005 AC-5: the Bloom is over; the Scanner is open (a notice) and the Phase 3 list replaces the others. */
+  openScanner(): void {
+    this.bloomDone = true;
+    this.say({ key: "bloom.scannerOpen" });
+  }
+
+  /** The Phase 3 list (D-049): empty until the Bloom is over; "Pindai 0/7", one point for each Logbook entry. */
+  get phase3Objectives(): Objective[] {
+    if (!this.bloomDone) return [];
+    const target = LOGBOOK_ENTRIES.length;
+    return [{ id: "scan", current: this.entriesScanned, target, done: this.entriesScanned >= target }];
   }
 }

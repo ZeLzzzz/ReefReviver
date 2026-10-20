@@ -24,6 +24,8 @@ export interface HudState {
   cutProgress: number;
   /** REQ-004: the Phase 2 list and the frame prompt. Optional so a state without a reef still renders. */
   reef?: ReefHud;
+  /** REQ-005: the Phase 3 list ("Pindai 0/7"), present once the Bloom is over; it replaces the Phase 1 and 2 lists (D-049). */
+  phase3?: Objective[];
 }
 
 export interface ReefHud {

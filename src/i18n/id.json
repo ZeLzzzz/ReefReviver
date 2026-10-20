@@ -91,5 +91,7 @@
   "tools.seedLauncher": "Seed launcher",
   "tools.seedLauncher.hint": "Klik kiri untuk menembak bibit ke rangka atau petak lamun",
   "controls.seed.keys": "3",
-  "controls.seed.action": "Pilih Seed launcher"
+  "controls.seed.action": "Pilih Seed launcher",
+  "bloom.scannerOpen": "Teluk kembali jernih. Scanner terbuka!",
+  "objectives.phase3.scan": "Pindai"
 }

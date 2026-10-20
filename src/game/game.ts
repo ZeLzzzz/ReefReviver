@@ -1,6 +1,8 @@
 import {
   AdditiveBlending,
   ConeGeometry,
+  type Color,
+  type Fog,
   Mesh,
   MeshBasicMaterial,
   PerspectiveCamera,
@@ -10,12 +12,15 @@ import {
 } from "three";
 import { config } from "../config";
 import { rocks, setFrameColumns } from "./bay";
+import { Bloom } from "./bloom";
 import { aimDirection, followCamera, keepCameraInWater } from "./follow-camera";
 import type { HudState } from "./hud-state";
 import { Input } from "./input";
 import { placeMarker } from "./marker";
 import { createReefView, createShotView } from "./reef-model";
-import { ReefField } from "./reef-sites";
+import { framePlanted, patchPlanted, ReefField } from "./reef-sites";
+import { SeaLife } from "./sea-life";
+import { createSeaLifeView } from "./sea-life-model";
 import { createRovModel } from "./rov-model";
 import { createRovState, rightVector, steer, stepRov, type RovState } from "./rov";
 import { Rescue } from "./rescue";
@@ -78,6 +83,11 @@ export class Game implements GameView {
   private readonly seedCamera = new Vector3();
   private readonly seedCameraTarget = new Vector3();
   private readonly seedTarget = new Vector3();
+  // REQ-005: the Bloom's clock and the sea life that returns with it.
+  private readonly bloom = new Bloom();
+  private readonly seaLife = new SeaLife();
+  private readonly seaLifeView = createSeaLifeView(this.seaLife);
+  private bloomShown = 0;
   private session = new Session(this.field.total);
   private hudListener: ((state: HudState) => void) | null = null;
   private lastHud: HudState | null = null;
@@ -93,7 +103,7 @@ export class Game implements GameView {
     this.world = buildWorld(this.scene);
     this.scene.add(this.rovModel, createStationModel(), this.trashView.group, this.beam, this.rescue.group);
     this.trashView.sync(this.field.items);
-    this.scene.add(this.reefView.group, this.seedView.group);
+    this.scene.add(this.reefView.group, this.seedView.group, this.seaLifeView.group);
     this.reefView.sync(this.reef);
     this.input = new Input(canvas.ownerDocument);
     this.syncRovModel();
@@ -132,6 +142,57 @@ export class Game implements GameView {
           this.rov.yaw = yaw;
           this.rov.pitch = pitch;
         },
+        // REQ-005: reach the Bloom quickly and read what it changes.
+        // Takes n free trash items out of the field and counts them as removed, like the vacuum, but without tank or score.
+        removeTrash: (n: number) => {
+          let removed = 0;
+          for (const item of this.field.items) {
+            if (removed >= n) break;
+            if (item.state !== "free") continue;
+            item.state = "collected";
+            this.session.trashRemoved += 1;
+            removed += 1;
+          }
+          this.trashView.sync(this.field.items);
+          return removed;
+        },
+        // Installs and plants the frames and/or the seagrass patches that are not planted yet.
+        // The Session's counts stay right, so the goal lists and the Bloom see it like real planting.
+        plantAll: (what: "all" | "frames" | "patches" = "all") => {
+          const { session, reef } = this;
+          if (what !== "patches") {
+            for (const frame of reef.frames) {
+              if (framePlanted(frame)) continue;
+              if (!frame.installed) session.framesInstalled += 1;
+              frame.installed = true;
+              frame.fragments = config.reef.fragmentsPerFrame;
+              session.framesPlanted += 1;
+            }
+            setFrameColumns(reef.columns());
+          }
+          if (what !== "frames") {
+            for (const patch of reef.patches) {
+              if (patchPlanted(patch)) continue;
+              patch.seeds = config.reef.seedsPerPatch;
+              session.patchesPlanted += 1;
+            }
+          }
+          this.reefView.sync(reef);
+        },
+        // Starts a new dive, as "main lagi" will (REQ-005: it must come back murky, with nothing planted).
+        newDive: () => this.play(),
+        bloom: () => ({ state: this.bloom.state, progress: this.bloom.progress, clarity: this.bloom.clarity, scannerOpen: this.session.bloomDone }),
+        water: () => {
+          const fog = this.scene.fog as Fog;
+          return { background: (this.scene.background as Color).getHex(), fog: fog.color.getHex(), fogNear: fog.near, fogFar: fog.far };
+        },
+        reefLook: () => ({ ...this.reefView.look(), coral: this.reefView.coralMaterials.map((m) => m.color.getHex()) }),
+        seaLife: () => ({
+          active: this.seaLife.active,
+          scale: this.seaLife.scale,
+          anemones: this.seaLife.anemones,
+          creatures: this.seaLife.creatures.map((c) => ({ id: c.id, species: c.species, scannable: c.scannable, position: c.position.toArray() })),
+        }),
       };
     }
   }
@@ -147,6 +208,7 @@ export class Game implements GameView {
     this.trashView.sync(this.field.items);
     this.rescue.reset(); // REQ-003
     this.resetReef();
+    this.resetBloom(); // REQ-005
     this.sucking = false;
     this.input.clear();
     this.mode = "playing";
@@ -171,6 +233,7 @@ export class Game implements GameView {
       steer(this.rov, dx, dy);
       stepRov(this.rov, this.input.move(), dt);
       this.stepTools(dt);
+      this.stepBloom(dt); // REQ-005
       this.syncRovModel();
       followCamera(this.rov, this.camera.position, this.cameraTarget);
     } else if (this.mode === "title") {
@@ -209,6 +272,37 @@ export class Game implements GameView {
       this.beam.lookAt(rov.position.x + this.aim.x, rov.position.y + this.aim.y, rov.position.z + this.aim.z);
       (this.beam.material as MeshBasicMaterial).opacity = 0.07 + 0.03 * Math.sin(performance.now() / 60);
     }
+  }
+
+  /**
+   * REQ-005: starts the Bloom the moment its conditions hold, blends the water, coral and seagrass while it runs,
+   * and when it ends opens the Scanner and lets the sea life in. Only called while playing, so a pause freezes it.
+   */
+  private stepBloom(dt: number): void {
+    const event = this.bloom.update(dt, this.session.bloomReady);
+    this.showBloom(this.bloom.clarity);
+    if (event === "finished") {
+      this.seaLife.start();
+      this.session.openScanner();
+    }
+    this.seaLife.update(dt);
+    this.seaLifeView.sync(this.seaLife, dt);
+  }
+
+  /** Sets the water, coral and seagrass to a point of the Bloom, only when it changed. */
+  private showBloom(clarity: number): void {
+    if (clarity === this.bloomShown) return;
+    this.bloomShown = clarity;
+    this.world.setClarity(clarity);
+    this.reefView.setBloom(clarity);
+  }
+
+  /** REQ-005: a new dive starts murky, with pale coral, sprouts and no sea life. */
+  private resetBloom(): void {
+    this.bloom.reset();
+    this.seaLife.reset();
+    this.showBloom(0);
+    this.seaLifeView.sync(this.seaLife, 0);
   }
 
   /** REQ-004: a new dive starts with no frames, coral or seagrass. */
@@ -272,6 +366,8 @@ export class Game implements GameView {
         phase2: session.phase2Objectives,
         canInstall: !inStationZone(this.rov.position) && this.reef.emptySiteNear(this.rov.position.x, this.rov.position.z) >= 0,
       },
+      // REQ-005: the Phase 3 list, empty until the Bloom is over.
+      phase3: session.phase3Objectives,
     };
     this.lastHud = state;
     this.hudListener?.(state);

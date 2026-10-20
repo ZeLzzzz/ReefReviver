@@ -91,5 +91,7 @@
   "tools.seedLauncher": "Seed launcher",
   "tools.seedLauncher.hint": "Left click to shoot seeds at a frame or a seagrass patch",
   "controls.seed.keys": "3",
-  "controls.seed.action": "Select the Seed launcher"
+  "controls.seed.action": "Select the Seed launcher",
+  "bloom.scannerOpen": "The bay is clear again. Scanner unlocked!",
+  "objectives.phase3.scan": "Scan"
 }

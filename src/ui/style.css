@@ -240,6 +240,11 @@ kbd {
   list-style: none;
 }
 
+/* REQ-005: after the Bloom the Phase 3 list replaces the other two, so any goal list can be hidden. */
+.goal-list[hidden] {
+  display: none;
+}
+
 .goal-list-phase2 {
   margin-top: 6px;
   padding-top: 8px;

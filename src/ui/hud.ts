@@ -16,11 +16,14 @@ const OBJECTIVE_KEYS: Record<ObjectiveId, StringKey> = {
   frames: "objectives.phase2.frames",
   coral: "objectives.phase2.coral",
   seagrass: "objectives.phase2.seagrass",
+  scan: "objectives.phase3.scan",
 };
 
 const PHASE1_GOALS: readonly ObjectiveId[] = ["clean", "free", "deposit"];
 // REQ-004: the Phase 2 list appears below the Phase 1 list after the first deposit (D-043).
 const PHASE2_GOALS: readonly ObjectiveId[] = ["frames", "coral", "seagrass"];
+// REQ-005: after the Bloom the Phase 3 list replaces the Phase 1 and 2 lists (D-049).
+const PHASE3_GOALS: readonly ObjectiveId[] = ["scan"];
 
 const TOOL_SLOT: Record<HudState["tool"], string> = { cutter: "1", vacuum: "2", seedLauncher: "3" };
 
@@ -59,6 +62,8 @@ export function createHud(lang: Lang): HudView {
   addGoals(goalList, PHASE1_GOALS);
   const phase2List = h("ul", { class: "goal-list goal-list-phase2" });
   phase2List.hidden = true;
+  const phase3List = h("ul", { class: "goal-list goal-list-phase3" });
+  phase3List.hidden = true;
 
   const score = stat(t(lang, "hud.score"), "stat-score");
   const materials = stat(t(lang, "hud.materials"), "stat-materials");
@@ -95,7 +100,7 @@ export function createHud(lang: Lang): HudView {
     { class: "hud" },
     h("div", { class: "crosshair", "aria-hidden": "true" }),
     cutProgress,
-    h("section", { class: "hud-panel hud-goals", "aria-label": t(lang, "objectives.title") }, h("h2", {}, t(lang, "objectives.title")), goalList, phase2List),
+    h("section", { class: "hud-panel hud-goals", "aria-label": t(lang, "objectives.title") }, h("h2", {}, t(lang, "objectives.title")), goalList, phase2List, phase3List),
     h("section", { class: "hud-panel hud-stats" }, tank.row, meter, materials.row, score.row, cleanliness.row),
     h(
       "section",
@@ -113,10 +118,16 @@ export function createHud(lang: Lang): HudView {
     element,
     update(state) {
       const phase2 = state.reef?.phase2 ?? [];
-      setHidden(phase2List, phase2.length === 0);
+      // REQ-005: once the Bloom is over (phase3 present) only the Phase 3 list shows.
+      const phase3 = state.phase3 ?? [];
+      const afterBloom = phase3.length > 0;
+      setHidden(goalList, afterBloom);
+      setHidden(phase2List, afterBloom || phase2.length === 0);
+      setHidden(phase3List, !afterBloom);
       // The rows are built when the list first appears, so before the first deposit only the Phase 1 goals exist.
       if (phase2.length > 0 && phase2List.childElementCount === 0) addGoals(phase2List, PHASE2_GOALS);
-      for (const objective of [...state.objectives, ...phase2]) {
+      if (afterBloom && phase3List.childElementCount === 0) addGoals(phase3List, PHASE3_GOALS);
+      for (const objective of [...state.objectives, ...phase2, ...phase3]) {
         const parts = goalItems.get(objective.id)!;
         const counts = objective.target === null ? "" : objective.id === "clean" ? ` ${objective.current}%/${objective.target}%` : ` ${objective.current}/${objective.target}`;
         setText(parts.text, t(lang, OBJECTIVE_KEYS[objective.id]) + counts);

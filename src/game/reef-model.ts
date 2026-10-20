@@ -17,24 +17,36 @@ import {
 } from "three";
 import { config } from "../config";
 import { floorHeight } from "./bay";
+import { lerp, lerpHex } from "./bloom";
 import { frameStatus, patchStatus, type ReefField, type SiteStatus } from "./reef-sites";
 import type { Shot } from "./seed-launcher";
 
-const { reef, bay } = config;
+const { reef, bay, bloom } = config;
+
+/** The pale colour coral fragments have before the Bloom. */
+const PALE_CORAL = 0xd9d3c3;
+const YOUNG_SEAGRASS = 0xa6c48a;
 
 /**
  * Stand-ins built from primitives until the artist's GLBs arrive (D-022): a steel and concrete frame, coral
  * fragments in three shapes, seagrass sprouts, and the markers that show every site through the murk (AC-1).
  *
- * The coral material is shared and swappable: before the Bloom the fragments are small and pale, and REQ-005
- * changes `coralMaterial.color` to a pastel colour. The seagrass has a sprout here; REQ-005 adds the adult.
+ * Before the Bloom the fragments are small and pale and the seagrass is a sprout. The Bloom (REQ-005) blends the
+ * coral to several pastel colours and makes it bigger, and grows each sprout into a tall tuft: see `setBloom`.
  */
 export interface ReefView {
   group: Group;
-  /** Pale before the Bloom; the Bloom sets its colour by code (REQ-005). */
-  coralMaterial: MeshStandardMaterial;
-  /** The sprout's material; the adult plant (REQ-005) can reuse or replace it. */
+  /** One material for each coral fragment (3 frames x 3 shapes), all pale before the Bloom (REQ-005 colours each one). */
+  coralMaterials: MeshStandardMaterial[];
+  /** The seagrass material: light green for the sprout, richer green for the adult plant. */
   seagrassMaterial: MeshStandardMaterial;
+  /**
+   * REQ-005: blends the reef from before the Bloom (0) to after it (1): coral grows and turns pastel, seagrass
+   * grows tall. Cheap and idempotent; the game calls it while the Bloom runs.
+   */
+  setBloom(clarity: number): void;
+  /** How big the first coral fragment and the first seagrass sprout are now (relative to their pre-Bloom size 1.4 and 1), for tests. */
+  look(): { coralScale: number; seagrassHeight: number };
   /** Shows the field's current state: frames, fragments, sprouts and markers. Call after something changed. */
   sync(field: ReefField): void;
 }
@@ -130,6 +142,8 @@ function createFrameModel(): Group {
   return group;
 }
 
+const FRAGMENT_SCALE = 1.4;
+
 /** Where fragment 0, 1 and 2 attach (on the frame's top beams), relative to the site. */
 const FRAGMENT_SPOTS: readonly [number, number, number][] = [
   [-0.7, 1.63, 1.05],
@@ -161,8 +175,14 @@ function sproutSpots(): [number, number][] {
   return [0, 1, 2].map((i) => [Math.cos(i * 2.1 + 0.4) * 1.1, Math.sin(i * 2.1 + 0.4) * 1.1]);
 }
 
-/** A small sprout: three thin blades. */
-function createSproutModel(material: MeshStandardMaterial): Group {
+interface Sprout {
+  group: Group;
+  /** The blades that only exist once the plant is adult; they grow out of nothing during the Bloom. */
+  extra: Mesh[];
+}
+
+/** A small sprout: three thin blades, plus a few more that appear while it grows into an adult tuft (REQ-005). */
+function createSproutModel(material: MeshStandardMaterial): Sprout {
   const group = new Group();
   const blade = new ConeGeometry(0.07, 0.6, 4);
   for (const [x, z, tilt] of [[0, 0, 0], [0.08, 0.03, 0.35], [-0.07, -0.04, -0.3]] as const) {
@@ -170,25 +190,37 @@ function createSproutModel(material: MeshStandardMaterial): Group {
     part.rotation.z = tilt;
     group.add(part);
   }
-  return group;
+  const extra: Mesh[] = [];
+  for (let i = 0; i < bloom.seagrass.extraBlades; i++) {
+    const angle = (i / bloom.seagrass.extraBlades) * Math.PI * 2 + 0.5;
+    const spread = 0.1 + 0.05 * (i % 2);
+    const part = mesh(blade, material, Math.cos(angle) * spread, 0.3, Math.sin(angle) * spread);
+    // Lean away from the middle, so the tuft fans out.
+    part.rotation.set(Math.sin(angle) * (0.25 + 0.1 * (i % 3)), 0, -Math.cos(angle) * (0.25 + 0.1 * (i % 3)));
+    part.visible = false;
+    group.add(part);
+    extra.push(part);
+  }
+  return { group, extra };
 }
 
 export function createReefView(field: ReefField): ReefView {
-  const coralMaterial = new MeshStandardMaterial({ color: 0xd9d3c3, flatShading: true, roughness: 0.9 });
-  const seagrassMaterial = new MeshStandardMaterial({ color: 0xa6c48a, flatShading: true, roughness: 0.9 });
+  const seagrassMaterial = new MeshStandardMaterial({ color: YOUNG_SEAGRASS, flatShading: true, roughness: 0.9 });
+  // Each fragment has its own material, so the Bloom can give every one its own pastel colour.
+  const coralMaterials = field.frames.flatMap(() => FRAGMENT_SPOTS.map(() => new MeshStandardMaterial({ color: PALE_CORAL, flatShading: true, roughness: 0.9 })));
   const sandPatch = new MeshStandardMaterial({ color: 0x9c9772, flatShading: true, roughness: 1 });
   const group = new Group();
 
-  const frames = field.frames.map((site) => {
+  const frames = field.frames.map((site, frameIndex) => {
     const siteGroup = new Group();
     siteGroup.position.set(site.x, site.y, site.z);
     const model = createFrameModel();
     // The slab sits a little below the floor, so a bumpy floor never leaves a gap under it.
     model.position.y = -0.05;
     const fragments = FRAGMENT_SPOTS.map((spot, shape) => {
-      const fragment = createFragmentModel(shape, coralMaterial);
+      const fragment = createFragmentModel(shape, coralMaterials[frameIndex * FRAGMENT_SPOTS.length + shape]);
       fragment.position.set(...spot);
-      fragment.scale.setScalar(1.4);
+      fragment.scale.setScalar(FRAGMENT_SCALE);
       fragment.rotation.y = shape * 1.9;
       siteGroup.add(fragment);
       return fragment;
@@ -205,9 +237,9 @@ export function createReefView(field: ReefField): ReefView {
     siteGroup.add(mesh(groundRing(site.x, site.z, site.y, 0, reef.patchRadius, 0.07), sandPatch));
     const sprouts = sproutSpots().map(([x, z], i) => {
       const sprout = createSproutModel(seagrassMaterial);
-      sprout.position.set(x, floorHeight(site.x + x, site.z + z) - site.y, z);
-      sprout.rotation.y = i * 2.3;
-      siteGroup.add(sprout);
+      sprout.group.position.set(x, floorHeight(site.x + x, site.z + z) - site.y, z);
+      sprout.group.rotation.y = i * 2.3;
+      siteGroup.add(sprout.group);
       return sprout;
     });
     const marker = createMarker("patch", site, reef.patchRadius + 0.6);
@@ -218,8 +250,35 @@ export function createReefView(field: ReefField): ReefView {
 
   return {
     group,
-    coralMaterial,
+    coralMaterials,
     seagrassMaterial,
+    look: () => ({ coralScale: frames[0].fragments[0].scale.y / FRAGMENT_SCALE, seagrassHeight: patches[0].sprouts[0].group.scale.y }),
+    setBloom(clarity) {
+      const pastel = bloom.coral.pastel;
+      const grow = lerp(1, bloom.coral.scale, clarity);
+      frames.forEach((view, f) => {
+        view.fragments.forEach((fragment, n) => {
+          fragment.scale.setScalar(FRAGMENT_SCALE * grow);
+          const material = coralMaterials[f * FRAGMENT_SPOTS.length + n];
+          // Neighbouring fragments get different colours, so each frame is multi-coloured.
+          const colour = pastel[(f * 2 + n) % pastel.length];
+          material.color.setHex(lerpHex(PALE_CORAL, colour, clarity));
+          material.emissive.setHex(colour).multiplyScalar(bloom.coral.glow * clarity);
+        });
+      });
+      seagrassMaterial.color.setHex(lerpHex(YOUNG_SEAGRASS, bloom.seagrass.color, clarity));
+      const height = lerp(1, bloom.seagrass.heightScale, clarity);
+      const width = lerp(1, bloom.seagrass.widthScale, clarity);
+      for (const patch of patches) {
+        for (const sprout of patch.sprouts) {
+          sprout.group.scale.set(width, height, width);
+          for (const blade of sprout.extra) {
+            blade.visible = clarity > 0;
+            blade.scale.setScalar(Math.max(clarity, 0.001));
+          }
+        }
+      }
+    },
     sync(current) {
       current.frames.forEach((site, i) => {
         const view = frames[i];
@@ -229,7 +288,7 @@ export function createReefView(field: ReefField): ReefView {
       });
       current.patches.forEach((site, i) => {
         const view = patches[i];
-        view.sprouts.forEach((sprout, n) => (sprout.visible = n < site.seeds));
+        view.sprouts.forEach((sprout, n) => (sprout.group.visible = n < site.seeds));
         view.marker.setStatus(patchStatus(site));
       });
     },

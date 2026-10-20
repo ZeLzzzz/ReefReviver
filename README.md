@@ -9,7 +9,8 @@ Game browser 3D low-poly: pemain mengendalikan ROV untuk membersihkan teluk yang
 - Menyedot sampah dengan Vacuum (tahan klik kiri). Tangki muat 8 item; kalau penuh, setor di stasiun daur ulang dengan E untuk mendapat bahan. Penanda di layar menunjukkan arah stasiun.
 - Memotong jaring hantu dengan Cutter (tahan klik kiri pada jaring 2 detik) untuk membebaskan penyu hijau dan hiu sirip hitam karang. Satwa yang bebas terus berkeliaran di teluk.
 - Memasang rangka terumbu baja/beton di 3 titik bertanda dengan E (5 bahan), lalu menembakkan bibit dengan Seed launcher: kena rangka jadi fragmen koral, kena petak pasir jadi biji lamun. 3 fragmen menanami satu rangka, 3 biji menanami satu petak.
-- HUD berisi tangki, bahan, skor, kebersihan teluk, alat aktif, daftar tujuan Fase 1, dan daftar tujuan Fase 2 setelah setoran pertama.
+- The Bloom: begitu kebersihan teluk mencapai 80% dan ketiga rangka serta kedua petak lamun sudah ditanami, dalam ±6 detik air berubah dari keruh hijau-abu ke biru jernih, koral jadi pastel dan membesar, dan lamun tumbuh tinggi. Setelah itu ikan badut muncul di anemon dekat rangka, kawanan ikan ekor kuning, pari manta, dan lumba-lumba berenang di teluk, dan Scanner terbuka. Sisa sampah masih bisa disedot.
+- HUD berisi tangki, bahan, skor, kebersihan teluk, alat aktif, daftar tujuan Fase 1, dan daftar tujuan Fase 2 setelah setoran pertama. Setelah Bloom, kedua daftar itu diganti tujuan Fase 3 (Pindai 0/7).
 - Menu jeda (Esc) berisi Lanjut, Kontrol, dan Bahasa. Game juga otomatis berhenti kalau kursor lepas, misalnya karena alt-tab.
 - Di HP/tablet muncul pesan "Mainkan di komputer". Di browser tanpa WebGL 2 muncul penjelasan, bukan layar hitam.
 
@@ -53,9 +54,9 @@ Sebelum `test:e2e` pertama kali, pasang Chromium-nya dengan `npx playwright inst
 
 | Lokasi | Isi |
 |---|---|
-| `src/config.ts` | Semua angka yang bisa disetel saat playtest (ukuran teluk, kecepatan ROV, kabut, kamera) |
+| `src/config.ts` | Semua angka yang bisa disetel saat playtest (ukuran teluk, kecepatan ROV, kabut, kamera, Bloom, satwa yang kembali) |
 | `src/i18n/id.json`, `en.json` | Semua teks di game. Kedua file harus punya kunci yang sama |
 | `src/logbook/entries.ts` | Data tujuh entri Marine Logbook: nama ilmiah, target SDG 14, dan sumber tiap fakta. Teksnya ada di file string (`logbook.*`) |
 | `src/app.ts`, `src/ui/` | Alur layar: judul, bermain, jeda, pesan perangkat/WebGL |
-| `src/game/` | Adegan Three.js dan aturan main: teluk, ROV, tabrakan, kamera, input, sampah, vacuum, stasiun, jaring, satwa, cutter, titik terumbu, seed launcher, sesi (tangki, skor, kebersihan, tujuan) |
+| `src/game/` | Adegan Three.js dan aturan main: teluk, ROV, tabrakan, kamera, input, sampah, vacuum, stasiun, jaring, satwa, cutter, titik terumbu, seed launcher, Bloom dan satwa yang kembali, sesi (tangki, skor, kebersihan, tujuan) |
 | `tests/unit/`, `tests/e2e/` | Unit test dan tes browser |

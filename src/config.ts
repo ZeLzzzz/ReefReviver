@@ -213,8 +213,90 @@ export const config = {
     markerBottomMargin: 190,
   },
   water: {
-    murky: { color: 0x55695c, fogNear: 2, fogFar: 24 },
+    murky: {
+      color: 0x55695c,
+      fogNear: 2,
+      fogFar: 24,
+      // REQ-005: the rest of the water's look, which the Bloom blends (lights, particles, surface).
+      hemiSky: 0xcfe3d4,
+      hemiIntensity: 1.6,
+      sunIntensity: 1.2,
+      snowOpacity: 0.7,
+      surfaceColor: 0xa9c4b2,
+    },
     snowCount: 600,
+  },
+  // REQ-005: the Bloom. The water goes from murky green-grey to clear tropical blue, the coral turns pastel and
+  // grows, the seagrass grows tall, and sea life returns (D-015, D-038).
+  bloom: {
+    // The transition takes this long in game time (AC-1); pausing freezes it.
+    seconds: 6,
+    clear: {
+      color: 0x38b0dc,
+      // Thin haze and a long view: the far end of the fog moves out to 90 m.
+      fogNear: 10,
+      fogFar: 90,
+      hemiSky: 0xd6f1ff,
+      hemiIntensity: 2.0,
+      sunIntensity: 1.6,
+      snowOpacity: 0.25,
+      surfaceColor: 0xb8e6f6,
+    },
+    coral: {
+      // Fragments grow to this many times their size and blend to a pastel colour (AC-2). Each fragment takes
+      // the next colour of this list, so the reef ends up multi-coloured (DESIGN).
+      scale: 1.8,
+      pastel: [0xff9ec0, 0xffb590, 0xc4aaff, 0x8fe6d9, 0xffe28c, 0xa9d8ff],
+      // Emissive glow at the end, as a share of the colour, so the coral stays bright in the shade.
+      glow: 0.22,
+    },
+    seagrass: {
+      // Blades stretch to this many times their length, and thicken a little (AC-2).
+      heightScale: 3.6,
+      widthScale: 1.4,
+      color: 0x47c46b,
+      // Extra blades that grow out of nothing, so a sprout becomes a tuft.
+      extraBlades: 5,
+    },
+  },
+  // REQ-005 AC-3: the sea life that returns once the transition ends. Everything swims along a closed loop, an
+  // ellipse around a centre: x/z are metres from the bay's centre, speed is radians per second along the loop.
+  seaLife: {
+    // New animals grow from nothing to full size over this time (no pop, no flash).
+    appearSeconds: 2.5,
+    // D-038: one anemone near each reef frame, with clownfish hovering around it.
+    anemone: { dx: -2.6, dz: -1.4, height: 0.4 },
+    clownfish: { perAnemone: 2, radiusX: 0.6, radiusZ: 0.45, hover: 0.35, bob: 0.08, speed: 1.2, size: 1.5 },
+    // The decorative yellowtail school: not scannable (D-038).
+    yellowtail: {
+      count: 24,
+      centre: { x: 6, z: 0 },
+      radiusX: 24,
+      radiusZ: 16,
+      y: -5.5,
+      speed: 0.12,
+      // Each fish keeps within this of the school's loop: along it (radians), across it, and in height.
+      spreadAlong: 0.07,
+      spreadAcross: 1.5,
+      spreadY: 1.2,
+    },
+    mantaRays: [
+      { x: 4, z: -10, radiusX: 26, radiusZ: 18, y: -6.5, speed: 0.07, phase: 0, direction: 1 },
+      { x: 8, z: 6, radiusX: 20, radiusZ: 24, y: -6.0, speed: 0.06, phase: 2.5, direction: -1 },
+    ],
+    dolphins: {
+      count: 3,
+      centre: { x: 4, z: -8 },
+      radiusX: 28,
+      radiusZ: 24,
+      y: -2.7,
+      bob: 0.5,
+      speed: 0.13,
+      spreadAlong: 0.09,
+      spreadAcross: 1.6,
+    },
+    // The ROV, rocks and cliffs are never in the way, but the loops stay at least this far inside the bay boundary.
+    edgeMargin: 5,
   },
 } as const;
 

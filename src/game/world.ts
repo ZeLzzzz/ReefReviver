@@ -19,6 +19,7 @@ import {
 } from "three";
 import { config } from "../config";
 import { cliffFaceRadius, floorHeight, rocks } from "./bay";
+import { waterAt } from "./bloom";
 
 const { bay, water } = config;
 
@@ -67,30 +68,29 @@ function addRocks(scene: Scene): void {
   }
 }
 
-function addSurface(scene: Scene): void {
+function addSurface(scene: Scene): MeshBasicMaterial {
   const geometry = new PlaneGeometry(200, 200);
   geometry.rotateX(Math.PI / 2);
   geometry.translate(0, bay.surfaceY, 0);
-  const material = new MeshBasicMaterial({ color: 0xa9c4b2, transparent: true, opacity: 0.5, side: DoubleSide });
+  const material = new MeshBasicMaterial({ color: water.murky.surfaceColor, transparent: true, opacity: 0.5, side: DoubleSide });
   scene.add(new Mesh(geometry, material));
+  return material;
 }
 
 /** Drifting particles ("marine snow") around the camera, so the murky water reads as water. */
-function addMarineSnow(scene: Scene): (dt: number, around: Vector3) => void {
+function addMarineSnow(scene: Scene): { update: (dt: number, around: Vector3) => void; material: PointsMaterial } {
   const half = 15;
   const positions = new Float32Array(water.snowCount * 3);
   for (let i = 0; i < positions.length; i++) positions[i] = (Math.random() * 2 - 1) * half;
   const geometry = new BufferGeometry();
   geometry.setAttribute("position", new BufferAttribute(positions, 3));
-  const points = new Points(
-    geometry,
-    new PointsMaterial({ color: 0xdfe6d8, size: 0.06, transparent: true, opacity: 0.7 }),
-  );
+  const material = new PointsMaterial({ color: 0xdfe6d8, size: 0.06, transparent: true, opacity: water.murky.snowOpacity });
+  const points = new Points(geometry, material);
   points.frustumCulled = false;
   scene.add(points);
 
   const wrap = (value: number, centre: number) => centre - half + ((((value - centre + half) % (half * 2)) + half * 2) % (half * 2));
-  return (dt, around) => {
+  const update = (dt: number, around: Vector3) => {
     for (let i = 0; i < positions.length; i += 3) {
       positions[i + 1] -= 0.15 * dt;
       positions[i] = wrap(positions[i], around.x);
@@ -99,11 +99,14 @@ function addMarineSnow(scene: Scene): (dt: number, around: Vector3) => void {
     }
     geometry.attributes.position.needsUpdate = true;
   };
+  return { update, material };
 }
 
 export interface World {
   /** Advances ambient motion; `around` is the camera position. */
   update(dt: number, around: Vector3): void;
+  /** REQ-005: 0 is the murky bay, 1 is the clear water after the Bloom; water, fog, light and snow blend by it. */
+  setClarity(clarity: number): void;
 }
 
 /** The bay before the Bloom: murky green-grey water with short visibility (REQ-001 AC-3). */
@@ -112,16 +115,32 @@ export function buildWorld(scene: Scene): World {
   scene.background = murk;
   scene.fog = new Fog(murk, water.murky.fogNear, water.murky.fogFar);
 
-  scene.add(new HemisphereLight(0xcfe3d4, 0x4a4636, 1.6));
-  const sun = new DirectionalLight(0xffffff, 1.2);
+  const hemisphere = new HemisphereLight(water.murky.hemiSky, 0x4a4636, water.murky.hemiIntensity);
+  scene.add(hemisphere);
+  const sun = new DirectionalLight(0xffffff, water.murky.sunIntensity);
   sun.position.set(10, 30, 5);
   scene.add(sun);
 
   addFloor(scene);
   addCliffs(scene);
   addRocks(scene);
-  addSurface(scene);
-  const updateSnow = addMarineSnow(scene);
+  const surface = addSurface(scene);
+  const snow = addMarineSnow(scene);
+  const fog = scene.fog as Fog;
 
-  return { update: updateSnow };
+  return {
+    update: snow.update,
+    setClarity(clarity) {
+      const look = waterAt(clarity);
+      murk.setHex(look.color);
+      fog.color.setHex(look.color);
+      fog.near = look.fogNear;
+      fog.far = look.fogFar;
+      hemisphere.color.setHex(look.hemiSky);
+      hemisphere.intensity = look.hemiIntensity;
+      sun.intensity = look.sunIntensity;
+      snow.material.opacity = look.snowOpacity;
+      surface.color.setHex(look.surfaceColor);
+    },
+  };
 }
