@@ -15,7 +15,7 @@ const OBJECTIVE_KEYS: Record<ObjectiveId, StringKey> = {
   deposit: "objectives.deposit",
 };
 
-const TOOL_SLOT: Record<HudState["tool"], string> = { vacuum: "2" };
+const TOOL_SLOT: Record<HudState["tool"], string> = { vacuum: "2", cutter: "1" };
 
 function setText(element: Element, text: string): void {
   if (element.textContent !== text) element.textContent = text;
@@ -67,10 +67,22 @@ export function createHud(lang: Lang): HudView {
   const markerLabel = h("span", { class: "marker-label" });
   const marker = h("div", { class: "station-marker" }, markerArrow, markerLabel);
 
+  // REQ-003: a ring around the crosshair that fills while the cutter cuts a net, with the percentage in words.
+  const cutLabel = h("span", { class: "cut-label" });
+  const cutRing = h("div", { class: "cut-ring", "aria-hidden": "true" });
+  const cutProgress = h(
+    "div",
+    { class: "cut-progress", role: "progressbar", "aria-label": t(lang, "cutter.progress"), "aria-valuemin": "0", "aria-valuemax": "100", "aria-valuenow": "0" },
+    cutRing,
+    cutLabel,
+  );
+  cutProgress.hidden = true;
+
   const element = h(
     "div",
     { class: "hud" },
     h("div", { class: "crosshair", "aria-hidden": "true" }),
+    cutProgress,
     h("section", { class: "hud-panel hud-goals", "aria-label": t(lang, "objectives.title") }, h("h2", {}, t(lang, "objectives.title")), goalList),
     h("section", { class: "hud-panel hud-stats" }, tank.row, meter, materials.row, score.row, cleanliness.row),
     h(
@@ -107,6 +119,16 @@ export function createHud(lang: Lang): HudView {
       setText(toolName, `${TOOL_SLOT[state.tool]} ${t(lang, `tools.${state.tool}`)}`);
       setText(toolHint, t(lang, `tools.${state.tool}.hint`));
       element.classList.toggle("sucking", state.sucking);
+
+      // REQ-003: shown only while the cutter is cutting; empty again the moment it stops (AC-1, AC-4).
+      const percent = Math.floor(state.cutProgress * 100);
+      setHidden(cutProgress, state.cutProgress <= 0);
+      if (state.cutProgress > 0) {
+        cutProgress.setAttribute("aria-valuenow", String(percent));
+        cutRing.style.setProperty("--cut", state.cutProgress.toFixed(3));
+        setText(cutLabel, `${t(lang, "cutter.progress")} ${percent}%`);
+      }
+      element.classList.toggle("cutting", state.cutProgress > 0);
 
       setHidden(fullMessage, !state.tankFull);
       setText(fullMessage, state.tankFull ? t(lang, "hud.tankFull") : "");

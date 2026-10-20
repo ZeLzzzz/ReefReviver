@@ -159,9 +159,9 @@ test.describe("Indonesian", () => {
     await expect(stat(page, "materials")).toHaveText("8");
   });
 
-  test("keys 1, 3 and 4 do nothing yet; the pause controls list the new controls", async ({ page }) => {
+  test("keys 3 and 4 do nothing yet; the pause controls list the new controls", async ({ page }) => {
     await startDive(page);
-    for (const key of ["Digit1", "Digit3", "Digit4", "Digit2"]) await page.keyboard.press(key);
+    for (const key of ["Digit3", "Digit4", "Digit2"]) await page.keyboard.press(key);
     await expect(page.locator(".tool-name")).toHaveText("2 Vacuum");
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Kontrol" }).click();

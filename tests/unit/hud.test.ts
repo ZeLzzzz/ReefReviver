@@ -22,6 +22,7 @@ function state(overrides: Partial<HudState> = {}): HudState {
     stationDistance: 37,
     marker: { left: 100, top: 200, onScreen: false, angle: 1 },
     sucking: false,
+    cutProgress: 0,
     ...overrides,
   };
 }

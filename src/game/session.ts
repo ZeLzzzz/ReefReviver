@@ -1,8 +1,9 @@
 import { config } from "../config";
 import type { StringKey } from "../i18n/i18n";
+import type { AnimalSpecies } from "./nets";
 import { START_TOOL, type ToolId } from "./tools";
 
-const { tank, rewards, phase1, hud } = config;
+const { tank, rewards, phase1, hud, nets } = config;
 
 export type ObjectiveId = "clean" | "free" | "deposit";
 
@@ -35,7 +36,7 @@ export class Session {
   trashRemoved = 0;
   /** Total trash deposited so far, for the "Setor sampah ke stasiun" objective. */
   trashDeposited = 0;
-  /** Nets and trapped animals arrive with REQ-003; until then these stay 0. */
+  /** Nets cut and animals freed by the cutter (REQ-003). */
   netsCut = 0;
   animalsFreed = 0;
   private notice: Notice | null = null;
@@ -82,6 +83,14 @@ export class Session {
     this.materials += deposited * rewards.materialPerTrash;
     this.say({ key: "hud.deposited", amount: deposited * rewards.materialPerTrash });
     return { deposited };
+  }
+
+  /** REQ-003: a net was cut and its animal is free. +100 score, counts for cleanliness and the "free" goal (AC-2). */
+  freeAnimal(species: AnimalSpecies): void {
+    this.netsCut += 1;
+    this.animalsFreed += 1;
+    this.score += nets.scorePerAnimal;
+    this.say({ key: `animals.${species}.freed`, amount: nets.scorePerAnimal });
   }
 
   /** The tool a key selected; null leaves the current tool alone. */

@@ -49,6 +49,8 @@ export const config = {
     restHeight: 0.15,
     // Kept clear of the start position and the station's deposit zone.
     clearOfStart: 6,
+    // REQ-003: kept clear of the ghost nets by this much.
+    clearOfNets: 4,
   },
   vacuum: {
     // Trash within this distance of the ROV and this angle around the aim direction (crosshair) can be sucked.
@@ -75,6 +77,79 @@ export const config = {
     // Solid parts the ROV cannot pass through (D-041): the container body, and the beacon mast beside it.
     body: { radius: 1.6, height: 3.1 },
     mast: { dx: 1.1, dz: -0.5, radius: 0.35, height: 6.9 },
+  },
+  // REQ-003: the cutter (key 1) frees the animals trapped in ghost nets.
+  cutter: {
+    // The crosshair ray (from the camera along the aim) must hit a net no further than this from the ROV.
+    range: 10,
+    // D-012: holding the beam on a net this long cuts it.
+    seconds: 2,
+    // Cut nets shrink and sink away over this time.
+    netFadeSeconds: 0.8,
+  },
+  // REQ-003: two ghost nets in the north half of the bay (D-012), each with one trapped animal (D-027).
+  nets: {
+    // D-030: score for freeing one animal.
+    scorePerAnimal: 100,
+    // A net is a dome on the floor. Width, height and length are its half-sizes; the animal is longer than the
+    // net, so its head and tail stick out and stay visible, and aiming at them does not cut (AC-5).
+    sites: [
+      { species: "turtle", x: -9, z: -24, yaw: 0.6 },
+      { species: "reefShark", x: 9, z: -33, yaw: -0.8 },
+    ],
+    species: {
+      turtle: {
+        netWidth: 1.5,
+        netHeight: 1.3,
+        netLength: 1.0,
+        // Height of the body's centre above the floor.
+        restHeight: 0.45,
+        // Spheres along the body (metres from the centre along the heading) that stop the cutter ray and that
+        // make up the animal: shell, head. The body lies inside the dome, so the net is always hit first.
+        body: [
+          { along: 0, radius: 0.5 },
+          { along: 0.85, radius: 0.22 },
+        ],
+        // Radius used to keep the swimming animal out of rocks and cliffs.
+        radius: 0.7,
+        // While trapped it twists and shifts by up to this far inside the net (AC-6).
+        struggle: 0.22,
+        wanderSpeed: 0.9,
+        fleeSpeed: 2.2,
+        // Largest turn rate while wandering, radians per second.
+        turnRate: 0.5,
+      },
+      reefShark: {
+        netWidth: 1.4,
+        netHeight: 1.5,
+        netLength: 0.9,
+        restHeight: 0.7,
+        body: [
+          { along: -1.0, radius: 0.22 },
+          { along: -0.45, radius: 0.34 },
+          { along: 0.15, radius: 0.42 },
+          { along: 0.75, radius: 0.34 },
+          { along: 1.25, radius: 0.22 },
+        ],
+        radius: 0.6,
+        struggle: 0.2,
+        wanderSpeed: 1.6,
+        fleeSpeed: 3.2,
+        turnRate: 0.7,
+      },
+    },
+    // After the net is cut the animal swims straight away for this long, then wanders for good.
+    fleeSeconds: 3,
+    wander: {
+      // Wandering animals steer back toward the centre beyond this distance from the bay's centre.
+      keepInside: 36,
+      // Preferred height above the floor, the lowest they go above it, and the highest y they go.
+      height: 3.2,
+      minAboveFloor: 1.5,
+      maxY: -2.5,
+      // Turn rate when something solid blocks the way, radians per second.
+      blockedTurn: 2.5,
+    },
   },
   rewards: {
     scorePerTrash: 10,

@@ -66,7 +66,7 @@ export interface PauseProps {
 }
 
 // Only the controls that work so far; each REQ that adds a control adds its row (D-019).
-const CONTROLS = ["move", "rise", "dive", "look", "use", "vacuum", "interact", "pause"] as const;
+const CONTROLS = ["move", "rise", "dive", "look", "use", "cutter", "vacuum", "interact", "pause"] as const;
 
 export function pauseMenu({ lang, view, notice: noticeKey, onResume, onView, onLanguage }: PauseProps): HTMLElement {
   const back = button(t(lang, "pause.back"), () => onView("main"));

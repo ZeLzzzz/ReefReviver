@@ -70,5 +70,12 @@
   "logbook.coral.sdg": "Target 14.3 calls for minimizing and addressing the impacts of ocean acidification, including through scientific cooperation.",
   "logbook.seagrass.name": "Seagrass",
   "logbook.seagrass.facts": "Seagrasses are flowering plants that live underwater in shallow seas, not algae. Seagrass meadows cover only 0.1% of the ocean floor, yet they are nurseries for fish and turtles and store up to 18% of ocean carbon. Runoff and coastal building can damage them.",
-  "logbook.seagrass.sdg": "Target 14.2 calls for protecting marine and coastal ecosystems, and restoring them when damaged."
+  "logbook.seagrass.sdg": "Target 14.2 calls for protecting marine and coastal ecosystems, and restoring them when damaged.",
+  "tools.cutter": "Cutter",
+  "tools.cutter.hint": "Hold left click on a net to cut it",
+  "controls.cutter.keys": "1",
+  "controls.cutter.action": "Select Cutter",
+  "cutter.progress": "Cutting the net",
+  "animals.turtle.freed": "Green turtle freed!",
+  "animals.reefShark.freed": "Blacktip reef shark freed!"
 }

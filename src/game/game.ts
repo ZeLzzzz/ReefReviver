@@ -16,6 +16,7 @@ import { Input } from "./input";
 import { placeMarker } from "./marker";
 import { createRovModel } from "./rov-model";
 import { createRovState, rightVector, steer, stepRov, type RovState } from "./rov";
+import { Rescue } from "./rescue";
 import { Session } from "./session";
 import { distanceToStation, inStationZone, stationPosition } from "./station";
 import { createStationModel, STATION_MARKER_HEIGHT } from "./station-model";
@@ -61,6 +62,8 @@ export class Game implements GameView {
   private readonly field = new TrashField();
   private readonly trashView = createTrashView(this.field.items);
   private readonly beam = createVacuumBeam();
+  // REQ-003: ghost nets, trapped animals, the cutter.
+  private readonly rescue = new Rescue();
   private readonly aim = new Vector3();
   private readonly stationAnchor = new Vector3(stationPosition.x, stationPosition.y + STATION_MARKER_HEIGHT, stationPosition.z);
   private readonly viewPoint = new Vector3();
@@ -77,7 +80,7 @@ export class Game implements GameView {
     this.renderer = new WebGLRenderer({ canvas, context, antialias: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.world = buildWorld(this.scene);
-    this.scene.add(this.rovModel, createStationModel(), this.trashView.group, this.beam);
+    this.scene.add(this.rovModel, createStationModel(), this.trashView.group, this.beam, this.rescue.group);
     this.trashView.sync(this.field.items);
     this.input = new Input(canvas.ownerDocument);
     this.syncRovModel();
@@ -98,6 +101,10 @@ export class Game implements GameView {
         trashTotal: () => this.field.total,
         rocks: () => rocks.map((r) => [r.x, r.y, r.z, r.size]),
         station: () => [stationPosition.x, stationPosition.y, stationPosition.z],
+        // REQ-003: where the nets and animals are, and a clock of simulated seconds.
+        clock: () => this.rescue.animals.elapsed,
+        nets: () => this.rescue.nets.nets.map((n) => ({ id: n.id, species: n.species, cut: n.cut, center: n.center.toArray(), yaw: n.yaw, size: [n.width, n.height, n.length] })),
+        animals: () => this.rescue.animals.animals.map((a) => ({ id: a.id, species: a.species, state: a.state, position: a.position.toArray(), yaw: a.yaw })),
         placeRov: (x: number, y: number, z: number, yaw: number, pitch: number) => {
           this.rov.position.set(x, y, z);
           this.rov.velocity.set(0, 0, 0);
@@ -117,6 +124,7 @@ export class Game implements GameView {
     this.session = new Session(this.field.total);
     this.field.reset();
     this.trashView.sync(this.field.items);
+    this.rescue.reset(); // REQ-003
     this.sucking = false;
     this.input.clear();
     this.mode = "playing";
@@ -166,6 +174,8 @@ export class Game implements GameView {
     const room = session.tankSpace - this.field.pulling;
     this.sucking = held && room > 0;
     for (const _item of this.field.update(dt, rov.position, this.aim, held, room)) session.collect();
+    // REQ-003: the cutter, the nets and the animals.
+    this.rescue.step(dt, rov, this.aim, this.input.primaryHeld() && session.tool === "cutter", this.field.items, session);
     session.tick(dt);
     this.trashView.sync(this.field.items);
 
@@ -196,6 +206,7 @@ export class Game implements GameView {
       stationDistance: Math.round(distanceToStation(this.rov.position)),
       marker: placeMarker(this.viewPoint, tanHalfFov, window.innerWidth, window.innerHeight, config.hud.markerMargin),
       sucking: this.sucking,
+      cutProgress: this.rescue.progress, // REQ-003
     };
     this.lastHud = state;
     this.hudListener?.(state);

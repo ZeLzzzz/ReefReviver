@@ -160,6 +160,7 @@ describe("HUD (REQ-002)", () => {
     stationDistance: 30,
     marker: { left: 10, top: 10, onScreen: false, angle: 0 },
     sucking: false,
+    cutProgress: 0,
   });
   const emit = (game: { onHud: ReturnType<typeof vi.fn> }, state: HudState) => game.onHud.mock.calls[0][0](state);
 
@@ -236,6 +237,7 @@ describe("pause (REQ-001 AC-5)", () => {
       "Shift = Turun",
       "Mouse = Mengarahkan ROV",
       "Klik kiri = Pakai alat (tahan)",
+      "1 = Pilih Cutter",
       "2 = Pilih Vacuum",
       "E = Setor sampah di stasiun",
       "Esc = Jeda",

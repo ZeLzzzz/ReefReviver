@@ -70,5 +70,12 @@
   "logbook.coral.sdg": "Target 14.3 meminta dampak pengasaman laut ditekan dan ditangani, antara lain lewat kerja sama ilmiah.",
   "logbook.seagrass.name": "Lamun",
   "logbook.seagrass.facts": "Lamun adalah tumbuhan berbunga yang hidup terendam di laut dangkal, bukan alga. Padang lamun hanya menutupi 0,1% dasar laut, tetapi menjadi tempat asuhan ikan dan penyu serta menyimpan hingga 18% karbon laut. Limpasan air tercemar dan pembangunan pesisir dapat merusaknya.",
-  "logbook.seagrass.sdg": "Target 14.2 meminta ekosistem pesisir dikelola dan dilindungi, serta dipulihkan bila rusak."
+  "logbook.seagrass.sdg": "Target 14.2 meminta ekosistem pesisir dikelola dan dilindungi, serta dipulihkan bila rusak.",
+  "tools.cutter": "Cutter",
+  "tools.cutter.hint": "Tahan klik kiri pada jaring untuk memotongnya",
+  "controls.cutter.keys": "1",
+  "controls.cutter.action": "Pilih Cutter",
+  "cutter.progress": "Memotong jaring",
+  "animals.turtle.freed": "Penyu hijau dibebaskan!",
+  "animals.reefShark.freed": "Hiu sirip hitam karang dibebaskan!"
 }

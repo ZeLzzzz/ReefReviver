@@ -382,3 +382,42 @@ kbd {
 .station-marker.on-screen .marker-arrow {
   transform: rotate(180deg) !important;
 }
+
+/* REQ-003: the cut progress ring around the crosshair, and its words above it. */
+.cut-progress {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 54px;
+  height: 54px;
+  margin: -27px 0 0 -27px;
+}
+
+.cut-progress[hidden] {
+  display: none;
+}
+
+.cut-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(var(--accent) calc(var(--cut, 0) * 360deg), rgba(241, 243, 236, 0.22) 0);
+  -webkit-mask: radial-gradient(circle, transparent 22px, #000 23px);
+  mask: radial-gradient(circle, transparent 22px, #000 23px);
+}
+
+.cut-label {
+  position: absolute;
+  bottom: calc(100% + 9px);
+  left: 50%;
+  padding: 4px 12px;
+  border-radius: 8px;
+  background: var(--panel);
+  font-weight: 700;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+.hud.cutting .tool-name {
+  color: var(--accent);
+}

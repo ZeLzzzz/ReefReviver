@@ -20,4 +20,6 @@ export interface HudState {
   marker: MarkerPlacement;
   /** The vacuum is pulling right now (button held, tank has room). */
   sucking: boolean;
+  /** REQ-003: how far the cutter has cut the net it aims at, 0 (not cutting) to 1. */
+  cutProgress: number;
 }

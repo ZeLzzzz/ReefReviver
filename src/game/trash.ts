@@ -5,6 +5,7 @@ import { stationPosition } from "./station";
 import { pickNearestInCone } from "./vacuum";
 
 const { trash, vacuum, station } = config;
+const netSites = config.nets.sites;
 
 export type TrashKind = "bottle" | "bag" | "can";
 const KINDS: readonly TrashKind[] = ["bottle", "bag", "can"];
@@ -47,6 +48,8 @@ export function generateTrash(): TrashItem[] {
     if (Math.hypot(x - start.x, z - start.z) < trash.clearOfStart) continue;
     if (Math.hypot(x - stationPosition.x, z - stationPosition.z) < station.zoneRadius + 3) continue;
     if (rocks.some((rock) => Math.hypot(x - rock.x, z - rock.z) < rock.size + 1.2)) continue;
+    // REQ-003: no trash under a ghost net, where it would hide behind the net or stop the cutter.
+    if (netSites.some((site) => Math.hypot(x - site.x, z - site.z) < trash.clearOfNets)) continue;
     if (items.some((other) => Math.hypot(x - other.home.x, z - other.home.z) < trash.spacing)) continue;
     const home = new Vector3(x, floorHeight(x, z) + trash.restHeight, z);
     items.push({
