@@ -51,6 +51,7 @@ Sebelum `test:e2e` pertama kali, pasang Chromium-nya dengan `npx playwright inst
 |---|---|
 | `src/config.ts` | Semua angka yang bisa disetel saat playtest (ukuran teluk, kecepatan ROV, kabut, kamera) |
 | `src/i18n/id.json`, `en.json` | Semua teks di game. Kedua file harus punya kunci yang sama |
+| `src/logbook/entries.ts` | Data tujuh entri Marine Logbook: nama ilmiah, target SDG 14, dan sumber tiap fakta. Teksnya ada di file string (`logbook.*`) |
 | `src/app.ts`, `src/ui/` | Alur layar: judul, bermain, jeda, pesan perangkat/WebGL |
 | `src/game/` | Adegan Three.js dan aturan main: teluk, ROV, tabrakan, kamera, input, sampah, vacuum, stasiun, sesi (tangki, skor, kebersihan, tujuan) |
 | `tests/unit/`, `tests/e2e/` | Unit test dan tes browser |
