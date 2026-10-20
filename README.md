@@ -5,7 +5,7 @@ Game browser 3D low-poly: pemain mengendalikan ROV untuk membersihkan teluk yang
 ## Yang sudah bisa dimainkan
 
 - Layar judul dengan pilihan bahasa Indonesia/English. Bahasa awal mengikuti bahasa browser, dan pilihan yang diganti diingat browser.
-- Menyelam dengan ROV di teluk yang keruh: kamera orang ketiga dan crosshair di tengah layar. ROV tidak bisa menembus dasar laut, tebing, batu, batas teluk, atau permukaan air.
+- Menyelam dengan ROV di teluk yang keruh: kamera orang ketiga dan crosshair di tengah layar. ROV tidak bisa menembus dasar laut, tebing, batu, stasiun daur ulang, atau permukaan air.
 - Menyedot sampah dengan Vacuum (tahan klik kiri). Tangki muat 8 item; kalau penuh, setor di stasiun daur ulang dengan E untuk mendapat bahan. Penanda di layar menunjukkan arah stasiun.
 - HUD berisi tangki, bahan, skor, kebersihan teluk, alat aktif, dan daftar tujuan Fase 1.
 - Menu jeda (Esc) berisi Lanjut, Kontrol, dan Bahasa. Game juga otomatis berhenti kalau kursor lepas, misalnya karena alt-tab.

@@ -92,12 +92,40 @@ function pushOutOfRock(p: Vector3, v: Vector3, rock: Rock, radius: number): void
   if (inward < 0) v.set(v.x - (inward * nx) / length, v.y - (inward * ny) / length, v.z - (inward * nz) / length);
 }
 
+/** Pushes a sphere out of an upright cylinder standing on the floor at `baseY`: sideways, or onto its top if that is closer. */
+function pushOutOfCylinder(p: Vector3, v: Vector3, x: number, z: number, baseY: number, cylinder: { radius: number; height: number }, radius: number): void {
+  const top = baseY + cylinder.height;
+  if (p.y >= top + radius || p.y <= baseY - radius) return;
+  const dx = p.x - x;
+  const dz = p.z - z;
+  const distance = Math.hypot(dx, dz);
+  const reach = cylinder.radius + radius;
+  if (distance >= reach) return;
+  if (top + radius - p.y < reach - distance || distance === 0) {
+    p.y = top + radius;
+    if (v.y < 0) v.y = 0;
+    return;
+  }
+  const nx = dx / distance;
+  const nz = dz / distance;
+  p.x = x + nx * reach;
+  p.z = z + nz * reach;
+  const inward = v.x * nx + v.z * nz;
+  if (inward < 0) {
+    v.x -= inward * nx;
+    v.z -= inward * nz;
+  }
+}
+
 /**
  * Keeps a sphere of `radius` inside the water: above the floor, below the surface, within the bay
- * boundary and outside every rock. Velocity into a limit is removed, so the ROV stops there (REQ-001 AC-4).
+ * boundary and outside every rock and the recycling station (D-041). Velocity into a limit is removed,
+ * so the ROV stops there (REQ-001 AC-4).
  */
 export function constrainToBay(p: Vector3, v: Vector3, radius: number = config.rov.radius): void {
   for (const rock of rocks) pushOutOfRock(p, v, rock, radius);
+  pushOutOfCylinder(p, v, station.x, station.z, stationFloor, station.body, radius);
+  pushOutOfCylinder(p, v, station.x + station.mast.dx, station.z + station.mast.dz, stationFloor, station.mast, radius);
 
   const distance = Math.hypot(p.x, p.z);
   if (distance > bay.boundaryRadius) {

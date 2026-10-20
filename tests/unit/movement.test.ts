@@ -4,6 +4,7 @@ import { config } from "../../src/config";
 import { cliffFaceRadius, constrainToBay, floorHeight, rocks } from "../../src/game/bay";
 import { aimDirection, followCamera } from "../../src/game/follow-camera";
 import { createCliffGeometry } from "../../src/game/world";
+import { inStationZone, stationPosition } from "../../src/game/station";
 import { createRovState, forwardVector, steer, stepRov, type MoveInput, type RovState } from "../../src/game/rov";
 
 const { bay, rov } = config;
@@ -179,6 +180,46 @@ describe("bay limits (REQ-001 AC-4)", () => {
         expect(inside).toBeGreaterThanOrEqual(1);
       });
     }
+  });
+
+  describe("the recycling station is solid (REQ-002 AC-8, D-041)", () => {
+    const { body } = config.station;
+    const top = stationPosition.y + body.height;
+    const horizontal = (s: RovState) => Math.hypot(s.position.x - stationPosition.x, s.position.z - stationPosition.z);
+
+    it("stops the ROV at the station's side", () => {
+      // Facing -X (yaw -PI/2), level with the container, starting east of the station.
+      const state = rovAt(stationPosition.x + 5, stationPosition.y + 1.5, stationPosition.z, -Math.PI / 2);
+      fly(state, { forward: 1 }, 4, (s) => {
+        if (s.position.y < top) expect(horizontal(s)).toBeGreaterThanOrEqual(body.radius + rov.radius - 1e-9);
+      });
+      expect(horizontal(state)).toBeLessThan(body.radius + rov.radius + 0.5);
+    });
+
+    it("lets the ROV settle on top instead of sinking into it", () => {
+      const state = rovAt(stationPosition.x - 0.3, top + 3, stationPosition.z + 0.2, 0);
+      fly(state, { rise: -1 }, 4);
+      expect(state.position.y).toBeCloseTo(top + rov.radius, 5);
+    });
+
+    it("stops the ROV at the beacon mast", () => {
+      const { mast } = config.station;
+      const mx = stationPosition.x + mast.dx;
+      const mz = stationPosition.z + mast.dz;
+      const state = rovAt(mx, stationPosition.y + 5, mz + 4, Math.PI);
+      fly(state, { forward: 1 }, 3, (s) => {
+        expect(Math.hypot(s.position.x - mx, s.position.z - mz)).toBeGreaterThanOrEqual(mast.radius + rov.radius - 1e-9);
+      });
+    });
+
+    it("still lets the ROV into the deposit zone", () => {
+      const state = rovAt(stationPosition.x + 8, stationPosition.y + 1.5, stationPosition.z, -Math.PI / 2);
+      let entered = false;
+      fly(state, { forward: 1 }, 4, (s) => {
+        entered ||= inStationZone(s.position);
+      });
+      expect(entered).toBe(true);
+    });
   });
 
   it("slides along a limit instead of sticking to it", () => {

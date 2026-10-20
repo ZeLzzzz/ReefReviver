@@ -72,6 +72,9 @@ export const config = {
     // The floor is levelled inside padRadius and blends back to the natural floor over padBlend.
     padRadius: 6.5,
     padBlend: 4,
+    // Solid parts the ROV cannot pass through (D-041): the container body, and the beacon mast beside it.
+    body: { radius: 1.6, height: 3.1 },
+    mast: { dx: 1.1, dz: -0.5, radius: 0.35, height: 6.9 },
   },
   rewards: {
     scorePerTrash: 10,

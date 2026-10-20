@@ -48,8 +48,8 @@ export function createStationModel(): Group {
   add(new Mesh(new BoxGeometry(2.2, 0.35, 0.1), green), 0, 1.5, 0.95);
 
   // Beacon mast, visible from far away.
-  add(new Mesh(new CylinderGeometry(0.12, 0.12, 6, 6), steel), 1.1, 3.2, -0.5);
-  add(new Mesh(new BoxGeometry(0.7, 0.7, 0.7), beacon), 1.1, 6.5, -0.5);
+  add(new Mesh(new CylinderGeometry(0.12, 0.12, 6, 6), steel), station.mast.dx, 3.2, station.mast.dz);
+  add(new Mesh(new BoxGeometry(0.7, 0.7, 0.7), beacon), station.mast.dx, 6.5, station.mast.dz);
 
   return group;
 }
