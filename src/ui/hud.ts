@@ -1,6 +1,7 @@
 import type { HudState } from "../game/hud-state";
 import type { ObjectiveId } from "../game/session";
 import { t, type Lang, type StringKey } from "../i18n/i18n";
+import { createMinimap } from "./minimap";
 import { h } from "./screens";
 
 export interface HudView {
@@ -95,12 +96,17 @@ export function createHud(lang: Lang): HudView {
   );
   cutProgress.hidden = true;
 
+  // REQ-010: the minimap in the top-right corner, with the stats panel under it.
+  const minimap = createMinimap(lang);
+  minimap.element.hidden = true;
+
   const element = h(
     "div",
     { class: "hud" },
     h("div", { class: "crosshair", "aria-hidden": "true" }),
     cutProgress,
     h("section", { class: "hud-panel hud-goals", "aria-label": t(lang, "objectives.title") }, h("h2", {}, t(lang, "objectives.title")), goalList, phase2List, phase3List),
+    minimap.element,
     h("section", { class: "hud-panel hud-stats" }, tank.row, meter, materials.row, score.row, cleanliness.row),
     h(
       "section",
@@ -135,6 +141,10 @@ export function createHud(lang: Lang): HudView {
         setText(parts.item.lastElementChild!, t(lang, objective.done ? "objectives.done" : "objectives.todo"));
         parts.item.classList.toggle("done", objective.done);
       }
+
+      // REQ-010: a state without a minimap (an old test fixture) shows no map rather than an empty one.
+      setHidden(minimap.element, !state.minimap);
+      if (state.minimap) minimap.update(state.minimap);
 
       setText(tank.value, `${state.tank}/${state.capacity}`);
       tank.row.classList.toggle("full", state.tankFull);

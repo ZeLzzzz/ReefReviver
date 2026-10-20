@@ -1,4 +1,5 @@
 import type { MarkerPlacement } from "./marker";
+import type { MinimapState } from "./minimap";
 import type { Notice, Objective } from "./session";
 import type { ToolId } from "./tools";
 
@@ -26,6 +27,8 @@ export interface HudState {
   reef?: ReefHud;
   /** REQ-005: the Phase 3 list ("Pindai 0/7"), present once the Bloom is over; it replaces the Phase 1 and 2 lists (D-049). */
   phase3?: Objective[];
+  /** REQ-010: what the minimap draws. Optional so a state without a map still renders. */
+  minimap?: MinimapState;
 }
 
 export interface ReefHud {

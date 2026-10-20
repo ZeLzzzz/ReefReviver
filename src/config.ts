@@ -212,6 +212,16 @@ export const config = {
     // At the bottom the marker stays above the tool panel and the notices.
     markerBottomMargin: 190,
   },
+  // REQ-010: the minimap in the HUD (D-031, D-032). Drawn in map units: the bay fits a square `size` wide.
+  minimap: {
+    // D-031: remaining trash shows as dots only from this cleanliness (percent) on, so exploring still matters early on.
+    trashFromCleanliness: 70,
+    // The map is `size` x `size` units; north (-Z) is up. It shows the cliff circle plus this many metres around it.
+    size: 200,
+    margin: 2,
+    // Icon sizes in map units (the minimap is about 200 px wide at full size, so one unit is about one pixel).
+    icon: { station: 8, site: 8, net: 6.5, trash: 2.6, rov: 12 },
+  },
   water: {
     murky: {
       color: 0x55695c,

@@ -93,5 +93,7 @@
   "controls.seed.keys": "3",
   "controls.seed.action": "Pilih Seed launcher",
   "bloom.scannerOpen": "Teluk kembali jernih. Scanner terbuka!",
-  "objectives.phase3.scan": "Pindai"
+  "objectives.phase3.scan": "Pindai",
+  "minimap.label": "Peta teluk",
+  "minimap.north": "U"
 }

@@ -17,6 +17,7 @@ import { aimDirection, followCamera, keepCameraInWater } from "./follow-camera";
 import type { HudState } from "./hud-state";
 import { Input } from "./input";
 import { placeMarker } from "./marker";
+import { buildMinimap } from "./minimap";
 import { createReefView, createShotView } from "./reef-model";
 import { framePlanted, patchPlanted, ReefField } from "./reef-sites";
 import { SeaLife } from "./sea-life";
@@ -142,7 +143,7 @@ export class Game implements GameView {
           this.rov.yaw = yaw;
           this.rov.pitch = pitch;
         },
-        // REQ-005: reach the Bloom quickly and read what it changes.
+        // REQ-005: reach the Bloom quickly and read what it changes. (REQ-010's e2e tests use removeTrash too.)
         // Takes n free trash items out of the field and counts them as removed, like the vacuum, but without tank or score.
         removeTrash: (n: number) => {
           let removed = 0;
@@ -368,6 +369,15 @@ export class Game implements GameView {
       },
       // REQ-005: the Phase 3 list, empty until the Bloom is over.
       phase3: session.phase3Objectives,
+      // REQ-010
+      minimap: buildMinimap({
+        rov: { x: this.rov.position.x, z: this.rov.position.z, yaw: this.rov.yaw },
+        frames: this.reef.frames,
+        patches: this.reef.patches,
+        nets: this.rescue.nets.nets,
+        trash: this.field.items,
+        cleanliness: session.cleanliness,
+      }),
     };
     this.lastHud = state;
     this.hudListener?.(state);

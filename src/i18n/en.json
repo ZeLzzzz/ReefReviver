@@ -93,5 +93,7 @@
   "controls.seed.keys": "3",
   "controls.seed.action": "Select the Seed launcher",
   "bloom.scannerOpen": "The bay is clear again. Scanner unlocked!",
-  "objectives.phase3.scan": "Scan"
+  "objectives.phase3.scan": "Scan",
+  "minimap.label": "Bay map",
+  "minimap.north": "N"
 }

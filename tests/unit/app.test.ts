@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App, type AppDeps } from "../../src/app";
 import type { HudState } from "../../src/game/hud-state";
+import { buildMinimap } from "../../src/game/minimap";
+import { NetField } from "../../src/game/nets";
+import { ReefField } from "../../src/game/reef-sites";
 import { Session } from "../../src/game/session";
+import { TrashField } from "../../src/game/trash";
 import type { StorageLike } from "../../src/i18n/i18n";
 import type { PointerLock } from "../../src/ui/pointer-lock";
 
@@ -309,5 +313,34 @@ describe("no WebGL 2 (REQ-001 AC-8)", () => {
     expect(ui.querySelector("p")?.textContent).toContain("WebGL 2");
     expect(buttons(ui)).toEqual(["Muat ulang"]);
     expect(deps.createGame).not.toHaveBeenCalled();
+  });
+});
+
+describe("minimap and pause (REQ-010 AC-6)", () => {
+  it("is hidden with the HUD while paused and comes back showing the same ROV position and landmarks", async () => {
+    const { ui, game } = await startPlaying();
+    const reef = new ReefField();
+    reef.install(2);
+    const minimap = buildMinimap({
+      rov: { x: 14, z: -9, yaw: 1 },
+      frames: reef.frames,
+      patches: reef.patches,
+      nets: new NetField().nets,
+      trash: new TrashField().items,
+      cleanliness: 0,
+    });
+    const state: HudState = {
+      tool: "vacuum", tank: 0, capacity: 8, tankFull: false, score: 0, materials: 0, cleanliness: 0,
+      objectives: new Session(40).objectives, notice: null, inStationZone: false, stationDistance: 30,
+      marker: { left: 10, top: 10, onScreen: false, angle: 0 }, sucking: false, cutProgress: 0, minimap,
+    };
+    game.onHud.mock.calls[0][0](state);
+    const before = ui.querySelector(".hud-minimap")!.outerHTML;
+    expect(before).toContain('data-kind="rov"');
+    pressEscape();
+    expect(ui.querySelector(".hud-minimap")).toBeNull();
+    await clickButton(ui, "Lanjut");
+    expect(ui.querySelector(".hud-minimap")!.outerHTML).toBe(before);
+    expect(ui.querySelector('[data-kind="frame"][data-status="started"]')).not.toBeNull();
   });
 });

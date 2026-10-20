@@ -1,0 +1,120 @@
+import { config } from "../config";
+import { minimapLayout, type MapMark, type MapPoint, type MinimapState } from "../game/minimap";
+import type { SiteStatus } from "../game/reef-sites";
+import { t, type Lang } from "../i18n/i18n";
+import { h } from "./screens";
+
+export interface MinimapView {
+  element: HTMLElement;
+  /** Shows a new state. Only touches the DOM for what changed, so it is cheap to call every frame. */
+  update(state: MinimapState): void;
+}
+
+const NS = "http://www.w3.org/2000/svg";
+const { icon } = config.minimap;
+
+/** Builds an SVG element; the HUD's own `h` only makes HTML. */
+function svg<K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string, string | number> = {}, ...children: SVGElement[]): SVGElementTagNameMap[K] {
+  const element = document.createElementNS(NS, tag);
+  for (const [name, value] of Object.entries(attrs)) element.setAttribute(name, String(value));
+  element.append(...children);
+  return element;
+}
+
+const at = (point: MapPoint) => `translate(${point.x.toFixed(1)} ${point.y.toFixed(1)})`;
+
+function setAttr(element: Element, name: string, value: string): void {
+  if (element.getAttribute(name) !== value) element.setAttribute(name, value);
+}
+
+/**
+ * A reef site: a diamond for a frame, a circle for a seagrass patch. The status is in the shape, never colour alone:
+ * empty is an outline, started is filled, planted is filled with a check mark (CSS shows each).
+ */
+function siteIcon(kind: "frame" | "patch", point: MapPoint): SVGGElement {
+  const r = icon.site;
+  const shape =
+    kind === "frame"
+      ? svg("polygon", { class: "mm-shape", points: `0,${-r} ${r},0 0,${r} ${-r},0` })
+      : svg("circle", { class: "mm-shape", r: r - 0.5 });
+  const check = svg("path", { class: "mm-check", d: "M-3.4 0.2 L-0.9 3 L3.6 -3" });
+  return svg("g", { class: "mm-icon mm-site", "data-kind": kind, "data-status": "empty", transform: at(point) }, shape, check);
+}
+
+/**
+ * The minimap panel: the bay seen from above, north up, with the ROV arrow, the station (square), reef sites
+ * (diamonds), seagrass patches (circles), nets that still trap an animal (X) and, late in the dive, the trash (dots).
+ * Drawn as SVG so every icon is an element a test can find; it has one accessible name for the whole map.
+ */
+export function createMinimap(lang: Lang): MinimapView {
+  const layout = minimapLayout;
+  const s = icon.station;
+
+  const bay = svg("circle", { class: "mm-bay", cx: layout.bay.x, cy: layout.bay.y, r: layout.bay.radius });
+  const rocks = layout.rocks.map((rock) => svg("circle", { class: "mm-rock", cx: rock.x.toFixed(1), cy: rock.y.toFixed(1), r: rock.radius.toFixed(1) }));
+  const station = svg(
+    "g",
+    { class: "mm-icon", "data-kind": "station", transform: at(layout.station) },
+    svg("rect", { class: "mm-shape mm-solid", x: -s, y: -s, width: 2 * s, height: 2 * s }),
+  );
+  const frames = layout.frames.map((point) => siteIcon("frame", point));
+  const patches = layout.patches.map((point) => siteIcon("patch", point));
+  const netLayer = svg("g", { class: "mm-nets" });
+  const trashLayer = svg("g", { class: "mm-trash" });
+  const r = icon.rov;
+  const rov = svg(
+    "g",
+    { class: "mm-icon", "data-kind": "rov" },
+    svg("polygon", { class: "mm-rov", points: `0,${-r} ${r * 0.7},${r * 0.75} 0,${r * 0.35} ${-r * 0.7},${r * 0.75}` }),
+  );
+
+  const map = svg(
+    "svg",
+    { class: "mm-map", viewBox: `0 0 ${layout.size} ${layout.size}`, role: "img", "aria-label": t(lang, "minimap.label") },
+    bay,
+    ...rocks,
+    trashLayer,
+    station,
+    ...frames,
+    ...patches,
+    netLayer,
+    rov,
+  );
+  const north = h("span", { class: "mm-north", "aria-hidden": "true" }, t(lang, "minimap.north"));
+  const element = h("section", { class: "hud-panel hud-minimap" }, map, north);
+
+  /** Rebuilds the marks of one layer only when the set of items changed. */
+  const layerState = (layer: SVGElement, build: (mark: MapMark) => SVGElement) => {
+    let shown: readonly MapMark[] = [];
+    return (marks: readonly MapMark[]) => {
+      if (marks.length === shown.length && marks.every((mark, i) => mark.id === shown[i].id)) return;
+      shown = marks;
+      layer.replaceChildren(...marks.map(build));
+    };
+  };
+  const setNets = layerState(netLayer, (mark) => {
+    const n = icon.net;
+    return svg(
+      "g",
+      { class: "mm-icon", "data-kind": "net", "data-id": mark.id, transform: at(mark) },
+      svg("path", { class: "mm-x", d: `M${-n} ${-n} L${n} ${n} M${n} ${-n} L${-n} ${n}` }),
+    );
+  });
+  const setTrash = layerState(trashLayer, (mark) =>
+    svg("circle", { class: "mm-dot", "data-kind": "trash", "data-id": mark.id, cx: mark.x.toFixed(1), cy: mark.y.toFixed(1), r: icon.trash }),
+  );
+
+  const setStatuses = (icons: readonly SVGGElement[], statuses: readonly SiteStatus[]) =>
+    icons.forEach((iconElement, i) => statuses[i] && setAttr(iconElement, "data-status", statuses[i]));
+
+  return {
+    element,
+    update(state) {
+      setAttr(rov, "transform", `${at(state.rov)} rotate(${state.rov.heading.toFixed(1)})`);
+      setStatuses(frames, state.frames);
+      setStatuses(patches, state.patches);
+      setNets(state.nets);
+      setTrash(state.trash);
+    },
+  };
+}

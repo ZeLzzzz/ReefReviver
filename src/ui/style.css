@@ -277,7 +277,8 @@ kbd {
 }
 
 .hud-stats {
-  top: 16px;
+  /* REQ-010 (D-048): the stats sit directly under the minimap, so the right side is one column. */
+  top: calc(16px + var(--map-size) + 10px + 8px);
   right: 16px;
   min-width: 210px;
 }
@@ -435,4 +436,99 @@ kbd {
 
 .hud.cutting .tool-name {
   color: var(--accent);
+}
+
+/* REQ-010: the minimap, top right, on a semi-transparent panel; it shrinks with the window height (200 px at most). */
+.hud {
+  --map-size: clamp(140px, 34vh, 200px);
+}
+
+.hud-minimap {
+  top: 16px;
+  right: 16px;
+  padding: 5px;
+}
+
+.hud-minimap[hidden] {
+  display: none;
+}
+
+.mm-map {
+  display: block;
+  width: var(--map-size);
+  height: var(--map-size);
+}
+
+.mm-bay {
+  fill: rgba(241, 243, 236, 0.1);
+  stroke: rgba(241, 243, 236, 0.45);
+  stroke-width: 1.5;
+}
+
+.mm-rock {
+  fill: rgba(241, 243, 236, 0.24);
+}
+
+/* A site's status is in the mark, not only its colour: empty is an outline, started is filled, planted is filled with a check. */
+.mm-shape {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.mm-solid {
+  fill: var(--ink);
+}
+
+.mm-site[data-status="started"] .mm-shape {
+  fill: rgba(241, 243, 236, 0.5);
+}
+
+.mm-site[data-status="planted"] .mm-shape {
+  fill: var(--ink);
+}
+
+.mm-check {
+  display: none;
+  fill: none;
+  stroke: var(--accent-ink);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.mm-site[data-status="planted"] .mm-check {
+  display: block;
+}
+
+.mm-x {
+  fill: none;
+  stroke: #ff9a7a;
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.mm-dot {
+  fill: var(--ink-soft);
+  stroke: rgba(0, 0, 0, 0.55);
+  stroke-width: 0.8;
+}
+
+.mm-rov {
+  fill: var(--accent);
+  stroke: var(--accent-ink);
+  stroke-width: 1.4;
+  stroke-linejoin: round;
+}
+
+/* North is up; the letter sits in the corner, outside the bay's circle. */
+.mm-north {
+  position: absolute;
+  top: 6px;
+  left: 9px;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--ink-soft);
 }
