@@ -163,6 +163,48 @@ export const config = {
     nets: 2,
     animals: 2,
   },
+  // REQ-004: reef frames, coral fragments and seagrass seeds.
+  reef: {
+    // D-014: three marked reef sites and two seagrass patches in the east part of the bay (x > 12), clear of the
+    // station in the west, the rocks and the trash.
+    frameSites: [
+      { x: 22, z: 8 },
+      { x: 31, z: -12 },
+      { x: 25, z: 28 },
+    ],
+    seagrassPatches: [
+      { x: 36, z: 10 },
+      { x: 30, z: 20 },
+    ],
+    // 5 materials buy one frame (D-014).
+    frameCost: 5,
+    fragmentsPerFrame: 3,
+    seedsPerPatch: 3,
+    // Pressing E within this distance (on the ground plane) of an empty reef site installs a frame.
+    interactRadius: 4,
+    // D-030: score when a frame or a patch becomes planted.
+    scorePerPlanted: 50,
+    // The installed frame is a steel and concrete cage; a shot or the ROV touching this cylinder counts as touching the frame.
+    frame: { radius: 1.5, height: 1.75 },
+    // A seed that lands on the floor within this distance of a patch's centre is planted.
+    patchRadius: 2.5,
+    // Markers ignore the fog. The beam rises to this depth below the surface.
+    markerTopDepth: 2.2,
+  },
+  seedLauncher: {
+    // A shot flies from the ROV to the point under the crosshair, at this speed, and vanishes after this distance.
+    speed: 28,
+    range: 25,
+    // Seconds between two shots while the button is held.
+    interval: 0.4,
+    // How far along the camera ray the crosshair target is searched, and the step of that search.
+    aimDistance: 45,
+    rayStep: 0.25,
+    // Shots start this far ahead of the ROV's centre.
+    muzzle: 0.9,
+    // A moving shot is tested at least this often along its path, so it cannot skip through a frame.
+    hitStep: 0.2,
+  },
   hud: {
     noticeSeconds: 2.5,
     // How far from the screen edge the station marker stays, in pixels.

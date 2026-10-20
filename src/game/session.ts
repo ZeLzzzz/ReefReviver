@@ -3,9 +3,9 @@ import type { StringKey } from "../i18n/i18n";
 import type { AnimalSpecies } from "./nets";
 import { START_TOOL, type ToolId } from "./tools";
 
-const { tank, rewards, phase1, hud, nets } = config;
+const { tank, rewards, phase1, hud, nets, reef } = config;
 
-export type ObjectiveId = "clean" | "free" | "deposit";
+export type ObjectiveId = "clean" | "free" | "deposit" | "frames" | "coral" | "seagrass";
 
 export interface Objective {
   id: ObjectiveId;
@@ -39,6 +39,10 @@ export class Session {
   /** Nets cut and animals freed by the cutter (REQ-003). */
   netsCut = 0;
   animalsFreed = 0;
+  // REQ-004 progress: frames installed, frames planted with coral (3 fragments), seagrass patches planted (3 seeds).
+  framesInstalled = 0;
+  framesPlanted = 0;
+  patchesPlanted = 0;
   private notice: Notice | null = null;
   private noticeLeft = 0;
 
@@ -93,6 +97,34 @@ export class Session {
     this.say({ key: `animals.${species}.freed`, amount: nets.scorePerAnimal });
   }
 
+  /** E at an empty reef site: pays for a frame (AC-2), or says how much is missing (AC-3). */
+  buyFrame(): boolean {
+    if (this.materials < reef.frameCost) {
+      this.say({ key: "reef.needMaterials" });
+      return false;
+    }
+    this.materials -= reef.frameCost;
+    this.framesInstalled += 1;
+    this.say({ key: "reef.frameInstalled" });
+    return true;
+  }
+
+  /** A coral fragment attached to a frame; the frame's last fragment plants it (AC-4, D-030). */
+  coralAttached(planted: boolean): void {
+    if (!planted) return this.say({ key: "seed.coralAttached" });
+    this.framesPlanted += 1;
+    this.score += reef.scorePerPlanted;
+    this.say({ key: "reef.framePlanted", amount: reef.scorePerPlanted });
+  }
+
+  /** A seagrass seed was planted; the patch's last seed plants it (AC-5, D-030). */
+  seedPlanted(planted: boolean): void {
+    if (!planted) return this.say({ key: "seed.seedPlanted" });
+    this.patchesPlanted += 1;
+    this.score += reef.scorePerPlanted;
+    this.say({ key: "seagrass.patchPlanted", amount: reef.scorePerPlanted });
+  }
+
   /** The tool a key selected; null leaves the current tool alone. */
   select(tool: ToolId | null): void {
     if (tool) this.tool = tool;
@@ -120,6 +152,17 @@ export class Session {
       { id: "clean", current: this.cleanliness, target: phase1.cleanTarget, done: this.cleanliness >= phase1.cleanTarget },
       { id: "free", current: this.animalsFreed, target: phase1.animals, done: this.animalsFreed >= phase1.animals },
       { id: "deposit", current: null, target: null, done: this.trashDeposited > 0 },
+    ];
+  }
+
+  /** The Phase 2 list (AC-7): empty until the first deposit, then shown below the Phase 1 list. */
+  get phase2Objectives(): Objective[] {
+    if (this.trashDeposited === 0) return [];
+    const row = (id: ObjectiveId, current: number, target: number): Objective => ({ id, current, target, done: current >= target });
+    return [
+      row("frames", this.framesInstalled, reef.frameSites.length),
+      row("coral", this.framesPlanted, reef.frameSites.length),
+      row("seagrass", this.patchesPlanted, reef.seagrassPatches.length),
     ];
   }
 }

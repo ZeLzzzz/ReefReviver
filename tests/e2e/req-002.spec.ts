@@ -159,16 +159,16 @@ test.describe("Indonesian", () => {
     await expect(stat(page, "materials")).toHaveText("8");
   });
 
-  test("keys 3 and 4 do nothing yet; the pause controls list the new controls", async ({ page }) => {
+  test("key 4 does nothing yet; the pause controls list the new controls", async ({ page }) => {
     await startDive(page);
-    for (const key of ["Digit3", "Digit4", "Digit2"]) await page.keyboard.press(key);
+    for (const key of ["Digit4", "Digit2"]) await page.keyboard.press(key);
     await expect(page.locator(".tool-name")).toHaveText("2 Vacuum");
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Kontrol" }).click();
     const rows = await page.locator(".controls dt").evaluateAll((els) => els.map((el) => `${el.textContent} = ${el.nextElementSibling?.textContent}`));
     expect(rows).toContain("Klik kiri = Pakai alat (tahan)");
     expect(rows).toContain("2 = Pilih Vacuum");
-    expect(rows).toContain("E = Setor sampah di stasiun");
+    expect(rows).toContain("E = Setor sampah atau pasang rangka");
   });
 });
 

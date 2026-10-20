@@ -22,4 +22,13 @@ export interface HudState {
   sucking: boolean;
   /** REQ-003: how far the cutter has cut the net it aims at, 0 (not cutting) to 1. */
   cutProgress: number;
+  /** REQ-004: the Phase 2 list and the frame prompt. Optional so a state without a reef still renders. */
+  reef?: ReefHud;
+}
+
+export interface ReefHud {
+  /** The Phase 2 objectives; empty until the first deposit. */
+  phase2: Objective[];
+  /** The ROV is near an empty reef site (and not in the station zone), so E installs a frame. */
+  canInstall: boolean;
 }

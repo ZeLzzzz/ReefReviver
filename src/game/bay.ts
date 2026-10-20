@@ -1,5 +1,5 @@
 import { config } from "../config";
-import type { Vector3 } from "three";
+import { Vector3 } from "three";
 
 const { bay } = config;
 
@@ -117,6 +117,22 @@ function pushOutOfCylinder(p: Vector3, v: Vector3, x: number, z: number, baseY: 
   }
 }
 
+/** An installed reef frame (REQ-004): an upright cylinder on the floor, solid for the ROV like the station. */
+export interface FrameColumn {
+  x: number;
+  z: number;
+  baseY: number;
+  radius: number;
+  height: number;
+}
+
+let frameColumns: readonly FrameColumn[] = [];
+
+/** Replaces the list of installed frames the ROV cannot pass through. */
+export function setFrameColumns(columns: readonly FrameColumn[]): void {
+  frameColumns = columns;
+}
+
 /**
  * Keeps a sphere of `radius` inside the water: above the floor, below the surface, within the bay
  * boundary and outside every rock and the recycling station (D-041). Velocity into a limit is removed,
@@ -126,6 +142,7 @@ export function constrainToBay(p: Vector3, v: Vector3, radius: number = config.r
   for (const rock of rocks) pushOutOfRock(p, v, rock, radius);
   pushOutOfCylinder(p, v, station.x, station.z, stationFloor, station.body, radius);
   pushOutOfCylinder(p, v, station.x + station.mast.dx, station.z + station.mast.dz, stationFloor, station.mast, radius);
+  for (const frame of frameColumns) pushOutOfCylinder(p, v, frame.x, frame.z, frame.baseY, frame, radius);
 
   const distance = Math.hypot(p.x, p.z);
   if (distance > bay.boundaryRadius) {
@@ -150,4 +167,15 @@ export function constrainToBay(p: Vector3, v: Vector3, radius: number = config.r
     p.y = ceiling;
     if (v.y > 0) v.y = 0;
   }
+}
+
+const probePosition = new Vector3();
+const probeVelocity = new Vector3();
+
+/** True when a point is inside the floor, a rock, the station, an installed frame, or outside the bay (a shot ends there). */
+export function isSolidAt(x: number, y: number, z: number): boolean {
+  probePosition.set(x, y, z);
+  probeVelocity.set(0, 0, 0);
+  constrainToBay(probePosition, probeVelocity, 0);
+  return probePosition.x !== x || probePosition.y !== y || probePosition.z !== z;
 }

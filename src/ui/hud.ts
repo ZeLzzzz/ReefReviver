@@ -13,9 +13,16 @@ const OBJECTIVE_KEYS: Record<ObjectiveId, StringKey> = {
   clean: "objectives.clean",
   free: "objectives.free",
   deposit: "objectives.deposit",
+  frames: "objectives.phase2.frames",
+  coral: "objectives.phase2.coral",
+  seagrass: "objectives.phase2.seagrass",
 };
 
-const TOOL_SLOT: Record<HudState["tool"], string> = { vacuum: "2", cutter: "1" };
+const PHASE1_GOALS: readonly ObjectiveId[] = ["clean", "free", "deposit"];
+// REQ-004: the Phase 2 list appears below the Phase 1 list after the first deposit (D-043).
+const PHASE2_GOALS: readonly ObjectiveId[] = ["frames", "coral", "seagrass"];
+
+const TOOL_SLOT: Record<HudState["tool"], string> = { cutter: "1", vacuum: "2", seedLauncher: "3" };
 
 function setText(element: Element, text: string): void {
   if (element.textContent !== text) element.textContent = text;
@@ -38,15 +45,20 @@ function stat(label: string, className: string): { row: HTMLElement; value: HTML
  */
 export function createHud(lang: Lang): HudView {
   const goalItems = new Map<ObjectiveId, { item: HTMLElement; mark: HTMLElement; text: HTMLElement }>();
+  const addGoals = (list: HTMLElement, ids: readonly ObjectiveId[]) => {
+    for (const id of ids) {
+      const mark = h("span", { class: "goal-mark", "aria-hidden": "true" });
+      const text = h("span", { class: "goal-text" });
+      const status = h("span", { class: "visually-hidden" });
+      const item = h("li", { class: "goal", "data-goal": id }, mark, text, status);
+      goalItems.set(id, { item, mark, text });
+      list.append(item);
+    }
+  };
   const goalList = h("ul", { class: "goal-list" });
-  for (const id of Object.keys(OBJECTIVE_KEYS) as ObjectiveId[]) {
-    const mark = h("span", { class: "goal-mark", "aria-hidden": "true" });
-    const text = h("span", { class: "goal-text" });
-    const status = h("span", { class: "visually-hidden" });
-    const item = h("li", { class: "goal", "data-goal": id }, mark, text, status);
-    goalItems.set(id, { item, mark, text });
-    goalList.append(item);
-  }
+  addGoals(goalList, PHASE1_GOALS);
+  const phase2List = h("ul", { class: "goal-list goal-list-phase2" });
+  phase2List.hidden = true;
 
   const score = stat(t(lang, "hud.score"), "stat-score");
   const materials = stat(t(lang, "hud.materials"), "stat-materials");
@@ -83,7 +95,7 @@ export function createHud(lang: Lang): HudView {
     { class: "hud" },
     h("div", { class: "crosshair", "aria-hidden": "true" }),
     cutProgress,
-    h("section", { class: "hud-panel hud-goals", "aria-label": t(lang, "objectives.title") }, h("h2", {}, t(lang, "objectives.title")), goalList),
+    h("section", { class: "hud-panel hud-goals", "aria-label": t(lang, "objectives.title") }, h("h2", {}, t(lang, "objectives.title")), goalList, phase2List),
     h("section", { class: "hud-panel hud-stats" }, tank.row, meter, materials.row, score.row, cleanliness.row),
     h(
       "section",
@@ -100,7 +112,11 @@ export function createHud(lang: Lang): HudView {
   return {
     element,
     update(state) {
-      for (const objective of state.objectives) {
+      const phase2 = state.reef?.phase2 ?? [];
+      setHidden(phase2List, phase2.length === 0);
+      // The rows are built when the list first appears, so before the first deposit only the Phase 1 goals exist.
+      if (phase2.length > 0 && phase2List.childElementCount === 0) addGoals(phase2List, PHASE2_GOALS);
+      for (const objective of [...state.objectives, ...phase2]) {
         const parts = goalItems.get(objective.id)!;
         const counts = objective.target === null ? "" : objective.id === "clean" ? ` ${objective.current}%/${objective.target}%` : ` ${objective.current}/${objective.target}`;
         setText(parts.text, t(lang, OBJECTIVE_KEYS[objective.id]) + counts);
@@ -132,8 +148,10 @@ export function createHud(lang: Lang): HudView {
 
       setHidden(fullMessage, !state.tankFull);
       setText(fullMessage, state.tankFull ? t(lang, "hud.tankFull") : "");
-      setHidden(prompt, !state.inStationZone);
-      setText(prompt, state.inStationZone ? t(lang, "hud.depositPrompt") : "");
+      // Depositing wins when both apply; the frame prompt shows near an empty reef site (REQ-004).
+      const promptKey = state.inStationZone ? "hud.depositPrompt" : state.reef?.canInstall ? "reef.installPrompt" : null;
+      setHidden(prompt, !promptKey);
+      setText(prompt, promptKey ? t(lang, promptKey) : "");
       setHidden(notice, !state.notice);
       setText(notice, state.notice ? t(lang, state.notice.key) + (state.notice.amount === undefined ? "" : ` +${state.notice.amount}`) : "");
 

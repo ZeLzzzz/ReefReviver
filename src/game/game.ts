@@ -9,14 +9,17 @@ import {
   WebGLRenderer,
 } from "three";
 import { config } from "../config";
-import { rocks } from "./bay";
+import { rocks, setFrameColumns } from "./bay";
 import { aimDirection, followCamera, keepCameraInWater } from "./follow-camera";
 import type { HudState } from "./hud-state";
 import { Input } from "./input";
 import { placeMarker } from "./marker";
+import { createReefView, createShotView } from "./reef-model";
+import { ReefField } from "./reef-sites";
 import { createRovModel } from "./rov-model";
 import { createRovState, rightVector, steer, stepRov, type RovState } from "./rov";
 import { Rescue } from "./rescue";
+import { findAimPoint, SeedLauncher } from "./seed-launcher";
 import { Session } from "./session";
 import { distanceToStation, inStationZone, stationPosition } from "./station";
 import { createStationModel, STATION_MARKER_HEIGHT } from "./station-model";
@@ -67,6 +70,14 @@ export class Game implements GameView {
   private readonly aim = new Vector3();
   private readonly stationAnchor = new Vector3(stationPosition.x, stationPosition.y + STATION_MARKER_HEIGHT, stationPosition.z);
   private readonly viewPoint = new Vector3();
+  // REQ-004: reef sites, frames, coral and seagrass, and the seed launcher.
+  private readonly reef = new ReefField();
+  private readonly reefView = createReefView(this.reef);
+  private readonly seeds = new SeedLauncher();
+  private readonly seedView = createShotView();
+  private readonly seedCamera = new Vector3();
+  private readonly seedCameraTarget = new Vector3();
+  private readonly seedTarget = new Vector3();
   private session = new Session(this.field.total);
   private hudListener: ((state: HudState) => void) | null = null;
   private lastHud: HudState | null = null;
@@ -82,6 +93,8 @@ export class Game implements GameView {
     this.world = buildWorld(this.scene);
     this.scene.add(this.rovModel, createStationModel(), this.trashView.group, this.beam, this.rescue.group);
     this.trashView.sync(this.field.items);
+    this.scene.add(this.reefView.group, this.seedView.group);
+    this.reefView.sync(this.reef);
     this.input = new Input(canvas.ownerDocument);
     this.syncRovModel();
 
@@ -105,6 +118,14 @@ export class Game implements GameView {
         clock: () => this.rescue.animals.elapsed,
         nets: () => this.rescue.nets.nets.map((n) => ({ id: n.id, species: n.species, cut: n.cut, center: n.center.toArray(), yaw: n.yaw, size: [n.width, n.height, n.length] })),
         animals: () => this.rescue.animals.animals.map((a) => ({ id: a.id, species: a.species, state: a.state, position: a.position.toArray(), yaw: a.yaw })),
+        // REQ-004: the reef sites and their progress, and a way to give materials without depositing trash.
+        reefSites: () => ({
+          frames: this.reef.frames.map((f) => ({ x: f.x, y: f.y, z: f.z, installed: f.installed, fragments: f.fragments })),
+          patches: this.reef.patches.map((p) => ({ x: p.x, y: p.y, z: p.z, seeds: p.seeds })),
+        }),
+        giveMaterials: (n: number) => {
+          this.session.materials += n;
+        },
         placeRov: (x: number, y: number, z: number, yaw: number, pitch: number) => {
           this.rov.position.set(x, y, z);
           this.rov.velocity.set(0, 0, 0);
@@ -125,6 +146,7 @@ export class Game implements GameView {
     this.field.reset();
     this.trashView.sync(this.field.items);
     this.rescue.reset(); // REQ-003
+    this.resetReef();
     this.sucking = false;
     this.input.clear();
     this.mode = "playing";
@@ -167,6 +189,7 @@ export class Game implements GameView {
     for (const code of this.input.takePressed()) {
       session.select(toolForKey(code));
       if (code === "KeyE" && inStationZone(rov.position)) session.deposit();
+      else if (code === "KeyE") this.installFrame();
     }
 
     aimDirection(rov.yaw, rov.pitch, this.aim);
@@ -176,6 +199,7 @@ export class Game implements GameView {
     for (const _item of this.field.update(dt, rov.position, this.aim, held, room)) session.collect();
     // REQ-003: the cutter, the nets and the animals.
     this.rescue.step(dt, rov, this.aim, this.input.primaryHeld() && session.tool === "cutter", this.field.items, session);
+    this.stepSeedLauncher(dt);
     session.tick(dt);
     this.trashView.sync(this.field.items);
 
@@ -185,6 +209,43 @@ export class Game implements GameView {
       this.beam.lookAt(rov.position.x + this.aim.x, rov.position.y + this.aim.y, rov.position.z + this.aim.z);
       (this.beam.material as MeshBasicMaterial).opacity = 0.07 + 0.03 * Math.sin(performance.now() / 60);
     }
+  }
+
+  /** REQ-004: a new dive starts with no frames, coral or seagrass. */
+  private resetReef(): void {
+    this.reef.reset();
+    setFrameColumns([]);
+    this.seeds.clear();
+    this.reefView.sync(this.reef);
+    this.seedView.sync(this.seeds.shots);
+  }
+
+  /** E near an empty reef site: pays 5 materials and installs a frame (AC-2), or says materials are short (AC-3). */
+  private installFrame(): void {
+    const site = this.reef.emptySiteNear(this.rov.position.x, this.rov.position.z);
+    if (site < 0 || !this.session.buyFrame()) return;
+    this.reef.install(site);
+    setFrameColumns(this.reef.columns());
+    this.reefView.sync(this.reef);
+  }
+
+  /** The seed launcher: shots fly to the crosshair's target; coral and seeds land on frames and patches (AC-4 to AC-6). */
+  private stepSeedLauncher(dt: number): void {
+    const { session, rov, seeds } = this;
+    let changed = false;
+    for (const result of seeds.update(dt, this.reef)) {
+      if (result.kind === "coral") session.coralAttached(result.planted);
+      else if (result.kind === "seed") session.seedPlanted(result.planted);
+      changed ||= result.kind !== "miss";
+    }
+    if (this.input.primaryHeld() && session.tool === "seedLauncher" && seeds.ready) {
+      // The crosshair is the camera's ray along the aim; the shot leaves the ROV and flies to the point that ray hits.
+      followCamera(rov, this.seedCamera, this.seedCameraTarget);
+      findAimPoint(this.seedCamera, this.aim, this.reef, this.seedTarget);
+      seeds.fire(rov.position, this.seedTarget, this.aim);
+    }
+    if (changed) this.reefView.sync(this.reef);
+    this.seedView.sync(seeds.shots);
   }
 
   private publishHud(): void {
@@ -207,6 +268,10 @@ export class Game implements GameView {
       marker: placeMarker(this.viewPoint, tanHalfFov, window.innerWidth, window.innerHeight, config.hud.markerMargin),
       sucking: this.sucking,
       cutProgress: this.rescue.progress, // REQ-003
+      reef: {
+        phase2: session.phase2Objectives,
+        canInstall: !inStationZone(this.rov.position) && this.reef.emptySiteNear(this.rov.position.x, this.rov.position.z) >= 0,
+      },
     };
     this.lastHud = state;
     this.hudListener?.(state);

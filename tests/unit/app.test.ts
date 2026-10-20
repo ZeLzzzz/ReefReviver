@@ -239,7 +239,8 @@ describe("pause (REQ-001 AC-5)", () => {
       "Klik kiri = Pakai alat (tahan)",
       "1 = Pilih Cutter",
       "2 = Pilih Vacuum",
-      "E = Setor sampah di stasiun",
+      "3 = Pilih Seed launcher",
+      "E = Setor sampah atau pasang rangka",
       "Esc = Jeda",
     ]);
     await clickButton(ui, "Kembali");

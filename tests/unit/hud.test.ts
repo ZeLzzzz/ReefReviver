@@ -177,7 +177,7 @@ describe("languages (G-004)", () => {
 
   it("never suggests that trash or plastic goes back to the sea (G-003)", () => {
     const station = Object.entries({ ...idStrings, ...enStrings }).filter(([key]) => /^(hud|station|objectives)\./.test(key));
-    for (const [, value] of station) expect(value).not.toMatch(/laut|lepas|kembalikan|sea|release|return/i);
+    for (const [, value] of station) expect(value).not.toMatch(/laut|lepas|kembalikan|\bsea\b|release|return/i);
   });
 });
 

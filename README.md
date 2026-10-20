@@ -8,7 +8,8 @@ Game browser 3D low-poly: pemain mengendalikan ROV untuk membersihkan teluk yang
 - Menyelam dengan ROV di teluk yang keruh: kamera orang ketiga dan crosshair di tengah layar. ROV tidak bisa menembus dasar laut, tebing, batu, stasiun daur ulang, atau permukaan air.
 - Menyedot sampah dengan Vacuum (tahan klik kiri). Tangki muat 8 item; kalau penuh, setor di stasiun daur ulang dengan E untuk mendapat bahan. Penanda di layar menunjukkan arah stasiun.
 - Memotong jaring hantu dengan Cutter (tahan klik kiri pada jaring 2 detik) untuk membebaskan penyu hijau dan hiu sirip hitam karang. Satwa yang bebas terus berkeliaran di teluk.
-- HUD berisi tangki, bahan, skor, kebersihan teluk, alat aktif, dan daftar tujuan Fase 1.
+- Memasang rangka terumbu baja/beton di 3 titik bertanda dengan E (5 bahan), lalu menembakkan bibit dengan Seed launcher: kena rangka jadi fragmen koral, kena petak pasir jadi biji lamun. 3 fragmen menanami satu rangka, 3 biji menanami satu petak.
+- HUD berisi tangki, bahan, skor, kebersihan teluk, alat aktif, daftar tujuan Fase 1, dan daftar tujuan Fase 2 setelah setoran pertama.
 - Menu jeda (Esc) berisi Lanjut, Kontrol, dan Bahasa. Game juga otomatis berhenti kalau kursor lepas, misalnya karena alt-tab.
 - Di HP/tablet muncul pesan "Mainkan di komputer". Di browser tanpa WebGL 2 muncul penjelasan, bukan layar hitam.
 
@@ -24,7 +25,8 @@ Model 3D masih berupa bentuk sederhana sampai model GLB dari artist masuk.
 | Klik kiri (tahan) | Pakai alat |
 | 1 | Pilih Cutter |
 | 2 | Pilih Vacuum |
-| E | Setor sampah di stasiun |
+| 3 | Pilih Seed launcher |
+| E | Setor sampah di stasiun, atau pasang rangka di titik terumbu |
 | Esc | Jeda |
 
 ## Menjalankan
@@ -55,5 +57,5 @@ Sebelum `test:e2e` pertama kali, pasang Chromium-nya dengan `npx playwright inst
 | `src/i18n/id.json`, `en.json` | Semua teks di game. Kedua file harus punya kunci yang sama |
 | `src/logbook/entries.ts` | Data tujuh entri Marine Logbook: nama ilmiah, target SDG 14, dan sumber tiap fakta. Teksnya ada di file string (`logbook.*`) |
 | `src/app.ts`, `src/ui/` | Alur layar: judul, bermain, jeda, pesan perangkat/WebGL |
-| `src/game/` | Adegan Three.js dan aturan main: teluk, ROV, tabrakan, kamera, input, sampah, vacuum, stasiun, jaring, satwa, cutter, sesi (tangki, skor, kebersihan, tujuan) |
+| `src/game/` | Adegan Three.js dan aturan main: teluk, ROV, tabrakan, kamera, input, sampah, vacuum, stasiun, jaring, satwa, cutter, titik terumbu, seed launcher, sesi (tangki, skor, kebersihan, tujuan) |
 | `tests/unit/`, `tests/e2e/` | Unit test dan tes browser |

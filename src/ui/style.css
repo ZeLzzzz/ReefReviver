@@ -240,6 +240,16 @@ kbd {
   list-style: none;
 }
 
+.goal-list-phase2 {
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.goal-list-phase2[hidden] {
+  display: none;
+}
+
 .goal {
   display: flex;
   gap: 8px;
