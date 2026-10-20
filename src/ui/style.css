@@ -1,0 +1,199 @@
+/* Temporary UI styling until the artist sets the palette (DESIGN: Token). Text is at least 16 px. */
+:root {
+  --murk: #55695c;
+  --ink: #f1f3ec;
+  --ink-soft: #c9d2c6;
+  --panel: rgba(16, 26, 22, 0.74);
+  --accent: #f2b134;
+  --accent-ink: #1d1a12;
+  --line: rgba(241, 243, 236, 0.22);
+  font-family: system-ui, "Segoe UI", Roboto, Ubuntu, sans-serif;
+  font-size: 16px;
+  color: var(--ink);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--murk);
+}
+
+#scene {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+#ui {
+  position: fixed;
+  inset: 0;
+}
+
+.screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 24px;
+}
+
+.title-screen {
+  justify-content: flex-start;
+  padding-top: 12vh;
+  background: radial-gradient(ellipse at center, rgba(16, 26, 22, 0) 30%, rgba(16, 26, 22, 0.55) 100%);
+}
+
+.game-name {
+  margin: 0 0 12px;
+  font-size: clamp(48px, 8vw, 96px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.35);
+}
+
+.pause-screen,
+.message-screen {
+  background: rgba(10, 16, 13, 0.45);
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(420px, 100%);
+  padding: 28px;
+  border-radius: 12px;
+  background: var(--panel);
+  backdrop-filter: blur(6px);
+}
+
+.panel h1,
+.panel h2 {
+  margin: 0 0 4px;
+  font-size: 24px;
+}
+
+.panel p {
+  margin: 0;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+button {
+  min-height: 44px;
+  padding: 10px 20px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: var(--ink-soft);
+}
+
+button:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+button.primary {
+  border-color: transparent;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 700;
+}
+
+.title-screen > button.primary {
+  min-width: 200px;
+  font-size: 20px;
+}
+
+.language-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.language-picker span {
+  margin-right: 4px;
+  color: var(--ink-soft);
+}
+
+.language-picker button[aria-pressed="true"] {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.notice {
+  margin: 0;
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--accent);
+}
+
+.controls {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 10px 16px;
+  margin: 0 0 8px;
+}
+
+.controls dt,
+.controls dd {
+  margin: 0;
+  align-self: center;
+}
+
+kbd {
+  display: inline-block;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font: inherit;
+  font-weight: 600;
+}
+
+.hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 22px;
+  height: 22px;
+  margin: -11px 0 0 -11px;
+  border: 2px solid rgba(241, 243, 236, 0.85);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+
+.crosshair::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  margin: -2px 0 0 -2px;
+  border-radius: 50%;
+  background: rgba(241, 243, 236, 0.95);
+}
