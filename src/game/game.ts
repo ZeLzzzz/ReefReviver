@@ -187,7 +187,7 @@ export class Game implements GameView {
           const fog = this.scene.fog as Fog;
           return { background: (this.scene.background as Color).getHex(), fog: fog.color.getHex(), fogNear: fog.near, fogFar: fog.far };
         },
-        reefLook: () => ({ ...this.reefView.look(), coral: this.reefView.coralMaterials.map((m) => m.color.getHex()) }),
+        reefLook: () => ({ ...this.reefView.look(), coral: this.reefView.coralMaterials.map((m) => m.color.getHex()), markers: this.reefView.markerOpacity() }),
         seaLife: () => ({
           active: this.seaLife.active,
           scale: this.seaLife.scale,

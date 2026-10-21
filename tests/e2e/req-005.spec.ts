@@ -10,7 +10,7 @@ type Hook = {
   newDive(): void;
   bloom(): { state: "idle" | "running" | "done"; progress: number; clarity: number; scannerOpen: boolean };
   water(): { background: number; fog: number; fogNear: number; fogFar: number };
-  reefLook(): { coralScale: number; seagrassHeight: number; coral: number[] };
+  reefLook(): { coralScale: number; seagrassHeight: number; coral: number[]; markers: number[] };
   seaLife(): {
     active: boolean;
     scale: number;
@@ -29,6 +29,7 @@ type Sample = {
   coralScale: number;
   seagrassHeight: number;
   coral: number[];
+  markers: number[];
   notice: string | null;
   tool: string | null;
   rov: Vec;
@@ -75,6 +76,7 @@ async function startSampler(page: Page) {
         coralScale: look.coralScale,
         seagrassHeight: look.seagrassHeight,
         coral: look.coral,
+        markers: look.markers,
         notice: hud?.notice?.key ?? null,
         tool: hud?.tool ?? null,
         rov: h.rovPosition(),
@@ -207,6 +209,8 @@ test.describe("Indonesian", () => {
       expect(b.coralScale - a.coralScale).toBeLessThan(0.05);
       expect(b.seagrassHeight).toBeGreaterThanOrEqual(a.seagrassHeight);
       expect(b.seagrassHeight - a.seagrassHeight).toBeLessThan(0.12);
+      expect(b.markers[0]).toBeLessThanOrEqual(a.markers[0]);
+      expect(a.markers[0] - b.markers[0]).toBeLessThan(0.05);
       const ca = channels(a.background);
       const cb = channels(b.background);
       const from = channels(before.background);
@@ -223,6 +227,12 @@ test.describe("Indonesian", () => {
     expect(after.seagrassHeight).toBeGreaterThan(3);
     expect(new Set(before.coral).size).toBe(1);
     expect(new Set(after.coral).size).toBeGreaterThanOrEqual(5);
+
+    // AC-8 (D-052): the site markers fade out with the Bloom; the minimap still shows every site, planted.
+    expect(before.markers).toEqual([1, 1, 1, 1, 1]);
+    expect(after.markers).toEqual([0, 0, 0, 0, 0]);
+    await expect(page.locator('.hud-minimap [data-kind="frame"][data-status="planted"]')).toHaveCount(3);
+    await expect(page.locator('.hud-minimap [data-kind="patch"][data-status="planted"]')).toHaveCount(2);
 
     // AC-6: controls stayed active during the transition: the key switched the tool and the ROV kept moving.
     expect(running.some((s) => s.tool === "cutter")).toBe(true);
@@ -309,6 +319,7 @@ test.describe("English", () => {
     expect(look.coralScale).toBe(1);
     expect(look.seagrassHeight).toBe(1);
     expect(new Set(look.coral).size).toBe(1);
+    expect(look.markers).toEqual([1, 1, 1, 1, 1]);
     expect((await reef(page, (h) => h.seaLife())).active).toBe(false);
     await expect(visibleGoals(page)).toHaveText(["Clean the bay 0%/80%", "Free the animals 0/2", "Deposit trash at the station"]);
     expect((await reef(page, (h) => h.trash())).length).toBe(40);

@@ -273,6 +273,35 @@ describe("coral and seagrass grow (AC-2)", () => {
   });
 });
 
+describe("the site markers fade out (AC-8, D-052)", () => {
+  const view = createReefView(new ReefField());
+  const markers = reef.frameSites.length + reef.seagrassPatches.length;
+
+  it("show every marker before the Bloom", () => {
+    view.setBloom(0);
+    expect(view.markerOpacity()).toEqual(Array(markers).fill(1));
+  });
+
+  it("fade steadily while the Bloom runs, never coming back on the way", () => {
+    let last = 1;
+    for (let i = 0; i <= 100; i++) {
+      view.setBloom(i / 100);
+      const opacity = view.markerOpacity();
+      expect(new Set(opacity).size).toBe(1);
+      expect(opacity[0]).toBeLessThanOrEqual(last);
+      expect(last - opacity[0]).toBeLessThan(0.05);
+      last = opacity[0];
+    }
+  });
+
+  it("are gone when the Bloom is over, and come back for a new dive", () => {
+    view.setBloom(1);
+    expect(view.markerOpacity()).toEqual(Array(markers).fill(0));
+    view.setBloom(0);
+    expect(view.markerOpacity()).toEqual(Array(markers).fill(1));
+  });
+});
+
 describe("Phase 3 (AC-5)", () => {
   it("has no list before the Bloom is over", () => {
     expect(new Session(40).phase3Objectives).toEqual([]);

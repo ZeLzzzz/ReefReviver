@@ -47,6 +47,8 @@ export interface ReefView {
   setBloom(clarity: number): void;
   /** How big the first coral fragment and the first seagrass sprout are now (relative to their pre-Bloom size 1.4 and 1), for tests. */
   look(): { coralScale: number; seagrassHeight: number };
+  /** How opaque each site marker is now, frames first, 0 when hidden (D-052), for tests. */
+  markerOpacity(): number[];
   /** Shows the field's current state: frames, fragments, sprouts and markers. Call after something changed. */
   sync(field: ReefField): void;
 }
@@ -78,18 +80,23 @@ function mesh(geometry: BufferGeometry, material: Material, x = 0, y = 0, z = 0)
 interface Marker {
   group: Group;
   setStatus(status: SiteStatus): void;
+  /** D-052: 1 is fully shown, 0 hides the marker. */
+  setOpacity(opacity: number): void;
+  opacity(): number;
 }
 
 /**
  * A beam from the floor up to just under the surface with a shape on top. It ignores the fog, so it shows
  * from across the bay. The shape tells reef sites (a diamond) from seagrass patches (a ball); the state is
  * told by the shape too: an outline when empty, solid once work has started, solid with a halo when planted.
+ * The Bloom fades it out (D-052): every site is planted by then, and the clear water makes the beam too loud.
  */
 function createMarker(kind: "frame" | "patch", site: { x: number; y: number; z: number }, ringRadius: number): Marker {
   const colour = kind === "frame" ? MARKER.frame : MARKER.patch;
-  const basic = new MeshBasicMaterial({ color: colour, fog: false, side: DoubleSide });
-  const outline = new MeshBasicMaterial({ color: colour, fog: false, wireframe: true });
-  const done = new MeshBasicMaterial({ color: MARKER.planted, fog: false, side: DoubleSide });
+  const basic = new MeshBasicMaterial({ color: colour, fog: false, side: DoubleSide, transparent: true });
+  const outline = new MeshBasicMaterial({ color: colour, fog: false, wireframe: true, transparent: true });
+  const done = new MeshBasicMaterial({ color: MARKER.planted, fog: false, side: DoubleSide, transparent: true });
+  const materials = [basic, outline, done];
 
   const topY = bay.surfaceY - reef.markerTopDepth - site.y;
   const group = new Group();
@@ -113,6 +120,11 @@ function createMarker(kind: "frame" | "patch", site: { x: number; y: number; z: 
       solid.material = status === "planted" ? done : basic;
       beam.material = status === "planted" ? done : basic;
     },
+    setOpacity(opacity) {
+      for (const material of materials) material.opacity = opacity;
+      group.visible = opacity > 0;
+    },
+    opacity: () => (group.visible ? basic.opacity : 0),
   };
 }
 
@@ -253,6 +265,7 @@ export function createReefView(field: ReefField): ReefView {
     coralMaterials,
     seagrassMaterial,
     look: () => ({ coralScale: frames[0].fragments[0].scale.y / FRAGMENT_SCALE, seagrassHeight: patches[0].sprouts[0].group.scale.y }),
+    markerOpacity: () => [...frames, ...patches].map((view) => view.marker.opacity()),
     setBloom(clarity) {
       const pastel = bloom.coral.pastel;
       const grow = lerp(1, bloom.coral.scale, clarity);
@@ -278,6 +291,7 @@ export function createReefView(field: ReefField): ReefView {
           }
         }
       }
+      for (const view of [...frames, ...patches]) view.marker.setOpacity(1 - clarity);
     },
     sync(current) {
       current.frames.forEach((site, i) => {
