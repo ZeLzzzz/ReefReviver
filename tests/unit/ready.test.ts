@@ -7,7 +7,7 @@ const pointerLock: PointerLock = { request: async () => true, exit: () => {}, on
 function setup(overrides: Partial<AppDeps> = {}) {
   document.body.innerHTML = '<div id="ui"></div>';
   const ui = document.querySelector<HTMLElement>("#ui")!;
-  const game = { play: vi.fn(), pause: vi.fn(), resume: vi.fn(), onHud: vi.fn() };
+  const game = { play: vi.fn(), pause: vi.fn(), resume: vi.fn(), onHud: vi.fn(), onEnd: vi.fn() };
   const createGame = vi.fn(() => game);
   const app = new App({
     ui,

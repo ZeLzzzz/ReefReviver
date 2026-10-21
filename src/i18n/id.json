@@ -133,5 +133,16 @@
   "logbook.factsLabel": "Fakta",
   "logbook.sdgLabel": "Kaitan dengan SDG 14",
   "logbook.sourcesLabel": "Sumber",
-  "logbook.list": "Daftar entri"
+  "logbook.list": "Daftar entri",
+  "end.title": "Teluk sudah pulih!",
+  "end.body": "Ketujuh entri Marine Logbook sudah terbuka.",
+  "end.trash": "Sampah terangkat",
+  "end.animals": "Satwa diselamatkan",
+  "end.frames": "Rangka koral ditanami",
+  "end.patches": "Petak lamun ditanami",
+  "end.time": "Waktu bermain",
+  "end.score": "Skor",
+  "end.replay": "Main lagi",
+  "end.explore": "Lanjut menjelajah",
+  "end.lockFailed": "Kursor belum terkunci ke game. Klik tombolnya lagi."
 }

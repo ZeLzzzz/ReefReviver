@@ -218,6 +218,10 @@ export const config = {
     coralHeight: 1,
     seagrassHeight: 0.9,
   },
+  // REQ-008: the end screen shows this many game seconds after the 7th entry, once its notice (2.5 s) has been read.
+  end: {
+    delay: 3,
+  },
   hud: {
     noticeSeconds: 2.5,
     // How far from the screen edge the station marker stays, in pixels.

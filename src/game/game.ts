@@ -29,7 +29,7 @@ import { createRovModel } from "./rov-model";
 import { createRovState, rightVector, steer, stepRov, type RovState } from "./rov";
 import { Rescue } from "./rescue";
 import { findAimPoint, SeedLauncher } from "./seed-launcher";
-import { Session } from "./session";
+import { Session, type SessionSummary } from "./session";
 import { distanceToStation, inStationZone, stationPosition } from "./station";
 import { createStationModel, STATION_MARKER_HEIGHT } from "./station-model";
 import { toolForKey } from "./tools";
@@ -46,6 +46,8 @@ export interface GameView {
   resume(): void;
   /** The HUD listens here; it gets the state once per frame while playing. */
   onHud(listener: (state: HudState) => void): void;
+  /** REQ-008: called once per dive, a moment after the 7th Logbook entry is scanned. */
+  onEnd(listener: (summary: SessionSummary) => void): void;
 }
 
 type Mode = "title" | "playing" | "paused";
@@ -108,6 +110,7 @@ export class Game implements GameView {
   private scanHit: ScanHit | null = null;
   private session = new Session(this.field.total);
   private hudListener: ((state: HudState) => void) | null = null;
+  private endListener: ((summary: SessionSummary) => void) | null = null;
   private lastHud: HudState | null = null;
   private sucking = false;
   private rov: RovState = createRovState();
@@ -217,6 +220,9 @@ export class Game implements GameView {
             this.session.freeAnimal(net.species);
           }
         },
+        // REQ-008: open an entry as a scan would (the end screen follows the 7th), and read the play time.
+        scanEntry: (id: LogbookId) => this.session.scanned({ kind: "scanned", entry: id }),
+        playSeconds: () => this.session.playSeconds,
         seaLife: () => ({
           active: this.seaLife.active,
           scale: this.seaLife.scale,
@@ -229,6 +235,10 @@ export class Game implements GameView {
 
   onHud(listener: (state: HudState) => void): void {
     this.hudListener = listener;
+  }
+
+  onEnd(listener: (summary: SessionSummary) => void): void {
+    this.endListener = listener;
   }
 
   play(): void {
@@ -257,7 +267,9 @@ export class Game implements GameView {
   }
 
   private frame(time: number): void {
-    const dt = this.lastFrame === null ? 0 : Math.min((time - this.lastFrame) / 1000, 0.1);
+    // The simulation steps at most 0.1 s per frame; the play time (REQ-008) counts the real time.
+    const real = this.lastFrame === null ? 0 : (time - this.lastFrame) / 1000;
+    const dt = Math.min(real, 0.1);
     this.lastFrame = time;
 
     if (this.mode === "playing") {
@@ -266,6 +278,7 @@ export class Game implements GameView {
       stepRov(this.rov, this.input.move(), dt);
       this.stepTools(dt);
       this.stepBloom(dt); // REQ-005
+      this.stepEnd(dt, real); // REQ-008
       this.syncRovModel();
       followCamera(this.rov, this.camera.position, this.cameraTarget);
     } else if (this.mode === "title") {
@@ -344,6 +357,12 @@ export class Game implements GameView {
     }
     this.seaLife.update(dt);
     this.seaLifeView.sync(this.seaLife, dt);
+  }
+
+  /** REQ-008: counts the play time, and once the 7th entry's notice has been read, hands the summary to the end screen. */
+  private stepEnd(dt: number, real: number): void {
+    this.session.addPlayTime(real);
+    if (this.session.endDue(dt)) this.endListener?.(this.session.summary());
   }
 
   /** Sets the water, coral and seagrass to a point of the Bloom, only when it changed. */

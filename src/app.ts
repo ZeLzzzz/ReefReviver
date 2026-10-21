@@ -1,16 +1,18 @@
 import type { GameView } from "./game/game";
 import type { HudState } from "./game/hud-state";
+import type { SessionSummary } from "./game/session";
 import type { LogbookId } from "./logbook/entries";
 import { initialLanguage, saveLanguage, type Lang, type StorageLike, type StringKey } from "./i18n/i18n";
 import type { PointerLock } from "./ui/pointer-lock";
 import { credits } from "./credits";
 import { creditsScreen } from "./ui/credits";
+import { endScreen } from "./ui/end";
 import { createHud, type HudView } from "./ui/hud";
 import { createLoadingScreen, type LoadingView } from "./ui/loading";
 import { logbookScreen } from "./ui/logbook";
 import { messageScreen, pauseMenu, titleScreen, type PauseView } from "./ui/screens";
 
-export type Screen = "loading" | "title" | "credits" | "playing" | "paused" | "logbook" | "unsupported" | "noWebgl" | "assetError";
+export type Screen = "loading" | "title" | "credits" | "playing" | "paused" | "logbook" | "end" | "unsupported" | "noWebgl" | "assetError";
 
 export interface AppDeps {
   /** Where the screens are drawn, over the canvas. */
@@ -25,7 +27,7 @@ export interface AppDeps {
   loadAssets?: (onProgress: (fraction: number) => void) => Promise<void>;
 }
 
-/** Screen flow around the game: loading, title, credits, playing, pause, the Marine Logbook, and the messages for unsupported browsers. */
+/** Screen flow around the game: loading, title, credits, playing, pause, the Marine Logbook, the end screen, and the messages for unsupported browsers. */
 export class App {
   screen: Screen = "title";
   lang: Lang;
@@ -37,6 +39,9 @@ export class App {
   /** The Logbook entry shown while the Logbook is open (REQ-006). */
   private logbookEntry: LogbookId | null = null;
   private loadingView: LoadingView | null = null;
+  /** REQ-008: what the end screen shows, and which of its buttons was pressed. */
+  private summary: SessionSummary | null = null;
+  private endChoice: "replay" | "explore" = "explore";
 
   constructor(private readonly deps: AppDeps) {
     this.lang = initialLanguage(deps.storage, deps.browserLanguages);
@@ -69,6 +74,7 @@ export class App {
       this.hudState = state;
       this.hudView?.update(state);
     });
+    this.game.onEnd((summary) => this.showEnd(summary));
     this.deps.pointerLock.onChange((locked) => this.lockChanged(locked));
     doc.defaultView!.addEventListener("keydown", (event) => this.keyDown(event));
     // Losing the cursor or the window (alt-tab, another tab) pauses the game (AC-6).
@@ -113,6 +119,23 @@ export class App {
     this.render();
   }
 
+  /**
+   * REQ-008: the 7th entry's notice has been read; the end screen stops the game like the pause menu and frees the
+   * cursor for its buttons. The screen is switched first, so the unlock does not count as a pause.
+   */
+  private showEnd(summary: SessionSummary): void {
+    this.game!.pause();
+    this.summary = summary;
+    this.show("end");
+    this.deps.pointerLock.exit();
+  }
+
+  /** Main lagi (AC-3) and Lanjut menjelajah (AC-5) both lock the cursor; once it is locked, the choice is carried out. */
+  private leaveEnd(choice: "replay" | "explore"): void {
+    this.endChoice = choice;
+    void this.lockCursor("end.lockFailed");
+  }
+
   /** Mulai and Lanjut lock the cursor; the game starts or resumes once the lock is in place. */
   private async lockCursor(failedKey: StringKey): Promise<void> {
     this.notice = null;
@@ -124,7 +147,8 @@ export class App {
 
   private lockChanged(locked: boolean): void {
     if (!locked) return this.pause();
-    if (this.screen === "title") this.game!.play();
+    if (this.screen === "title" || (this.screen === "end" && this.endChoice === "replay")) this.game!.play();
+    else if (this.screen === "end") this.game!.resume();
     else if (this.screen === "paused" || this.screen === "logbook") this.game!.resume();
     else return;
     this.show("playing");
@@ -191,6 +215,15 @@ export class App {
           onResume: () => this.lockCursor("pause.lockFailed"),
           onView: (view) => this.showPauseView(view),
           onLanguage,
+        });
+        break;
+      case "end":
+        content = endScreen({
+          lang,
+          summary: this.summary!,
+          notice,
+          onReplay: () => this.leaveEnd("replay"),
+          onExplore: () => this.leaveEnd("explore"),
         });
         break;
       case "logbook":

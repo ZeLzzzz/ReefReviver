@@ -4,7 +4,7 @@ import type { HudState } from "../../src/game/hud-state";
 import { buildMinimap } from "../../src/game/minimap";
 import { NetField } from "../../src/game/nets";
 import { ReefField } from "../../src/game/reef-sites";
-import { Session } from "../../src/game/session";
+import { Session, type SessionSummary } from "../../src/game/session";
 import { TrashField } from "../../src/game/trash";
 import type { StorageLike } from "../../src/i18n/i18n";
 import type { PointerLock } from "../../src/ui/pointer-lock";
@@ -47,7 +47,7 @@ function fakePointerLock(): FakePointerLock {
 function setup(overrides: Partial<AppDeps> = {}) {
   document.body.innerHTML = '<div id="ui"></div>';
   const ui = document.querySelector<HTMLElement>("#ui")!;
-  const game = { play: vi.fn(), pause: vi.fn(), resume: vi.fn(), onHud: vi.fn() };
+  const game = { play: vi.fn(), pause: vi.fn(), resume: vi.fn(), onHud: vi.fn(), onEnd: vi.fn() };
   const lock = fakePointerLock();
   const deps: AppDeps = {
     ui,
@@ -468,5 +468,82 @@ describe("Marine Logbook (REQ-006 AC-2)", () => {
     expect(ui.querySelector(".hud-minimap")).toBeNull();
     pressKey("KeyL");
     expect(ui.querySelector(".hud-minimap")!.outerHTML).toBe(before);
+  });
+});
+
+describe("end screen (REQ-008)", () => {
+  const summary: SessionSummary = {
+    trashRemoved: 36,
+    trashTotal: 40,
+    animalsFreed: 2,
+    animalsTotal: 2,
+    framesPlanted: 3,
+    framesTotal: 3,
+    patchesPlanted: 2,
+    patchesTotal: 2,
+    seconds: 487.6,
+    score: 810,
+  };
+
+  async function ended() {
+    const env = await startPlaying();
+    env.game.onEnd.mock.calls[0][0](summary);
+    return env;
+  }
+
+  it("takes over when the game ends: the game stops, the cursor is free, the HUD and the pause menu are gone (AC-1)", async () => {
+    const { ui, app, game, lock } = await ended();
+    expect(app.screen).toBe("end");
+    expect(game.pause).toHaveBeenCalledOnce();
+    expect(lock.locked).toBe(false);
+    expect(ui.querySelector(".end-screen")).not.toBeNull();
+    expect(ui.querySelector(".end-stats")?.textContent).toContain("8:07");
+    expect(ui.querySelector(".hud")).toBeNull();
+    expect(ui.querySelector(".pause-screen")).toBeNull();
+  });
+
+  it("Main lagi starts a new dive in the same language (AC-3)", async () => {
+    const storage = memoryStorage();
+    const env = setup({ storage, browserLanguages: ["en-US"] });
+    await clickButton(env.ui, "Start");
+    env.game.onEnd.mock.calls[0][0](summary);
+    await clickButton(env.ui, "Play again");
+    expect(env.app.screen).toBe("playing");
+    expect(env.lock.locked).toBe(true);
+    expect(env.game.play).toHaveBeenCalledTimes(2);
+    expect(env.game.resume).not.toHaveBeenCalled();
+    expect(env.app.lang).toBe("en");
+    expect(env.ui.querySelector(".hud")).not.toBeNull();
+  });
+
+  it("Lanjut menjelajah closes it and the same dive goes on (AC-5)", async () => {
+    const { ui, app, game } = await ended();
+    await clickButton(ui, "Lanjut menjelajah");
+    expect(app.screen).toBe("playing");
+    expect(game.resume).toHaveBeenCalledOnce();
+    expect(game.play).toHaveBeenCalledOnce();
+    expect(ui.querySelector(".end-screen")).toBeNull();
+  });
+
+  it("stays, with a message, when the browser refuses the cursor", async () => {
+    const { ui, app, game, lock } = await ended();
+    lock.grant = false;
+    await clickButton(ui, "Main lagi");
+    await Promise.resolve();
+    expect(app.screen).toBe("end");
+    expect(game.play).toHaveBeenCalledOnce();
+    expect(ui.querySelector('[role="alert"]')?.textContent).toBe("Kursor belum terkunci ke game. Klik tombolnya lagi.");
+    lock.grant = true;
+    await clickButton(ui, "Lanjut menjelajah");
+    expect(app.screen).toBe("playing");
+    expect(game.resume).toHaveBeenCalledOnce();
+  });
+
+  it("Esc and L do nothing on it", async () => {
+    const { app } = await ended();
+    pressEscape();
+    window.dispatchEvent(new KeyboardEvent("keydown", { code: "KeyL", key: "l" }));
+    await Promise.resolve();
+    expect(app.screen).toBe("end");
   });
 });

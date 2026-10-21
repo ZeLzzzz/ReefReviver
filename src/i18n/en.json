@@ -133,5 +133,16 @@
   "logbook.factsLabel": "Facts",
   "logbook.sdgLabel": "Link to SDG 14",
   "logbook.sourcesLabel": "Sources",
-  "logbook.list": "Entry list"
+  "logbook.list": "Entry list",
+  "end.title": "The bay is healthy again!",
+  "end.body": "All seven Marine Logbook entries are open.",
+  "end.trash": "Trash removed",
+  "end.animals": "Animals rescued",
+  "end.frames": "Coral frames planted",
+  "end.patches": "Seagrass patches planted",
+  "end.time": "Play time",
+  "end.score": "Score",
+  "end.replay": "Play again",
+  "end.explore": "Keep exploring",
+  "end.lockFailed": "The game couldn't capture the mouse. Click the button again."
 }

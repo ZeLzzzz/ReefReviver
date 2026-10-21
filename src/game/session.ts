@@ -6,7 +6,7 @@ import type { AnimalSpecies } from "./nets";
 import type { ScanEvent } from "./scanner";
 import { START_TOOL, type ToolId } from "./tools";
 
-const { tank, rewards, phase1, hud, nets, reef } = config;
+const { tank, rewards, phase1, hud, nets, reef, end } = config;
 
 export type ObjectiveId = "clean" | "free" | "deposit" | "frames" | "coral" | "seagrass" | "scan";
 
@@ -26,6 +26,21 @@ export interface Notice {
 }
 
 export type DepositResult = { deposited: number } | "empty";
+
+/** REQ-008 AC-2: what the end screen shows; each count comes with what the bay held. */
+export interface SessionSummary {
+  trashRemoved: number;
+  trashTotal: number;
+  animalsFreed: number;
+  animalsTotal: number;
+  framesPlanted: number;
+  framesTotal: number;
+  patchesPlanted: number;
+  patchesTotal: number;
+  /** Play time in seconds (AC-4). */
+  seconds: number;
+  score: number;
+}
 
 /**
  * The rules of one dive: tank, score, materials, cleanliness and the Phase 1 objectives.
@@ -51,6 +66,10 @@ export class Session {
   bloomDone = false;
   /** REQ-006: the Logbook entries the player has scanned. */
   readonly unlocked = new Set<LogbookId>();
+  /** REQ-008 AC-4: seconds played from Mulai to the 7th entry; the game adds time only while it is playing. */
+  playSeconds = 0;
+  private endWait = 0;
+  private endShown = false;
   private notice: Notice | null = null;
   private noticeLeft = 0;
 
@@ -204,6 +223,35 @@ export class Session {
   openScanner(): void {
     this.bloomDone = true;
     this.say({ key: "bloom.scannerOpen" });
+  }
+
+  /** REQ-008 AC-4: real time while playing; the clock stops at the 7th entry, so exploring afterwards does not count. */
+  addPlayTime(seconds: number): void {
+    if (!this.allScanned) this.playSeconds += seconds;
+  }
+
+  /** REQ-008 AC-1: true once, `end.delay` game seconds after the 7th entry, so its notice is read first. */
+  endDue(dt: number): boolean {
+    if (this.endShown || !this.allScanned) return false;
+    this.endWait += dt;
+    if (this.endWait < end.delay) return false;
+    this.endShown = true;
+    return true;
+  }
+
+  summary(): SessionSummary {
+    return {
+      trashRemoved: this.trashRemoved,
+      trashTotal: this.totalTrash,
+      animalsFreed: this.animalsFreed,
+      animalsTotal: phase1.animals,
+      framesPlanted: this.framesPlanted,
+      framesTotal: reef.frameSites.length,
+      patchesPlanted: this.patchesPlanted,
+      patchesTotal: reef.seagrassPatches.length,
+      seconds: this.playSeconds,
+      score: this.score,
+    };
   }
 
   /** The Phase 3 list (D-049): empty until the Bloom is over; "Pindai 0/7", one point for each Logbook entry. */
