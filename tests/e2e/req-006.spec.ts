@@ -255,6 +255,9 @@ test.describe("Indonesian", () => {
 
     // AC-6: scanning a recorded kind again says so and the count stays. (Another clownfish is the same entry.)
     const before = await unlocked(page);
+    // A manta ray crossing the aim above can already have said "Sudah tercatat"; the recorder only sees a change of
+    // text, so wait for the HUD to clear before aiming again.
+    await expect.poll(() => reef(page, (h) => h.hud()?.notice ?? null), { timeout: 30_000 }).toBeNull();
     const said = (await notices(page)).length;
     await track(page, creature("clownfish", 3));
     await page.mouse.down();
