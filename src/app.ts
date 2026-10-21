@@ -1,11 +1,13 @@
 import type { GameView } from "./game/game";
 import type { HudState } from "./game/hud-state";
+import type { LogbookId } from "./logbook/entries";
 import { initialLanguage, saveLanguage, type Lang, type StorageLike, type StringKey } from "./i18n/i18n";
 import type { PointerLock } from "./ui/pointer-lock";
 import { createHud, type HudView } from "./ui/hud";
+import { logbookScreen } from "./ui/logbook";
 import { messageScreen, pauseMenu, titleScreen, type PauseView } from "./ui/screens";
 
-export type Screen = "title" | "playing" | "paused" | "unsupported" | "noWebgl";
+export type Screen = "title" | "playing" | "paused" | "logbook" | "unsupported" | "noWebgl";
 
 export interface AppDeps {
   /** Where the screens are drawn, over the canvas. */
@@ -18,7 +20,7 @@ export interface AppDeps {
   pointerLock: PointerLock;
 }
 
-/** Screen flow around the game: title, playing, pause, and the messages for unsupported browsers. */
+/** Screen flow around the game: title, playing, pause, the Marine Logbook, and the messages for unsupported browsers. */
 export class App {
   screen: Screen = "title";
   lang: Lang;
@@ -27,6 +29,8 @@ export class App {
   private game: GameView | null = null;
   private hudView: HudView | null = null;
   private hudState: HudState | null = null;
+  /** The Logbook entry shown while the Logbook is open (REQ-006). */
+  private logbookEntry: LogbookId | null = null;
 
   constructor(private readonly deps: AppDeps) {
     this.lang = initialLanguage(deps.storage, deps.browserLanguages);
@@ -67,6 +71,27 @@ export class App {
     this.deps.pointerLock.exit();
   }
 
+  /**
+   * L opens the Marine Logbook (REQ-006 AC-2): the game stops like in the pause menu and the cursor is released, so
+   * the player can click entries and links. The screen is switched first, so the unlock does not count as a pause.
+   */
+  private openLogbook(): void {
+    if (this.screen !== "playing") return;
+    this.game!.pause();
+    this.logbookEntry = this.hudState?.unlocked?.[0] ?? null;
+    this.show("logbook");
+    this.deps.pointerLock.exit();
+  }
+
+  /** L or Esc closes the Logbook and locks the cursor again. If the browser refuses the lock, the pause menu takes over. */
+  private async closeLogbook(): Promise<void> {
+    if (await this.deps.pointerLock.request() || this.screen !== "logbook") return;
+    this.pauseView = "main";
+    this.screen = "paused";
+    this.notice = "pause.lockFailed";
+    this.render();
+  }
+
   /** Mulai and Lanjut lock the cursor; the game starts or resumes once the lock is in place. */
   private async lockCursor(failedKey: StringKey): Promise<void> {
     this.notice = null;
@@ -79,14 +104,19 @@ export class App {
   private lockChanged(locked: boolean): void {
     if (!locked) return this.pause();
     if (this.screen === "title") this.game!.play();
-    else if (this.screen === "paused") this.game!.resume();
+    else if (this.screen === "paused" || this.screen === "logbook") this.game!.resume();
     else return;
     this.show("playing");
   }
 
   private keyDown(event: KeyboardEvent): void {
+    if (event.code === "KeyL" && !event.repeat) {
+      if (this.screen === "playing") this.openLogbook();
+      else if (this.screen === "logbook") void this.closeLogbook();
+    }
     if (event.code !== "Escape") return;
     if (this.screen === "playing") this.pause();
+    else if (this.screen === "logbook") void this.closeLogbook();
     else if (this.screen === "paused" && this.pauseView !== "main") this.showPauseView("main");
   }
 
@@ -125,6 +155,18 @@ export class App {
           onResume: () => this.lockCursor("pause.lockFailed"),
           onView: (view) => this.showPauseView(view),
           onLanguage,
+        });
+        break;
+      case "logbook":
+        content = logbookScreen({
+          lang,
+          unlocked: this.hudState?.unlocked ?? [],
+          selected: this.logbookEntry,
+          onSelect: (id) => {
+            this.logbookEntry = id;
+            this.render();
+          },
+          onClose: () => void this.closeLogbook(),
         });
         break;
       case "unsupported":

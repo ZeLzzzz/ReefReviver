@@ -26,7 +26,15 @@ const PHASE2_GOALS: readonly ObjectiveId[] = ["frames", "coral", "seagrass"];
 // REQ-005: after the Bloom the Phase 3 list replaces the Phase 1 and 2 lists (D-049).
 const PHASE3_GOALS: readonly ObjectiveId[] = ["scan"];
 
-const TOOL_SLOT: Record<HudState["tool"], string> = { cutter: "1", vacuum: "2", seedLauncher: "3" };
+const TOOL_SLOT: Record<HudState["tool"], string> = { cutter: "1", vacuum: "2", seedLauncher: "3", scanner: "4" };
+
+/** The message, then the score it earned (`+100`) or the name of the Logbook entry it opened (REQ-006). */
+function noticeText(lang: Lang, notice: NonNullable<HudState["notice"]>): string {
+  let text = t(lang, notice.key);
+  if (notice.amount !== undefined) text += ` +${notice.amount}`;
+  if (notice.entry) text += ` ${t(lang, `logbook.${notice.entry}.name`)}`;
+  return text;
+}
 
 function setText(element: Element, text: string): void {
   if (element.textContent !== text) element.textContent = text;
@@ -86,6 +94,7 @@ export function createHud(lang: Lang): HudView {
   const marker = h("div", { class: "station-marker" }, markerArrow, markerLabel);
 
   // REQ-003: a ring around the crosshair that fills while the cutter cuts a net, with the percentage in words.
+  // REQ-006: the scanner fills the same ring, with its own word.
   const cutLabel = h("span", { class: "cut-label" });
   const cutRing = h("div", { class: "cut-ring", "aria-hidden": "true" });
   const cutProgress = h(
@@ -158,14 +167,19 @@ export function createHud(lang: Lang): HudView {
       element.classList.toggle("sucking", state.sucking);
 
       // REQ-003: shown only while the cutter is cutting; empty again the moment it stops (AC-1, AC-4).
-      const percent = Math.floor(state.cutProgress * 100);
-      setHidden(cutProgress, state.cutProgress <= 0);
-      if (state.cutProgress > 0) {
+      // REQ-006: the same ring shows the scanner's progress (only one of the two tools is in use at a time).
+      const scanning = (state.scanProgress ?? 0) > 0;
+      const progress = scanning ? state.scanProgress! : state.cutProgress;
+      const percent = Math.floor(progress * 100);
+      setHidden(cutProgress, progress <= 0);
+      if (progress > 0) {
+        const label = t(lang, scanning ? "scanner.progress" : "cutter.progress");
+        cutProgress.setAttribute("aria-label", label);
         cutProgress.setAttribute("aria-valuenow", String(percent));
-        cutRing.style.setProperty("--cut", state.cutProgress.toFixed(3));
-        setText(cutLabel, `${t(lang, "cutter.progress")} ${percent}%`);
+        cutRing.style.setProperty("--cut", progress.toFixed(3));
+        setText(cutLabel, `${label} ${percent}%`);
       }
-      element.classList.toggle("cutting", state.cutProgress > 0);
+      element.classList.toggle("cutting", progress > 0);
 
       setHidden(fullMessage, !state.tankFull);
       setText(fullMessage, state.tankFull ? t(lang, "hud.tankFull") : "");
@@ -174,7 +188,7 @@ export function createHud(lang: Lang): HudView {
       setHidden(prompt, !promptKey);
       setText(prompt, promptKey ? t(lang, promptKey) : "");
       setHidden(notice, !state.notice);
-      setText(notice, state.notice ? t(lang, state.notice.key) + (state.notice.amount === undefined ? "" : ` +${state.notice.amount}`) : "");
+      setText(notice, state.notice ? noticeText(lang, state.notice) : "");
 
       // The marker always points to the station; it is loudest when the tank is full.
       marker.classList.toggle("urgent", state.tankFull);

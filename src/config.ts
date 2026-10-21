@@ -205,6 +205,19 @@ export const config = {
     // A moving shot is tested at least this often along its path, so it cannot skip through a frame.
     hitStep: 0.2,
   },
+  // REQ-006: the Scanner (key 4) opens Logbook entries once the Bloom is over (D-016).
+  scanner: {
+    // The crosshair ray (from the camera along the aim) must hit a target no further than this from the ROV.
+    range: 14,
+    // D-016: holding the aim on a target this long scans it.
+    seconds: 1.5,
+    // The ray is tested against a sphere this big (metres) around each target, a little more than the thing itself,
+    // so a swimming animal is fair to follow with the crosshair.
+    radius: { turtle: 0.9, reefShark: 1.2, clownfish: 0.6, mantaRay: 1.8, dolphin: 1.5, coral: 1.9, seagrass: 2.2 },
+    // The sphere of a planted frame or seagrass patch is centred this far above the floor.
+    coralHeight: 1,
+    seagrassHeight: 0.9,
+  },
   hud: {
     noticeSeconds: 2.5,
     // How far from the screen edge the station marker stays, in pixels.

@@ -244,7 +244,9 @@ describe("pause (REQ-001 AC-5)", () => {
       "1 = Pilih Cutter",
       "2 = Pilih Vacuum",
       "3 = Pilih Seed launcher",
+      "4 = Pilih Scanner",
       "E = Setor sampah atau pasang rangka",
+      "L = Buka atau tutup Marine Logbook",
       "Esc = Jeda",
     ]);
     await clickButton(ui, "Kembali");
@@ -342,5 +344,129 @@ describe("minimap and pause (REQ-010 AC-6)", () => {
     await clickButton(ui, "Lanjut");
     expect(ui.querySelector(".hud-minimap")!.outerHTML).toBe(before);
     expect(ui.querySelector('[data-kind="frame"][data-status="started"]')).not.toBeNull();
+  });
+});
+
+describe("Marine Logbook (REQ-006 AC-2)", () => {
+  const pressKey = (code: string) => window.dispatchEvent(new KeyboardEvent("keydown", { code, key: code }));
+  const hudWith = (unlocked: HudState["unlocked"], extra: Partial<HudState> = {}): HudState => ({
+    tool: "scanner", tank: 0, capacity: 8, tankFull: false, score: 0, materials: 0, cleanliness: 0,
+    objectives: new Session(40).objectives, notice: null, inStationZone: false, stationDistance: 30,
+    marker: { left: 10, top: 10, onScreen: false, angle: 0 }, sucking: false, cutProgress: 0, unlocked, ...extra,
+  });
+  const slots = (ui: HTMLElement) => [...ui.querySelectorAll<HTMLElement>(".slot")];
+  const names = (ui: HTMLElement) => slots(ui).map((slot) => slot.querySelector(".slot-name")!.textContent);
+
+  it("L opens it, stops the game and releases the cursor without opening the pause menu", async () => {
+    const { ui, app, game, lock } = await startPlaying();
+    pressKey("KeyL");
+    expect(app.screen).toBe("logbook");
+    expect(game.pause).toHaveBeenCalledOnce();
+    expect(lock.locked).toBe(false);
+    expect(ui.querySelector(".logbook")).not.toBeNull();
+    expect(ui.querySelector(".hud")).toBeNull();
+    expect(ui.querySelector(".pause-screen")).toBeNull();
+  });
+
+  it("shows seven slots, the unscanned ones as '???' (also before the Bloom)", async () => {
+    const { ui } = await startPlaying();
+    pressKey("KeyL");
+    expect(slots(ui)).toHaveLength(7);
+    expect(names(ui)).toEqual(Array(7).fill("???"));
+    expect(slots(ui).every((slot) => slot.dataset.state === "locked")).toBe(true);
+  });
+
+  it("shows scanned entries by name and the rest as '???', with the first scanned entry open", async () => {
+    const { ui, game } = await startPlaying();
+    game.onHud.mock.calls[0][0](hudWith(["turtle", "seagrass"]));
+    pressKey("KeyL");
+    expect(names(ui)).toEqual(["Penyu hijau", "???", "???", "???", "???", "???", "Lamun"]);
+    expect(ui.querySelector(".entry h3")?.textContent).toBe("Penyu hijau");
+  });
+
+  it("clicking a scanned entry opens it; a locked one cannot be opened", async () => {
+    const { ui, game } = await startPlaying();
+    game.onHud.mock.calls[0][0](hudWith(["turtle", "seagrass"]));
+    pressKey("KeyL");
+    ui.querySelector<HTMLElement>('.slot[data-entry="seagrass"]')!.click();
+    expect(ui.querySelector(".entry h3")?.textContent).toBe("Lamun");
+    const locked = ui.querySelector<HTMLButtonElement>('.slot[data-entry="mantaRay"]')!;
+    expect(locked.disabled).toBe(true);
+    locked.click();
+    expect(ui.querySelector(".entry h3")?.textContent).toBe("Lamun");
+  });
+
+  it("L closes it, locks the cursor again and resumes the same dive with the HUD back", async () => {
+    const { ui, app, game, lock } = await startPlaying();
+    pressKey("KeyL");
+    pressKey("KeyL");
+    expect(app.screen).toBe("playing");
+    expect(lock.locked).toBe(true);
+    expect(game.resume).toHaveBeenCalledOnce();
+    expect(game.play).toHaveBeenCalledOnce();
+    expect(ui.querySelector(".hud")).not.toBeNull();
+    expect(ui.querySelector(".logbook")).toBeNull();
+  });
+
+  it("Esc closes it the same way, and so does the close button", async () => {
+    const { ui, app, game } = await startPlaying();
+    pressKey("KeyL");
+    pressEscape();
+    await Promise.resolve();
+    expect(app.screen).toBe("playing");
+    expect(game.resume).toHaveBeenCalledOnce();
+    pressKey("KeyL");
+    await clickButton(ui, "Tutup");
+    expect(app.screen).toBe("playing");
+    expect(game.resume).toHaveBeenCalledTimes(2);
+  });
+
+  it("falls back to the pause menu, with a hint, when the browser will not lock the cursor again", async () => {
+    const { ui, app, game, lock } = await startPlaying();
+    pressKey("KeyL");
+    lock.grant = false;
+    pressEscape();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(app.screen).toBe("paused");
+    expect(game.resume).not.toHaveBeenCalled();
+    expect(ui.querySelector('[role="alert"]')?.textContent).toBe("Kursor belum terkunci ke game. Klik Lanjut lagi.");
+    lock.grant = true;
+    await clickButton(ui, "Lanjut");
+    expect(app.screen).toBe("playing");
+    expect(game.resume).toHaveBeenCalledOnce();
+  });
+
+  it("does nothing on the title screen or in the pause menu", async () => {
+    const title = setup();
+    pressKey("KeyL");
+    expect(title.app.screen).toBe("title");
+    const { app } = await startPlaying();
+    pressEscape();
+    pressKey("KeyL");
+    expect(app.screen).toBe("paused");
+  });
+
+  it("hides the minimap with the rest of the HUD and brings it back unchanged (REQ-010 AC-6)", async () => {
+    const { ui, game } = await startPlaying();
+    const reef = new ReefField();
+    reef.install(1);
+    const minimap = buildMinimap({
+      rov: { x: -8, z: 12, yaw: 2 },
+      frames: reef.frames,
+      patches: reef.patches,
+      nets: new NetField().nets,
+      trash: new TrashField().items,
+      cleanliness: 90,
+    });
+    game.onHud.mock.calls[0][0](hudWith([], { minimap }));
+    const before = ui.querySelector(".hud-minimap")!.outerHTML;
+    expect(before).toContain('data-kind="rov"');
+    pressKey("KeyL");
+    expect(ui.querySelector(".hud-minimap")).toBeNull();
+    game.onHud.mock.calls[0][0](hudWith([], { minimap })); // a late frame while the Logbook is open draws nothing
+    expect(ui.querySelector(".hud-minimap")).toBeNull();
+    pressKey("KeyL");
+    expect(ui.querySelector(".hud-minimap")!.outerHTML).toBe(before);
   });
 });

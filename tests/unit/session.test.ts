@@ -164,19 +164,20 @@ describe("Phase 1 goals (REQ-002 AC-6)", () => {
 });
 
 describe("tools (D-019)", () => {
-  it("starts with the Vacuum; key 1 selects the Cutter, key 2 the Vacuum and key 3 the Seed launcher (REQ-003, REQ-004)", () => {
+  it("starts with the Vacuum; key 1 selects the Cutter, key 2 the Vacuum, key 3 the Seed launcher and key 4 the Scanner (REQ-003, REQ-004, REQ-006)", () => {
     const s = session();
     expect(s.tool).toBe(START_TOOL);
     expect(START_TOOL).toBe("vacuum");
     expect(toolForKey("Digit2")).toBe("vacuum");
     expect(toolForKey("Digit1")).toBe("cutter");
     expect(toolForKey("Digit3")).toBe("seedLauncher");
-    for (const code of ["Digit4", "KeyE", "Digit5"]) expect(toolForKey(code)).toBeNull();
+    expect(toolForKey("Digit4")).toBe("scanner");
+    for (const code of ["KeyE", "KeyL", "Digit5"]) expect(toolForKey(code)).toBeNull();
   });
 
-  it("pressing 4 leaves the tool as it is", () => {
+  it("a key that selects nothing leaves the tool as it is", () => {
     const s = session();
-    for (const code of ["Digit4"]) s.select(toolForKey(code));
+    for (const code of ["Digit5", "KeyL"]) s.select(toolForKey(code));
     expect(s.tool).toBe("vacuum");
   });
 });

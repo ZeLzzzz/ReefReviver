@@ -56,7 +56,7 @@ function rayEllipsoid(origin: Vector3, dir: Vector3, centre: Vector3, radii: Vec
 const tmpCentre = new Vector3();
 const tmpRadii = new Vector3();
 
-function raySphere(origin: Vector3, dir: Vector3, sphere: Sphere): number | null {
+export function raySphere(origin: Vector3, dir: Vector3, sphere: Sphere): number | null {
   tmpCentre.set(sphere.x, sphere.y, sphere.z);
   tmpRadii.set(sphere.r, sphere.r, sphere.r);
   return rayEllipsoid(origin, dir, tmpCentre, tmpRadii, 0, false);
@@ -88,18 +88,24 @@ export function aimedNet(origin: Vector3, dir: Vector3, rov: Vector3, nets: read
     const t = raySphere(origin, dir, blocker);
     if (t !== null && t < distance) return null;
   }
+  if (terrainBlocks(origin, dir, distance)) return null;
+  return { net, point };
+}
+
+/** Whether a rock or the floor lies on the ray before `distance` (shared by the cutter and the scanner). */
+export function terrainBlocks(origin: Vector3, dir: Vector3, distance: number): boolean {
   for (const rock of rocks) {
     tmpCentre.set(rock.x, rock.y, rock.z);
     tmpRadii.set(rock.size, rock.height, rock.size);
     const t = rayEllipsoid(origin, dir, tmpCentre, tmpRadii, 0, false);
-    if (t !== null && t < distance) return null;
+    if (t !== null && t < distance) return true;
   }
   for (let t = FLOOR_STEP; t < distance; t += FLOOR_STEP) {
     const x = origin.x + dir.x * t;
     const z = origin.z + dir.z * t;
-    if (origin.y + dir.y * t < floorHeight(x, z)) return null;
+    if (origin.y + dir.y * t < floorHeight(x, z)) return true;
   }
-  return { net, point };
+  return false;
 }
 
 /**

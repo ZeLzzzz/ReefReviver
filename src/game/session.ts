@@ -1,8 +1,9 @@
 import { config } from "../config";
 import type { StringKey } from "../i18n/i18n";
-import { LOGBOOK_ENTRIES } from "../logbook/entries";
+import { LOGBOOK_ENTRIES, type LogbookId } from "../logbook/entries";
 import { bloomReady } from "./bloom";
 import type { AnimalSpecies } from "./nets";
+import type { ScanEvent } from "./scanner";
 import { START_TOOL, type ToolId } from "./tools";
 
 const { tank, rewards, phase1, hud, nets, reef } = config;
@@ -17,10 +18,11 @@ export interface Objective {
   done: boolean;
 }
 
-/** A short message in the HUD; `amount` is added after the text. */
+/** A short message in the HUD; `amount` is added after the text, and so is the name of `entry` (REQ-006). */
 export interface Notice {
   key: StringKey;
   amount?: number;
+  entry?: LogbookId;
 }
 
 export type DepositResult = { deposited: number } | "empty";
@@ -45,13 +47,23 @@ export class Session {
   framesInstalled = 0;
   framesPlanted = 0;
   patchesPlanted = 0;
-  // REQ-005: the Bloom has finished, which opens the Scanner and the Phase 3 list; entries scanned (REQ-006 counts them).
+  // REQ-005: the Bloom has finished, which opens the Scanner and the Phase 3 list.
   bloomDone = false;
-  entriesScanned = 0;
+  /** REQ-006: the Logbook entries the player has scanned. */
+  readonly unlocked = new Set<LogbookId>();
   private notice: Notice | null = null;
   private noticeLeft = 0;
 
   constructor(readonly totalTrash: number) {}
+
+  get entriesScanned(): number {
+    return this.unlocked.size;
+  }
+
+  /** All Logbook entries are scanned: the place REQ-008 hooks the end screen into. */
+  get allScanned(): boolean {
+    return this.unlocked.size >= LOGBOOK_ENTRIES.length;
+  }
 
   get capacity(): number {
     return tank.capacity;
@@ -130,9 +142,21 @@ export class Session {
     this.say({ key: "seagrass.patchPlanted", amount: reef.scorePerPlanted });
   }
 
-  /** The tool a key selected; null leaves the current tool alone. */
+  /** The tool a key selected; null leaves the current tool alone. The Scanner stays locked until the Bloom is over (REQ-006 AC-4). */
   select(tool: ToolId | null): void {
-    if (tool) this.tool = tool;
+    if (!tool) return;
+    if (tool === "scanner" && !this.bloomDone) return this.say({ key: "scanner.locked" });
+    this.tool = tool;
+  }
+
+  /** REQ-006: what the Scanner found. A new entry opens in the Logbook and counts for "Pindai x/7" (AC-1). */
+  scanned(event: ScanEvent): void {
+    if (event.kind === "scanned") {
+      this.unlocked.add(event.entry);
+      this.say({ key: "scanner.newEntry", entry: event.entry });
+    } else {
+      this.say({ key: event.kind === "known" ? "scanner.known" : "scanner.trapped" });
+    }
   }
 
   say(notice: Notice): void {

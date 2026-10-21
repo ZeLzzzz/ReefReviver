@@ -11,15 +11,18 @@ import {
   WebGLRenderer,
 } from "three";
 import { config } from "../config";
+import { LOGBOOK_ENTRIES, type LogbookId } from "../logbook/entries";
 import { rocks, setFrameColumns } from "./bay";
 import { Bloom } from "./bloom";
 import { aimDirection, followCamera, keepCameraInWater } from "./follow-camera";
 import type { HudState } from "./hud-state";
 import { Input } from "./input";
+import { createCutterBeam, placeCutterBeam } from "./net-model";
 import { placeMarker } from "./marker";
 import { buildMinimap } from "./minimap";
 import { createReefView, createShotView } from "./reef-model";
 import { framePlanted, patchPlanted, ReefField } from "./reef-sites";
+import { aimedScanTarget, collectScanTargets, Scanner, type ScanHit } from "./scanner";
 import { SeaLife } from "./sea-life";
 import { createSeaLifeView } from "./sea-life-model";
 import { createRovModel } from "./rov-model";
@@ -60,6 +63,13 @@ function createVacuumBeam(): Mesh {
   return beam;
 }
 
+/** A thin cyan line from the ROV to the target the scanner works on (REQ-006). */
+function createScanBeam(): Mesh {
+  const beam = createCutterBeam();
+  (beam.material as MeshBasicMaterial).color.setHex(0x6ff2ff);
+  return beam;
+}
+
 export class Game implements GameView {
   private readonly renderer: WebGLRenderer;
   private readonly scene = new Scene();
@@ -89,6 +99,13 @@ export class Game implements GameView {
   private readonly seaLife = new SeaLife();
   private readonly seaLifeView = createSeaLifeView(this.seaLife);
   private bloomShown = 0;
+  // REQ-006: the Scanner, its beam and the camera ray it aims along.
+  private readonly scanner = new Scanner();
+  private readonly scanBeam = createScanBeam();
+  private readonly scanCamera = new Vector3();
+  private readonly scanLookAt = new Vector3();
+  private readonly scanNose = new Vector3();
+  private scanHit: ScanHit | null = null;
   private session = new Session(this.field.total);
   private hudListener: ((state: HudState) => void) | null = null;
   private lastHud: HudState | null = null;
@@ -102,7 +119,7 @@ export class Game implements GameView {
     this.renderer = new WebGLRenderer({ canvas, context, antialias: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.world = buildWorld(this.scene);
-    this.scene.add(this.rovModel, createStationModel(), this.trashView.group, this.beam, this.rescue.group);
+    this.scene.add(this.rovModel, createStationModel(), this.trashView.group, this.beam, this.rescue.group, this.scanBeam);
     this.trashView.sync(this.field.items);
     this.scene.add(this.reefView.group, this.seedView.group, this.seaLifeView.group);
     this.reefView.sync(this.reef);
@@ -188,6 +205,18 @@ export class Game implements GameView {
           return { background: (this.scene.background as Color).getHex(), fog: fog.color.getHex(), fogNear: fog.near, fogFar: fog.far };
         },
         reefLook: () => ({ ...this.reefView.look(), coral: this.reefView.coralMaterials.map((m) => m.color.getHex()), markers: this.reefView.markerOpacity() }),
+        // REQ-006: the Logbook entries opened so far, and a way to free both animals without cutting.
+        unlocked: () => [...this.session.unlocked],
+        // Opens entries without scanning, to read the Logbook without a Bloom (the Logbook screen reads the HUD state).
+        unlockEntries: (ids: LogbookId[]) => ids.forEach((id) => this.session.unlocked.add(id)),
+        freeAnimals: () => {
+          for (const net of this.rescue.nets.nets) {
+            if (net.cut) continue;
+            this.rescue.nets.cut(net.id);
+            this.rescue.animals.free(net.id, this.rov.position);
+            this.session.freeAnimal(net.species);
+          }
+        },
         seaLife: () => ({
           active: this.seaLife.active,
           scale: this.seaLife.scale,
@@ -210,6 +239,8 @@ export class Game implements GameView {
     this.rescue.reset(); // REQ-003
     this.resetReef();
     this.resetBloom(); // REQ-005
+    this.scanner.reset(); // REQ-006
+    this.scanBeam.visible = false;
     this.sucking = false;
     this.input.clear();
     this.mode = "playing";
@@ -264,6 +295,7 @@ export class Game implements GameView {
     // REQ-003: the cutter, the nets and the animals.
     this.rescue.step(dt, rov, this.aim, this.input.primaryHeld() && session.tool === "cutter", this.field.items, session);
     this.stepSeedLauncher(dt);
+    this.stepScanner(dt);
     session.tick(dt);
     this.trashView.sync(this.field.items);
 
@@ -272,6 +304,30 @@ export class Game implements GameView {
       this.beam.position.copy(rov.position);
       this.beam.lookAt(rov.position.x + this.aim.x, rov.position.y + this.aim.y, rov.position.z + this.aim.z);
       (this.beam.material as MeshBasicMaterial).opacity = 0.07 + 0.03 * Math.sin(performance.now() / 60);
+    }
+  }
+
+  /**
+   * REQ-006: while the Scanner is selected and the button is held, the ray from the camera along the aim must hit a
+   * scannable target; held on it for `scanner.seconds` it opens the Logbook entry (AC-1, AC-5, AC-6, AC-7).
+   */
+  private stepScanner(dt: number): void {
+    const { session, rov } = this;
+    const scanning = this.input.primaryHeld() && session.tool === "scanner";
+    this.scanHit = null;
+    if (scanning) {
+      followCamera(rov, this.scanCamera, this.scanLookAt);
+      const targets = collectScanTargets(this.rescue.animals.animals, this.seaLife.creatures, this.seaLife.scale, this.reef.frames, this.reef.patches);
+      this.scanHit = aimedScanTarget(this.scanCamera, this.aim, rov.position, targets);
+    }
+    const event = this.scanner.update(dt, scanning, this.scanHit, session.unlocked);
+    if (event) session.scanned(event);
+
+    const working = this.scanHit !== null && this.scanner.progress > 0;
+    this.scanBeam.visible = working;
+    if (working && this.scanHit) {
+      this.scanNose.set(rov.position.x + Math.sin(rov.yaw) * 0.8, rov.position.y + 0.2, rov.position.z + Math.cos(rov.yaw) * 0.8);
+      placeCutterBeam(this.scanBeam, this.scanNose, this.scanHit.point, 0.5 + 0.5 * Math.sin(performance.now() / 70));
     }
   }
 
@@ -363,6 +419,8 @@ export class Game implements GameView {
       marker: placeMarker(this.viewPoint, tanHalfFov, window.innerWidth, window.innerHeight, config.hud.markerMargin, config.hud.markerBottomMargin),
       sucking: this.sucking,
       cutProgress: this.rescue.progress, // REQ-003
+      scanProgress: this.scanner.progress, // REQ-006
+      unlocked: LOGBOOK_ENTRIES.filter((entry) => session.unlocked.has(entry.id)).map((entry) => entry.id),
       reef: {
         phase2: session.phase2Objectives,
         canInstall: !inStationZone(this.rov.position) && this.reef.emptySiteNear(this.rov.position.x, this.rov.position.z) >= 0,
