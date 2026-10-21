@@ -84,11 +84,11 @@ beforeEach(() => {
 });
 
 describe("title screen (REQ-001 AC-1)", () => {
-  it("shows the game name, Mulai and the language choice", () => {
+  it("shows the game name, Mulai, the language choice and Kredit", () => {
     const { ui, app } = setup();
     expect(app.screen).toBe("title");
     expect(ui.querySelector("h1")?.textContent).toBe("ReefReviver");
-    expect(buttons(ui)).toEqual(["Mulai", "Indonesia", "English"]);
+    expect(buttons(ui)).toEqual(["Mulai", "Indonesia", "English", "Kredit"]);
     expect(ui.querySelector('[role="group"]')?.getAttribute("aria-label")).toBe("Bahasa");
   });
 });

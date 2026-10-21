@@ -138,6 +138,106 @@ button.primary {
   box-shadow: inset 0 0 0 1px var(--accent);
 }
 
+.title-screen > button:not(.primary) {
+  min-width: 200px;
+}
+
+.loading-screen {
+  background: radial-gradient(ellipse at center, rgba(16, 26, 22, 0) 30%, rgba(16, 26, 22, 0.55) 100%);
+}
+
+.loading-bar {
+  width: min(360px, 80%);
+  height: 14px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel);
+}
+
+.loading-fill {
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+  transition: width 0.2s ease-out;
+}
+
+.loading-text {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.credits-screen {
+  background: rgba(10, 16, 13, 0.45);
+}
+
+.credits-panel {
+  width: min(560px, 100%);
+  max-height: 100%;
+  overflow-y: auto;
+}
+
+.credits-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.credits-head h1 {
+  margin: 0;
+}
+
+.credits-panel h2 {
+  margin: 12px 0 0;
+  font-size: 18px;
+}
+
+.credit-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.credit-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.credit-list li span,
+.credit-none,
+.credit-pending {
+  color: var(--ink-soft);
+}
+
+.credit-pending {
+  font-style: italic;
+}
+
+.credit-list a {
+  color: var(--accent);
+  overflow-wrap: anywhere;
+}
+
+.credit-notice summary {
+  cursor: pointer;
+}
+
+.credit-notice pre {
+  max-height: 220px;
+  margin: 8px 0 0;
+  padding: 12px;
+  overflow: auto;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.3);
+  font-size: 16px;
+  white-space: pre-wrap;
+}
+
 .notice {
   margin: 0;
   padding: 8px 14px;

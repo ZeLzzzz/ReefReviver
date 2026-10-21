@@ -1,5 +1,6 @@
 import "./ui/style.css";
 import { App } from "./app";
+import { loadAssets } from "./assets";
 import { Game } from "./game/game";
 import { browserStorage } from "./i18n/i18n";
 import { getWebGL2Context, isPhoneOrTablet, readDeviceInfo } from "./platform";
@@ -15,4 +16,5 @@ new App({
   getWebGL2: () => getWebGL2Context(canvas),
   createGame: (context) => new Game(canvas, context),
   pointerLock: domPointerLock(canvas),
+  loadAssets: (onProgress) => loadAssets(onProgress),
 }).boot();

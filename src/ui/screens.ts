@@ -40,16 +40,18 @@ export interface TitleProps {
   lang: Lang;
   notice: StringKey | null;
   onStart: () => void;
+  onCredits: () => void;
   onLanguage: (lang: Lang) => void;
 }
 
-export function titleScreen({ lang, notice: noticeKey, onStart, onLanguage }: TitleProps): HTMLElement {
+export function titleScreen({ lang, notice: noticeKey, onStart, onCredits, onLanguage }: TitleProps): HTMLElement {
   return h(
     "main",
     { class: "screen title-screen" },
     h("h1", { class: "game-name" }, t(lang, "game.name")),
     button(t(lang, "title.start"), onStart, "primary"),
     languagePicker(lang, "title.language", onLanguage),
+    button(t(lang, "title.credits"), onCredits),
     notice(lang, noticeKey),
   );
 }

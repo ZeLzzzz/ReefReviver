@@ -3,11 +3,14 @@ import type { HudState } from "./game/hud-state";
 import type { LogbookId } from "./logbook/entries";
 import { initialLanguage, saveLanguage, type Lang, type StorageLike, type StringKey } from "./i18n/i18n";
 import type { PointerLock } from "./ui/pointer-lock";
+import { credits } from "./credits";
+import { creditsScreen } from "./ui/credits";
 import { createHud, type HudView } from "./ui/hud";
+import { createLoadingScreen, type LoadingView } from "./ui/loading";
 import { logbookScreen } from "./ui/logbook";
 import { messageScreen, pauseMenu, titleScreen, type PauseView } from "./ui/screens";
 
-export type Screen = "title" | "playing" | "paused" | "logbook" | "unsupported" | "noWebgl";
+export type Screen = "loading" | "title" | "credits" | "playing" | "paused" | "logbook" | "unsupported" | "noWebgl" | "assetError";
 
 export interface AppDeps {
   /** Where the screens are drawn, over the canvas. */
@@ -18,9 +21,11 @@ export interface AppDeps {
   getWebGL2: () => WebGL2RenderingContext | null;
   createGame: (context: WebGL2RenderingContext) => GameView;
   pointerLock: PointerLock;
+  /** Loads the game's files, reporting progress (0 to 1); rejects when one cannot be loaded (REQ-009). Without it, the game starts at once. */
+  loadAssets?: (onProgress: (fraction: number) => void) => Promise<void>;
 }
 
-/** Screen flow around the game: title, playing, pause, the Marine Logbook, and the messages for unsupported browsers. */
+/** Screen flow around the game: loading, title, credits, playing, pause, the Marine Logbook, and the messages for unsupported browsers. */
 export class App {
   screen: Screen = "title";
   lang: Lang;
@@ -31,18 +36,34 @@ export class App {
   private hudState: HudState | null = null;
   /** The Logbook entry shown while the Logbook is open (REQ-006). */
   private logbookEntry: LogbookId | null = null;
+  private loadingView: LoadingView | null = null;
 
   constructor(private readonly deps: AppDeps) {
     this.lang = initialLanguage(deps.storage, deps.browserLanguages);
   }
 
-  boot(): void {
+  /** Resolves once the title screen (or an error screen) is up; with no `loadAssets`, that happens before it returns. */
+  async boot(): Promise<void> {
     const doc = this.deps.ui.ownerDocument;
     doc.documentElement.lang = this.lang;
     if (this.deps.phoneOrTablet) return this.show("unsupported");
     const context = this.deps.getWebGL2();
     if (!context) return this.show("noWebgl");
 
+    if (this.deps.loadAssets) {
+      this.show("loading");
+      try {
+        await this.deps.loadAssets((fraction) => this.loadingView?.update(fraction));
+      } catch (error) {
+        console.error("Could not load the game files:", error);
+        return this.show("assetError");
+      }
+    }
+    this.start(context);
+  }
+
+  private start(context: WebGL2RenderingContext): void {
+    const doc = this.deps.ui.ownerDocument;
     this.game = this.deps.createGame(context);
     this.game.onHud((state) => {
       this.hudState = state;
@@ -118,6 +139,7 @@ export class App {
     if (this.screen === "playing") this.pause();
     else if (this.screen === "logbook") void this.closeLogbook();
     else if (this.screen === "paused" && this.pauseView !== "main") this.showPauseView("main");
+    else if (this.screen === "credits") this.show("title");
   }
 
   private showPauseView(view: PauseView): void {
@@ -135,11 +157,25 @@ export class App {
   private render(): void {
     const { lang, notice } = this;
     this.hudView = null;
+    this.loadingView = null;
     const onLanguage = (choice: Lang) => this.setLanguage(choice);
     let content: HTMLElement;
     switch (this.screen) {
+      case "loading":
+        this.loadingView = createLoadingScreen(lang);
+        content = this.loadingView.element;
+        break;
       case "title":
-        content = titleScreen({ lang, notice, onStart: () => this.lockCursor("title.lockFailed"), onLanguage });
+        content = titleScreen({
+          lang,
+          notice,
+          onStart: () => this.lockCursor("title.lockFailed"),
+          onCredits: () => this.show("credits"),
+          onLanguage,
+        });
+        break;
+      case "credits":
+        content = creditsScreen({ lang, credits, onBack: () => this.show("title") });
         break;
       case "playing":
         // The HUD is rebuilt for the current language and shows the latest state at once.
@@ -174,6 +210,9 @@ export class App {
         break;
       case "noWebgl":
         content = messageScreen(lang, "noWebgl.title", "noWebgl.body", "noWebgl.reload");
+        break;
+      case "assetError":
+        content = messageScreen(lang, "assetError.title", "assetError.body", "assetError.reload");
         break;
     }
     this.deps.ui.replaceChildren(content);
