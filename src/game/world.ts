@@ -6,8 +6,11 @@ import {
   DirectionalLight,
   DodecahedronGeometry,
   DoubleSide,
+  Float32BufferAttribute,
   Fog,
+  Group,
   HemisphereLight,
+  IcosahedronGeometry,
   Mesh,
   MeshBasicMaterial,
   MeshStandardMaterial,
@@ -17,21 +20,77 @@ import {
   type Scene,
   type Vector3,
 } from "three";
+import { assets } from "../assets";
 import { config } from "../config";
 import { cliffFaceRadius, floorHeight, rocks } from "./bay";
 import { waterAt } from "./bloom";
+import { compactGroup, hasMesh } from "./model-utils";
 
 const { bay, water } = config;
+
+/** Builds a low-poly multi-boulder rock outcrop in a unit radius so (rock.size, rock.height, rock.size) matches collision. */
+export function buildRockMesh(variant: number): Group {
+  const primary = new MeshStandardMaterial({ color: 0x7a7466, flatShading: true, roughness: 0.95 });
+  const dark = new MeshStandardMaterial({ color: 0x635d50, flatShading: true, roughness: 1 });
+  const ledge = new MeshStandardMaterial({ color: 0x8c8574, flatShading: true, roughness: 0.9 });
+
+  const group = new Group();
+  group.name = `rock-${variant % 3}`;
+
+  const core = new Mesh(new DodecahedronGeometry(0.92, 0), primary);
+  core.rotation.set(variant * 0.7, variant * 1.1, variant * 0.4);
+  group.add(core);
+
+  if (variant % 3 === 0) {
+    const shoulder = new Mesh(new IcosahedronGeometry(0.62, 0), ledge);
+    shoulder.position.set(0.32, -0.18, 0.24);
+    shoulder.scale.set(1.1, 0.75, 0.95);
+    const spire = new Mesh(new DodecahedronGeometry(0.5, 0), dark);
+    spire.position.set(-0.28, 0.25, -0.18);
+    spire.scale.set(0.8, 1.15, 0.8);
+    group.add(shoulder, spire);
+  } else if (variant % 3 === 1) {
+    const slab = new Mesh(new DodecahedronGeometry(0.68, 0), dark);
+    slab.position.set(-0.3, -0.15, 0.25);
+    slab.scale.set(1.15, 0.65, 1.0);
+    const crest = new Mesh(new IcosahedronGeometry(0.54, 0), ledge);
+    crest.position.set(0.22, 0.28, -0.2);
+    group.add(slab, crest);
+  } else {
+    const terraceA = new Mesh(new DodecahedronGeometry(0.64, 0), ledge);
+    terraceA.position.set(0.26, -0.22, -0.28);
+    terraceA.scale.set(1.1, 0.6, 1.1);
+    const terraceB = new Mesh(new IcosahedronGeometry(0.56, 0), dark);
+    terraceB.position.set(-0.26, 0.12, 0.26);
+    group.add(terraceA, terraceB);
+  }
+  return compactGroup(group);
+}
 
 function addFloor(scene: Scene): void {
   const geometry = new PlaneGeometry(200, 200, 100, 100);
   geometry.rotateX(-Math.PI / 2);
   const position = geometry.attributes.position;
+  const colors = new Float32Array(position.count * 3);
+  const sandBase = new Color(0xb8a984);
+  const sandRidge = new Color(0xc9bc98);
+  const sandTrough = new Color(0x968968);
+  const temp = new Color();
+
   for (let i = 0; i < position.count; i++) {
-    position.setY(i, floorHeight(position.getX(i), position.getZ(i)));
+    const x = position.getX(i);
+    const z = position.getZ(i);
+    const y = floorHeight(x, z);
+    position.setY(i, y);
+    const ripple = 0.5 + 0.5 * Math.sin(x * 0.35 + z * 0.25) * Math.cos(z * 0.4 - x * 0.15);
+    temp.copy(sandTrough).lerp(sandBase, Math.min(1, Math.max(0, (y + 15) / 5))).lerp(sandRidge, ripple * 0.45);
+    colors[i * 3] = temp.r;
+    colors[i * 3 + 1] = temp.g;
+    colors[i * 3 + 2] = temp.b;
   }
+  geometry.setAttribute("color", new Float32BufferAttribute(colors, 3));
   geometry.computeVertexNormals();
-  scene.add(new Mesh(geometry, new MeshStandardMaterial({ color: 0xb8a984, flatShading: true, roughness: 1 })));
+  scene.add(new Mesh(geometry, new MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 1 })));
 }
 
 export function createCliffGeometry(): CylinderGeometry {
@@ -39,6 +98,12 @@ export function createCliffGeometry(): CylinderGeometry {
   const geometry = new CylinderGeometry(bay.cliffRadius, bay.cliffRadius, height, 72, 10, true);
   geometry.translate(0, bay.cliffBottom + height / 2, 0);
   const position = geometry.attributes.position;
+  const colors = new Float32Array(position.count * 3);
+  const deepRock = new Color(0x585346);
+  const midRock = new Color(0x77705f);
+  const topRock = new Color(0x968d78);
+  const temp = new Color();
+
   for (let i = 0; i < position.count; i++) {
     const x = position.getX(i);
     const y = position.getY(i);
@@ -46,28 +111,34 @@ export function createCliffGeometry(): CylinderGeometry {
     const angle = Math.atan2(x, z);
     const radius = cliffFaceRadius(angle, y);
     position.setXYZ(i, Math.sin(angle) * radius, y, Math.cos(angle) * radius);
+    const h = Math.min(1, Math.max(0, (y - bay.cliffBottom) / height));
+    const strata = 0.5 + 0.5 * Math.sin(y * 1.4 + Math.sin(angle * 7) * 0.8);
+    temp.copy(deepRock).lerp(midRock, h).lerp(topRock, h * strata * 0.65);
+    colors[i * 3] = temp.r;
+    colors[i * 3 + 1] = temp.g;
+    colors[i * 3 + 2] = temp.b;
   }
+  geometry.setAttribute("color", new Float32BufferAttribute(colors, 3));
   geometry.computeVertexNormals();
   return geometry;
 }
 
 function addCliffs(scene: Scene): void {
-  const material = new MeshStandardMaterial({ color: 0x77705f, flatShading: true, roughness: 1, side: DoubleSide });
+  const material = new MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 1, side: DoubleSide });
   scene.add(new Mesh(createCliffGeometry(), material));
 }
 
 function addRocks(scene: Scene): void {
-  const material = new MeshStandardMaterial({ color: 0x7a7466, flatShading: true, roughness: 1 });
-  const geometry = new DodecahedronGeometry(1, 0);
-  for (const rock of rocks) {
-    const mesh = new Mesh(geometry, material);
-    mesh.position.set(rock.x, rock.y, rock.z);
-    mesh.scale.set(rock.size, rock.height, rock.size);
-    mesh.rotation.y = rock.rotation;
-    scene.add(mesh);
-  }
+  rocks.forEach((rock, index) => {
+    const id = `rock-${index % 3}`;
+    const loaded = assets.model(id);
+    const model = loaded && hasMesh(loaded) ? loaded : buildRockMesh(index % 3);
+    model.position.set(rock.x, rock.y, rock.z);
+    model.scale.set(rock.size, rock.height, rock.size);
+    model.rotation.y = rock.rotation;
+    scene.add(model);
+  });
 }
-
 function addSurface(scene: Scene): MeshBasicMaterial {
   const geometry = new PlaneGeometry(200, 200);
   geometry.rotateX(Math.PI / 2);

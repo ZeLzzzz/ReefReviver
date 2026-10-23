@@ -15,12 +15,13 @@ import {
   TorusGeometry,
   type Material,
 } from "three";
+import { assets } from "../assets";
 import { config } from "../config";
 import { floorHeight } from "./bay";
 import { lerp, lerpHex } from "./bloom";
+import { compactGroup, hasMesh } from "./model-utils";
 import { frameStatus, patchStatus, type ReefField, type SiteStatus } from "./reef-sites";
 import type { Shot } from "./seed-launcher";
-
 const { reef, bay, bloom } = config;
 
 /** The pale colour coral fragments have before the Bloom. */
@@ -128,30 +129,59 @@ function createMarker(kind: "frame" | "patch", site: { x: number; y: number; z: 
   };
 }
 
-/** The installed frame: a concrete slab, steel posts, top beams and two braces. 1.6 m tall. */
-function createFrameModel(): Group {
-  const concrete = new MeshStandardMaterial({ color: 0x9b9a92, flatShading: true, roughness: 1 });
-  const steel = new MeshStandardMaterial({ color: 0x48535a, flatShading: true, roughness: 0.6, metalness: 0.3 });
+/**
+ * Low-poly steel and mineral-concrete reef restoration frame (D-007, D-022, G-003): a bevelled concrete
+ * foundation slab, limestone starter blocks, galvanized steel posts, cross-bracing and 3 coral mounting sockets.
+ */
+export function buildFrameMesh(): Group {
+  const concrete = new MeshStandardMaterial({ color: 0x9b9a92, flatShading: true, roughness: 0.95 });
+  const darkConcrete = new MeshStandardMaterial({ color: 0x7d7c74, flatShading: true, roughness: 1 });
+  const steel = new MeshStandardMaterial({ color: 0x48535a, flatShading: true, roughness: 0.55, metalness: 0.35 });
+  const socketMat = new MeshStandardMaterial({ color: 0x66737c, flatShading: true, roughness: 0.6, metalness: 0.3 });
+
   const group = new Group();
-  group.add(mesh(new BoxGeometry(2.7, 0.5, 2.7), concrete, 0, 0, 0));
+  group.name = "reef-frame";
+
+  // Concrete base slab and mineral accretion starter blocks.
+  group.add(mesh(new BoxGeometry(2.7, 0.44, 2.7), concrete, 0, 0, 0));
+  group.add(mesh(new BoxGeometry(2.4, 0.14, 2.4), darkConcrete, 0, 0.26, 0));
+  group.add(mesh(new BoxGeometry(0.95, 0.52, 0.95), concrete, -0.32, 0.52, 0.22));
+  group.add(mesh(new CylinderGeometry(0.42, 0.54, 0.44, 6), darkConcrete, 0.46, 0.46, -0.34));
+
+  // Four corner steel posts and upper perimeter box-beams.
   const post = new BoxGeometry(0.18, 1.45, 0.18);
-  const rail = (length: number) => new BoxGeometry(length, 0.16, 0.16);
+  const foot = new BoxGeometry(0.32, 0.12, 0.32);
+  const rail = new BoxGeometry(2.28, 0.16, 0.16);
   for (const sx of [-1, 1]) {
-    for (const sz of [-1, 1]) group.add(mesh(post, steel, sx * 1.05, 0.25 + 0.725, sz * 1.05));
+    for (const sz of [-1, 1]) {
+      group.add(mesh(foot, socketMat, sx * 1.05, 0.3, sz * 1.05));
+      group.add(mesh(post, steel, sx * 1.05, 0.975, sz * 1.05));
+    }
   }
   for (const s of [-1, 1]) {
-    group.add(mesh(rail(2.28), steel, 0, 1.55, s * 1.05));
-    const side = mesh(rail(2.28), steel, s * 1.05, 1.55, 0);
+    group.add(mesh(rail, steel, 0, 1.55, s * 1.05));
+    const side = mesh(rail, steel, s * 1.05, 1.55, 0);
     side.rotation.y = Math.PI / 2;
     group.add(side);
+
+    // Diagonal steel braces on all four sides.
+    const braceZ = mesh(new BoxGeometry(2.55, 0.1, 0.1), steel, 0, 0.95, s * 1.05);
+    braceZ.rotation.z = s * 0.62;
+    const braceX = mesh(new BoxGeometry(0.1, 0.1, 2.55), steel, s * 1.05, 0.95, 0);
+    braceX.rotation.x = -s * 0.62;
+    group.add(braceZ, braceX);
   }
-  const brace = mesh(new BoxGeometry(2.6, 0.1, 0.1), steel, 0, 0.95, 1.05);
-  brace.rotation.z = 0.62;
-  const braceBack = mesh(new BoxGeometry(2.6, 0.1, 0.1), steel, 0, 0.95, -1.05);
-  braceBack.rotation.z = -0.62;
-  group.add(brace, braceBack);
-  group.add(mesh(new BoxGeometry(0.9, 0.5, 0.9), concrete, -0.3, 0.5, 0.2));
-  return group;
+
+  // Three hexagonal mounting sockets where coral fragments attach.
+  for (const [x, y, z] of FRAGMENT_SPOTS) {
+    group.add(mesh(new CylinderGeometry(0.16, 0.19, 0.08, 6), socketMat, x, y - 0.03, z));
+  }
+  return compactGroup(group);
+}
+
+function createFrameModel(): Group {
+  const loaded = assets.model("reef-frame");
+  return hasMesh(loaded) ? loaded : buildFrameMesh();
 }
 
 const FRAGMENT_SCALE = 1.4;
@@ -163,22 +193,67 @@ const FRAGMENT_SPOTS: readonly [number, number, number][] = [
   [-0.2, 1.63, -1.05],
 ];
 
-/** Small and pale before the Bloom, in three shapes: a branching clump, a dome and a table. */
-function createFragmentModel(shape: number, material: MeshStandardMaterial): Group {
+/**
+ * Low-poly coral fragment in 3 distinct morphologies (D-022, DESIGN):
+ * 0 = branching staghorn (Acropora), 1 = massive lobed brain coral dome, 2 = tiered tabulate plate coral.
+ */
+export function buildFragmentMesh(
+  shape: number,
+  material: MeshStandardMaterial = new MeshStandardMaterial({ color: PALE_CORAL, flatShading: true, roughness: 0.9 }),
+): Group {
+  const kind = ((shape % 3) + 3) % 3;
   const group = new Group();
-  if (shape === 0) {
-    const branch = new ConeGeometry(0.07, 0.38, 5);
-    for (const [x, z, tilt] of [[0, 0, 0], [0.1, 0.04, 0.4], [-0.09, -0.05, -0.45]] as const) {
-      const part = mesh(branch, material, x, 0.19, z);
-      part.rotation.z = tilt;
+  group.name = `coral-${kind}`;
+
+  if (kind === 0) {
+    // Staghorn branching cluster with primary and secondary antler branches.
+    group.add(mesh(new CylinderGeometry(0.11, 0.14, 0.07, 6), material, 0, 0.035, 0));
+    const branches = [
+      [0, 0.21, 0, 0, 0, 0.065, 0.4],
+      [0.1, 0.19, 0.05, 0.18, -0.42, 0.058, 0.36],
+      [-0.1, 0.19, -0.04, -0.15, 0.45, 0.058, 0.36],
+      [0.05, 0.18, -0.1, -0.4, -0.18, 0.052, 0.33],
+      [-0.05, 0.18, 0.1, 0.42, 0.2, 0.052, 0.33],
+      [0.15, 0.25, 0.08, 0.3, -0.75, 0.04, 0.22],
+      [-0.14, 0.24, -0.07, -0.28, 0.78, 0.04, 0.22],
+    ] as const;
+    for (const [x, y, z, rx, rz, r, h] of branches) {
+      const part = mesh(new CylinderGeometry(r * 0.45, r, h, 5), material, x, y, z);
+      part.rotation.set(rx, 0, rz);
       group.add(part);
     }
-  } else if (shape === 1) {
-    group.add(mesh(new IcosahedronGeometry(0.2, 0).scale(1, 0.7, 1), material, 0, 0.12, 0));
+  } else if (kind === 1) {
+    // Massive lobed brain coral dome with ridged surface polyps.
+    group.add(mesh(new IcosahedronGeometry(0.21, 1).scale(1.08, 0.72, 1.08), material, 0, 0.13, 0));
+    for (const [x, z, s] of [
+      [0.12, 0.08, 0.12],
+      [-0.12, 0.07, 0.11],
+      [0.06, -0.13, 0.12],
+      [-0.08, -0.1, 0.1],
+    ] as const) {
+      group.add(mesh(new IcosahedronGeometry(s, 0).scale(1, 0.78, 1), material, x, 0.1, z));
+    }
+    group.add(mesh(new TorusGeometry(0.11, 0.032, 5, 8).rotateX(Math.PI / 2), material, 0, 0.22, 0));
   } else {
-    group.add(mesh(new CylinderGeometry(0.06, 0.06, 0.2, 6), material, 0, 0.1, 0));
-    group.add(mesh(new CylinderGeometry(0.26, 0.2, 0.08, 7), material, 0, 0.24, 0));
+    // Tiered tabulate table coral on a central pedicel stalk with radial corallite buds.
+    group.add(mesh(new CylinderGeometry(0.065, 0.09, 0.2, 6), material, 0, 0.1, 0));
+    group.add(mesh(new CylinderGeometry(0.22, 0.15, 0.065, 8), material, 0, 0.19, 0));
+    group.add(mesh(new CylinderGeometry(0.28, 0.21, 0.07, 8), material, 0.02, 0.26, -0.01));
+    for (let i = 0; i < 7; i++) {
+      const a = (i / 7) * Math.PI * 2;
+      group.add(mesh(new ConeGeometry(0.035, 0.08, 5), material, 0.02 + Math.cos(a) * 0.2, 0.31, -0.01 + Math.sin(a) * 0.2));
+    }
   }
+  return compactGroup(group);
+}
+
+function createFragmentModel(shape: number, material: MeshStandardMaterial): Group {
+  const kind = ((shape % 3) + 3) % 3;
+  const loaded = assets.model(`coral-${kind}`);
+  const group = hasMesh(loaded) ? loaded : buildFragmentMesh(kind, material);
+  group.traverse((child) => {
+    if (child instanceof Mesh) child.material = material;
+  });
   return group;
 }
 
@@ -193,25 +268,69 @@ interface Sprout {
   extra: Mesh[];
 }
 
-/** A small sprout: three thin blades, plus a few more that appear while it grows into an adult tuft (REQ-005). */
-function createSproutModel(material: MeshStandardMaterial): Sprout {
+/**
+ * Builds a low-poly seagrass tuft (D-022, DESIGN): basal rhizome node + 3 young sprout ribbon blades +
+ * `bloom.seagrass.extraBlades` outer adult strap blades.
+ */
+export function buildSeagrassMesh(
+  adult = false,
+  material: MeshStandardMaterial = new MeshStandardMaterial({
+    color: adult ? bloom.seagrass.color : YOUNG_SEAGRASS,
+    flatShading: true,
+    roughness: 0.9,
+  }),
+): Group {
   const group = new Group();
-  const blade = new ConeGeometry(0.07, 0.6, 4);
-  for (const [x, z, tilt] of [[0, 0, 0], [0.08, 0.03, 0.35], [-0.07, -0.04, -0.3]] as const) {
-    const part = mesh(blade, material, x, 0.3, z);
-    part.rotation.z = tilt;
+  group.name = adult ? "seagrass-adult" : "seagrass-sprout";
+
+  // Basal rhizome node and three young ribbon blades.
+  const bladeGeo = new ConeGeometry(0.065, 0.62, 4).scale(1, 1, 0.38);
+  group.add(mesh(new CylinderGeometry(0.06, 0.08, 0.06, 6), material, 0, 0.03, 0));
+  for (const [x, z, tilt, yaw] of [
+    [0, 0, 0.06, 0],
+    [0.08, 0.03, 0.34, 0.5],
+    [-0.07, -0.04, -0.3, -0.4],
+  ] as const) {
+    const part = mesh(bladeGeo, material, x, 0.31, z);
+    part.rotation.set(0, yaw, tilt);
     group.add(part);
   }
-  const extra: Mesh[] = [];
+
+  // Outer ring of adult strap blades that unfurl during the Bloom.
   for (let i = 0; i < bloom.seagrass.extraBlades; i++) {
     const angle = (i / bloom.seagrass.extraBlades) * Math.PI * 2 + 0.5;
     const spread = 0.1 + 0.05 * (i % 2);
-    const part = mesh(blade, material, Math.cos(angle) * spread, 0.3, Math.sin(angle) * spread);
-    // Lean away from the middle, so the tuft fans out.
-    part.rotation.set(Math.sin(angle) * (0.25 + 0.1 * (i % 3)), 0, -Math.cos(angle) * (0.25 + 0.1 * (i % 3)));
-    part.visible = false;
+    const part = mesh(bladeGeo, material, Math.cos(angle) * spread, 0.31, Math.sin(angle) * spread);
+    part.name = `extra-${i}`;
+    part.rotation.set(Math.sin(angle) * (0.25 + 0.1 * (i % 3)), angle, -Math.cos(angle) * (0.25 + 0.1 * (i % 3)));
+    part.visible = adult;
     group.add(part);
-    extra.push(part);
+  }
+  return compactGroup(group);
+}
+
+function createSproutModel(material: MeshStandardMaterial): Sprout {
+  const loaded = assets.model("seagrass-adult") ?? assets.model("seagrass-sprout");
+  const group = hasMesh(loaded) ? loaded : buildSeagrassMesh(false, material);
+  const extra: Mesh[] = [];
+  group.traverse((child) => {
+    if (child instanceof Mesh) {
+      child.material = material;
+      if (child.name.startsWith("extra-")) {
+        child.visible = false;
+        extra.push(child);
+      }
+    }
+  });
+  if (extra.length === 0) {
+    const fallback = buildSeagrassMesh(false, material);
+    fallback.traverse((child) => {
+      if (child instanceof Mesh && child.name.startsWith("extra-")) {
+        child.visible = false;
+        extra.push(child);
+      }
+    });
+    return { group: fallback, extra };
   }
   return { group, extra };
 }
@@ -242,7 +361,6 @@ export function createReefView(field: ReefField): ReefView {
     group.add(siteGroup);
     return { model, fragments, marker };
   });
-
   const patches = field.patches.map((site) => {
     const siteGroup = new Group();
     siteGroup.position.set(site.x, site.y, site.z);

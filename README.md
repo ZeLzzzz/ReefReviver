@@ -53,7 +53,7 @@ Build memakai path relatif, jadi isi `dist/` bisa diunggah ke itch.io (HTML5) at
 
 ### Model dari artist
 
-Model GLB/glTF diletakkan di `public/assets/` dan didaftarkan di `public/assets/manifest.json` sebagai `{ "id": "rov", "url": "rov.glb" }`. Semua file di daftar itu dimuat sebelum layar judul. Selama daftarnya kosong, game memakai bentuk sederhana. Aset yang bukan buatan tim wajib dicatat di `CREDITS.md` beserta lisensinya.
+Model GLB/glTF diletakkan di `public/assets/` dan didaftarkan di `public/assets/manifest.json` sebagai `{ "id": "rov", "url": "rov.glb" }`. Semua file di daftar itu dimuat sebelum layar judul. Model yang tidak ada di daftar dibangun dari kode. `npm run generate:assets` mengekspor model buatan kode ke `public/assets/models/` dan menulis ulang seluruh `manifest.json`, jadi model artist yang sudah terdaftar perlu didaftarkan lagi setelahnya. Aset yang bukan buatan tim wajib dicatat di `CREDITS.md` beserta lisensinya.
 
 ## Performa
 

@@ -1,3 +1,116 @@
 {
-  "files": []
+  "files": [
+    {
+      "id": "rov",
+      "url": "models/rov.glb"
+    },
+    {
+      "id": "rock-0",
+      "url": "models/rock-0.glb"
+    },
+    {
+      "id": "rock-1",
+      "url": "models/rock-1.glb"
+    },
+    {
+      "id": "rock-2",
+      "url": "models/rock-2.glb"
+    },
+    {
+      "id": "trash-bottle-0",
+      "url": "models/trash-bottle-0.glb"
+    },
+    {
+      "id": "trash-bottle-1",
+      "url": "models/trash-bottle-1.glb"
+    },
+    {
+      "id": "trash-bottle-2",
+      "url": "models/trash-bottle-2.glb"
+    },
+    {
+      "id": "trash-bag-0",
+      "url": "models/trash-bag-0.glb"
+    },
+    {
+      "id": "trash-bag-1",
+      "url": "models/trash-bag-1.glb"
+    },
+    {
+      "id": "trash-bag-2",
+      "url": "models/trash-bag-2.glb"
+    },
+    {
+      "id": "trash-can-0",
+      "url": "models/trash-can-0.glb"
+    },
+    {
+      "id": "trash-can-1",
+      "url": "models/trash-can-1.glb"
+    },
+    {
+      "id": "trash-can-2",
+      "url": "models/trash-can-2.glb"
+    },
+    {
+      "id": "station",
+      "url": "models/station.glb"
+    },
+    {
+      "id": "turtle",
+      "url": "models/turtle.glb"
+    },
+    {
+      "id": "reef-shark",
+      "url": "models/reef-shark.glb"
+    },
+    {
+      "id": "ghost-net",
+      "url": "models/ghost-net.glb"
+    },
+    {
+      "id": "reef-frame",
+      "url": "models/reef-frame.glb"
+    },
+    {
+      "id": "coral-0",
+      "url": "models/coral-0.glb"
+    },
+    {
+      "id": "coral-1",
+      "url": "models/coral-1.glb"
+    },
+    {
+      "id": "coral-2",
+      "url": "models/coral-2.glb"
+    },
+    {
+      "id": "seagrass-sprout",
+      "url": "models/seagrass-sprout.glb"
+    },
+    {
+      "id": "seagrass-adult",
+      "url": "models/seagrass-adult.glb"
+    },
+    {
+      "id": "clownfish",
+      "url": "models/clownfish.glb"
+    },
+    {
+      "id": "anemone",
+      "url": "models/anemone.glb"
+    },
+    {
+      "id": "yellowtail",
+      "url": "models/yellowtail.glb"
+    },
+    {
+      "id": "manta-ray",
+      "url": "models/manta-ray.glb"
+    },
+    {
+      "id": "spinner-dolphin",
+      "url": "models/spinner-dolphin.glb"
+    }
+  ]
 }

@@ -1,4 +1,4 @@
-import type { Object3D } from "three";
+import { Mesh, MeshStandardMaterial, type Object3D } from "three";
 import { clone } from "three/examples/jsm/utils/SkeletonUtils.js";
 
 // The artist's files (D-022) are listed in public/assets/manifest.json and fetched at boot, before the title
@@ -59,11 +59,27 @@ async function fetchJson(url: string): Promise<unknown> {
   }
 }
 
+const sharedMaterials = new Map<string, MeshStandardMaterial>();
+
 async function loadModel(url: string, onProgress: (fraction: number) => void): Promise<Object3D> {
   // Loaded on demand, so a build with an empty manifest never downloads the glTF parser.
   const { GLTFLoader } = await import("three/examples/jsm/loaders/GLTFLoader.js");
   const gltf = await new GLTFLoader().loadAsync(url, (event) => {
     if (event.lengthComputable && event.total > 0) onProgress(event.loaded / event.total);
+  });
+  gltf.scene.traverse((child) => {
+    if (child instanceof Mesh && child.material instanceof MeshStandardMaterial) {
+      const m = child.material;
+      m.flatShading = true;
+      const key = `${m.color.getHex()}_${m.emissive.getHex()}_${m.emissiveIntensity}_${m.roughness}_${m.metalness}_${m.side}_${m.vertexColors}`;
+      let shared = sharedMaterials.get(key);
+      if (!shared) {
+        m.needsUpdate = true;
+        sharedMaterials.set(key, m);
+        shared = m;
+      }
+      child.material = shared;
+    }
   });
   return gltf.scene;
 }

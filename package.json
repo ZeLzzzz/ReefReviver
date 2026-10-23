@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "generate:assets": "node scripts/generate-assets.mjs",
     "build": "tsc --noEmit && vite build && node scripts/check-size.mjs",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",

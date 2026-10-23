@@ -3,6 +3,7 @@ import {
   CylinderGeometry,
   DoubleSide,
   Group,
+  IcosahedronGeometry,
   Mesh,
   MeshBasicMaterial,
   MeshStandardMaterial,
@@ -12,41 +13,43 @@ import {
   type BufferGeometry,
 } from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import { assets } from "../assets";
 import { config } from "../config";
+import { compactGroup, hasMesh } from "./model-utils";
 import type { Net } from "./nets";
 
 const { cutter } = config;
 
 /**
- * Stand-in ghost net built from primitives until the artist's GLB arrives (D-022): a rope grid over a dome,
- * a faint skin, white floats on top and dark weights on the floor. It is a separate model from the animal, so
- * it can vanish when cut. Bright orange and white, to stand out against the murky green and sand (DESIGN).
+ * Low-poly ghost net model (D-022): a knotted rope dome with diagonal webbing, translucent netting skin,
+ * buoyant trawl floats along the crown and lead sinker weights around the seabed rim.
  */
 const materials = {
   rope: new MeshStandardMaterial({ color: 0xff9a3c, emissive: 0x7a3a10, flatShading: true, roughness: 0.8 }),
+  knot: new MeshStandardMaterial({ color: 0xd96b18, emissive: 0x522208, flatShading: true, roughness: 0.85 }),
   skin: new MeshBasicMaterial({ color: 0xffb066, transparent: true, opacity: 0.16, side: DoubleSide, depthWrite: false }),
-  float: new MeshStandardMaterial({ color: 0xffffff, emissive: 0x777777, flatShading: true }),
+  floatWhite: new MeshStandardMaterial({ color: 0xffffff, emissive: 0x777777, flatShading: true }),
+  floatYellow: new MeshStandardMaterial({ color: 0xffd23f, emissive: 0x664e08, flatShading: true }),
   weight: new MeshStandardMaterial({ color: 0x3a3a3a, flatShading: true, roughness: 1 }),
 };
 
 const MERIDIANS = 12;
 const RINGS = 6;
-const ROPE_RADIUS = 0.04;
+const ROPE_RADIUS = 0.028;
 const helper = new Object3D();
 
-/** A thin rope between two points, as geometry in world coordinates of the net's frame. */
-function rope(from: Vector3, to: Vector3): BufferGeometry {
-  const geometry = new CylinderGeometry(ROPE_RADIUS, ROPE_RADIUS, from.distanceTo(to), 4).rotateX(Math.PI / 2);
+/** A thin rope between two points on the unit dome. */
+function rope(from: Vector3, to: Vector3, radius = ROPE_RADIUS): BufferGeometry {
+  const geometry = new CylinderGeometry(radius, radius, from.distanceTo(to), 4).rotateX(Math.PI / 2);
   helper.position.copy(from).add(to).multiplyScalar(0.5);
   helper.lookAt(to);
   helper.updateMatrix();
   return geometry.applyMatrix4(helper.matrix);
 }
 
-function ropeGrid(net: Net): BufferGeometry {
-  // Point on the dome at angle `theta` around the axis and `phi` up from the floor.
+function unitRopeGrid(): BufferGeometry {
   const at = (theta: number, phi: number) =>
-    new Vector3(net.width * Math.cos(phi) * Math.sin(theta), net.height * Math.sin(phi), net.length * Math.cos(phi) * Math.cos(theta));
+    new Vector3(Math.cos(phi) * Math.sin(theta), Math.sin(phi), Math.cos(phi) * Math.cos(theta));
   const ropes: BufferGeometry[] = [];
   for (let m = 0; m < MERIDIANS; m++) {
     const theta = (m / MERIDIANS) * Math.PI * 2;
@@ -57,40 +60,65 @@ function ropeGrid(net: Net): BufferGeometry {
   for (let r = 0; r < RINGS - 1; r++) {
     const phi = (r / RINGS) * (Math.PI / 2);
     for (let m = 0; m < MERIDIANS; m++) {
-      ropes.push(rope(at((m / MERIDIANS) * Math.PI * 2, phi), at(((m + 1) / MERIDIANS) * Math.PI * 2, phi)));
+      const theta0 = (m / MERIDIANS) * Math.PI * 2;
+      const theta1 = ((m + 1) / MERIDIANS) * Math.PI * 2;
+      ropes.push(rope(at(theta0, phi), at(theta1, phi)));
     }
   }
   return mergeGeometries(ropes)!;
 }
 
+/** Builds a unit-sized ghost net dome (radius 1, height 1) suitable for GLB export and per-net scaling. */
+export function buildGhostNetMesh(): Group {
+  const group = new Group();
+  group.name = "ghost-net";
+  group.add(new Mesh(unitRopeGrid(), materials.rope));
+
+  // Knotted rope clumps at selected intersections.
+  const knotGeo = new IcosahedronGeometry(0.055, 0);
+  for (let m = 0; m < MERIDIANS; m += 2) {
+    for (const r of [1, 3]) {
+      const theta = (m / MERIDIANS) * Math.PI * 2;
+      const phi = (r / RINGS) * (Math.PI / 2);
+      const knot = new Mesh(knotGeo, materials.knot);
+      knot.position.set(Math.cos(phi) * Math.sin(theta), Math.sin(phi), Math.cos(phi) * Math.cos(theta));
+      group.add(knot);
+    }
+  }
+
+  // Buoyant trawl floats along the upper crest and lead sinker weights around the seabed skirt.
+  const floatGeometry = new SphereGeometry(0.085, 6, 5).scale(1.2, 0.85, 0.85);
+  const weightGeometry = new BoxGeometry(0.18, 0.14, 0.18);
+  for (let i = 0; i < 6; i++) {
+    const theta = (i / 6) * Math.PI * 2;
+    const phi = Math.PI / 2 - 0.45;
+    const float = new Mesh(floatGeometry, i % 2 === 0 ? materials.floatWhite : materials.floatYellow);
+    float.position.set(Math.cos(phi) * Math.sin(theta), Math.sin(phi) + 0.04, Math.cos(phi) * Math.cos(theta));
+    float.rotation.y = theta;
+    group.add(float);
+  }
+  for (let i = 0; i < 8; i++) {
+    const theta = (i / 8) * Math.PI * 2 + 0.25;
+    const weight = new Mesh(weightGeometry, materials.weight);
+    weight.position.set(Math.sin(theta), 0.05, Math.cos(theta));
+    weight.rotation.y = theta;
+    group.add(weight);
+  }
+  return compactGroup(group);
+}
+
 function createNetModel(net: Net): Group {
   const group = new Group();
-  group.add(new Mesh(ropeGrid(net), materials.rope));
+  const loaded = assets.model("ghost-net");
+  const dome = hasMesh(loaded) ? loaded : buildGhostNetMesh();
+  dome.scale.set(net.width, net.height, net.length);
+  group.add(dome);
 
   const skin = new Mesh(new SphereGeometry(1, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), materials.skin);
   skin.scale.set(net.width, net.height, net.length);
   group.add(skin);
-
-  // Floats along the top and weights around the rim.
-  const floatGeometry = new SphereGeometry(0.11, 6, 4);
-  const weightGeometry = new BoxGeometry(0.28, 0.2, 0.28);
-  for (let i = 0; i < 5; i++) {
-    const theta = (i / 5) * Math.PI * 2;
-    const phi = Math.PI / 2 - 0.45;
-    const float = new Mesh(floatGeometry, materials.float);
-    float.position.set(net.width * Math.cos(phi) * Math.sin(theta), net.height * Math.sin(phi) + 0.05, net.length * Math.cos(phi) * Math.cos(theta));
-    group.add(float);
-  }
-  for (let i = 0; i < 6; i++) {
-    const theta = (i / 6) * Math.PI * 2 + 0.3;
-    const weight = new Mesh(weightGeometry, materials.weight);
-    weight.position.set(net.width * Math.sin(theta), 0.05, net.length * Math.cos(theta));
-    weight.rotation.y = theta;
-    group.add(weight);
-  }
   return group;
 }
-
 /** The cutter's beam, a thin glowing line along +Z of length 1; see placeCutterBeam(). Hidden until used. */
 export function createCutterBeam(): Mesh {
   const geometry = new CylinderGeometry(0.06, 0.06, 1, 6, 1, true).rotateX(Math.PI / 2).translate(0, 0, 0.5);
