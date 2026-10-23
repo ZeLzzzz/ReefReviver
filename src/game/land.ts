@@ -4,8 +4,8 @@ import { floorHeight, floorSlope } from "./bay";
 import type { MoveInput } from "./rov";
 import { inland, wallness } from "./terrain";
 
-const { land, bay } = config;
-const { shore } = bay;
+const { land, bay, station } = config;
+const { shore, dock } = bay;
 
 /** Where the player stands after getting out, facing inland, and where the submarine is left floating (D-079, D-080). */
 export interface AshoreSpot {
@@ -20,16 +20,38 @@ export interface LandObstacle {
   radius: number;
 }
 
-/** Palm trunks and rocks; REQ-016 adds the shed and the dock. */
+/** Palm trunks, rocks, and the sorting bins beside the shed's counter (REQ-016). */
 export const landObstacles: readonly LandObstacle[] = [
   ...land.palms.map((palm) => ({ x: palm.x, z: palm.z, radius: 0.3 })),
   ...land.rocks.map((rock) => ({ x: rock.x, z: rock.z, radius: rock.radius })),
+  { x: station.x + station.halfX + 0.6, z: station.z + station.halfZ - 1.25, radius: 1.1 },
 ];
 
-/** True where a walking player can stand: ground no deeper than wading depth, not too steep, not the rock wall, clear of trees and rocks. */
+/** REQ-016 AC-7: inside the recycling shed's walls (grown by `margin`). */
+export function insideShed(x: number, z: number, margin = 0): boolean {
+  return Math.abs(x - station.x) < station.halfX + margin && Math.abs(z - station.z) < station.halfZ + margin;
+}
+
+/** REQ-016: on the dock's deck, which the player can walk out on over the water. */
+export function onDock(x: number, z: number): boolean {
+  return x >= dock.landX && x <= dock.seaX && Math.abs(z - dock.z) <= dock.halfWidth;
+}
+
+/** The height the player's feet rest at: the ground, or the dock's deck where it is higher. */
+export function groundHeight(x: number, z: number): number {
+  const floor = floorHeight(x, z);
+  return onDock(x, z) ? Math.max(floor, bay.surfaceY + dock.deckY) : floor;
+}
+
+/**
+ * True where a walking player can stand: on the dock, or ground no deeper than wading depth, not too steep, not the
+ * rock wall, clear of the shed, the trees and the rocks.
+ */
 export function standable(x: number, z: number): boolean {
   const edge = bay.halfSize - 2;
   if (Math.abs(x) > edge || Math.abs(z) > edge) return false;
+  if (insideShed(x, z, land.radius)) return false;
+  if (onDock(x, z)) return true;
   if (floorHeight(x, z) < bay.surfaceY - land.wadeDepth) return false;
   if (floorSlope(x, z) > land.maxSlope || wallness(x, z) > 0.3) return false;
   return !landObstacles.some((o) => Math.hypot(x - o.x, z - o.z) < o.radius + land.radius);
@@ -39,11 +61,15 @@ export function standable(x: number, z: number): boolean {
  * Whether the submarine at (x, z) is close enough to the west shore to go ashore (within `ashoreRange` of the
  * waterline, on the open beach between the rock walls), and if so where the player lands and the submarine is left.
  */
-export function ashoreSpot(x: number, z: number): AshoreSpot | null {
-  if (Math.abs(z) > shore.openHalf - 20) return null;
-  const s = inland(x, z);
+export function ashoreSpot(x: number, z0: number): AshoreSpot | null {
+  if (Math.abs(z0) > shore.openHalf - 20) return null;
+  // Beside the dock, never under it (REQ-016): the submarine comes alongside, and the player lands level with it.
+  const clearOfDock = dock.halfWidth + land.dockGap;
+  const z = Math.abs(z0 - dock.z) < clearOfDock ? dock.z + (z0 >= dock.z ? clearOfDock : -clearOfDock) : z0;
+  const s = inland(x, z0);
   if (s > 0 || s < -land.ashoreRange) return null;
-  const waterline = x + s;
+  // The waterline where the player lands, which may be a little to the side of the submarine (beside the dock).
+  const waterline = x + inland(x, z);
   // Alongside the beach: from the waterline out into the bay until the water is deep enough to float in.
   let parkX = waterline;
   while (floorHeight(parkX, z) > bay.surfaceY - land.parkDepth && parkX < waterline + land.ashoreRange + 10) parkX += 0.25;
@@ -62,7 +88,7 @@ export interface Walker {
 }
 
 export function createWalker(x: number, z: number, yaw: number): Walker {
-  return { position: new Vector3(x, floorHeight(x, z), z), yaw, pitch: 0 };
+  return { position: new Vector3(x, groundHeight(x, z), z), yaw, pitch: 0 };
 }
 
 /** Mouse movement in pixels: right turns right, up looks up (same feel as steering the submarine). */
@@ -91,7 +117,7 @@ export function stepWalker(walker: Walker, input: MoveInput, dt: number): void {
     else if (dz !== 0 && standable(x, z + dz)) walker.position.set(x, 0, z + dz);
     else walker.position.set(x, 0, z);
   }
-  walker.position.y = floorHeight(walker.position.x, walker.position.z);
+  walker.position.y = groundHeight(walker.position.x, walker.position.z);
 }
 
 /** The player's eyes, where the first-person camera sits. */

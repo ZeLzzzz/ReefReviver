@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { goAshore, standAtCounter } from "./ashore";
 
 type Vec = [number, number, number];
 type Hook = {
@@ -101,7 +102,7 @@ test.describe("Indonesian", () => {
     await expect(stat(page, "score")).toHaveText("0");
   });
 
-  test("full tank: no more suction, message and marker to the station; deposit with E (AC-2, AC-3, AC-4, AC-5)", async ({ page }) => {
+  test("full tank: no more suction, message and marker to the shed; deposit with E at its counter on the land (AC-2, AC-3, AC-4, AC-5, REQ-016)", async ({ page }) => {
     test.setTimeout(120_000);
     await startDive(page);
     for (let n = 1; n <= 12; n++) {
@@ -111,9 +112,9 @@ test.describe("Indonesian", () => {
     await expect(stat(page, "tank")).toHaveText("12/12");
     await expect(stat(page, "score")).toHaveText("120");
     await expect(stat(page, "cleanliness")).toHaveText("19%"); // 12 of 60 trash and 2 nets
-    await expect(page.locator(".message-full")).toHaveText("Tangki penuh, setor ke stasiun");
+    await expect(page.locator(".message-full")).toHaveText("Tangki penuh, setor di gudang daur ulang di darat");
     await expect(page.locator(".station-marker")).toBeVisible();
-    await expect(page.locator(".marker-label")).toContainText("Stasiun daur ulang");
+    await expect(page.locator(".marker-label")).toContainText("Gudang daur ulang");
     await page.screenshot({ path: "test-results/req-002-full.png" });
 
     // A 13th item is not sucked.
@@ -125,16 +126,18 @@ test.describe("Indonesian", () => {
     await expect(stat(page, "tank")).toHaveText("12/12");
     expect(await reef(page, (h) => h.trash().length)).toBe(left);
 
-    // E outside the zone does nothing.
+    // E under the water does nothing, even where the old station stood (REQ-016 AC-4).
+    await page.keyboard.press("KeyE");
+    await page.waitForTimeout(500);
+    await expect(stat(page, "tank")).toHaveText("12/12");
+    await reef(page, (h) => h.placeRov(-108, -6, 8, -Math.PI / 2, 0));
     await page.keyboard.press("KeyE");
     await page.waitForTimeout(500);
     await expect(stat(page, "tank")).toHaveText("12/12");
 
-    // At the station: the zone prompt shows, E empties the tank into materials; cleanliness stays.
-    await reef(page, (h) => {
-      const [x, y, z] = h.station();
-      h.placeRov(x + 2, y + 2, z + 2, 0, 0);
-    });
+    // Ashore at the shed's counter: the prompt shows, E empties the tank into materials; cleanliness stays.
+    await goAshore(page);
+    await standAtCounter(page);
     await expect(page.locator(".message-prompt")).toHaveText("Tekan E untuk menyetor sampah");
     await page.keyboard.press("KeyE");
     await expect(stat(page, "tank")).toHaveText("0/12");

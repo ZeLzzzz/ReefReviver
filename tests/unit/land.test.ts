@@ -2,7 +2,7 @@ import { Vector3 } from "three";
 import { describe, expect, it } from "vitest";
 import { config } from "../../src/config";
 import { floorHeight, floorSlope } from "../../src/game/bay";
-import { ashoreSpot, canBoard, createWalker, eyePosition, landObstacles, lookWalker, standable, stepWalker, type Walker } from "../../src/game/land";
+import { ashoreSpot, canBoard, createWalker, eyePosition, landObstacles, lookWalker, onDock, standable, stepWalker, type Walker } from "../../src/game/land";
 import { inland } from "../../src/game/terrain";
 
 const { land, bay, rov } = config;
@@ -52,9 +52,11 @@ describe("going ashore (REQ-015 AC-1)", () => {
       expect(Math.sin(spot.landing.yaw)).toBeCloseTo(-1);
       // Deep enough to float, and close enough to the beach that a player at the water's edge can board.
       expect(floorHeight(spot.park.x, spot.park.z)).toBeLessThanOrEqual(bay.surfaceY - land.parkDepth);
+      // Walking from the landing spot toward the sea, along its own z (beside the dock it is moved to the side).
+      const lz = spot.landing.z;
       let edge = spot.landing.x;
-      while (standable(edge + 0.1, z)) edge += 0.1;
-      expect(Math.hypot(edge - spot.park.x, z - spot.park.z)).toBeLessThan(land.boardRange);
+      while (standable(edge + 0.1, lz) && !onDock(edge + 0.1, lz)) edge += 0.1;
+      expect(Math.hypot(edge - spot.park.x, lz - spot.park.z)).toBeLessThan(land.boardRange);
     }
   });
 });

@@ -639,6 +639,13 @@ kbd {
   stroke-width: 0.8;
 }
 
+/* REQ-016: the dock, a short line from the shore out over the water. */
+.mm-dock {
+  stroke: #c9a46e;
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
 .mm-sub {
   fill: var(--accent);
   stroke: var(--accent-ink);

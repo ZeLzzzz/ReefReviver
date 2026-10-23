@@ -227,7 +227,29 @@ export function setFrameColumns(columns: readonly FrameColumn[]): void {
   frameColumns = columns;
 }
 
-const stationFloor = floorHeight(station.x, station.z);
+/** REQ-016: the posts the dock's deck stands on, from the floor up through the surface; solid for the submarine. */
+export interface DockPost {
+  x: number;
+  z: number;
+  baseY: number;
+  radius: number;
+  height: number;
+}
+
+function dockPosts(): DockPost[] {
+  const { dock } = bay;
+  const posts: DockPost[] = [];
+  for (let x = dock.landX + 1; x <= dock.seaX; x += 3) {
+    for (const side of [-1, 1]) {
+      const z = dock.z + side * dock.halfWidth;
+      const baseY = floorHeight(x, z) - 0.5;
+      posts.push({ x, z, baseY, radius: 0.16, height: dock.deckY - baseY });
+    }
+  }
+  return posts;
+}
+
+export const posts: readonly DockPost[] = dockPosts();
 
 /**
  * Where the water is too shallow for a sphere of `radius` (the shore and the rock walls rise to and above the
@@ -284,15 +306,14 @@ function pushOutOfFloor(p: Vector3, v: Vector3, radius: number): void {
 
 /**
  * Keeps a sphere of `radius` inside the water: above the floor and below the surface, out of the shore's
- * shallows and the rock walls, and outside every rock, boulder, arch, the recycling station (D-041) and the
+ * shallows and the rock walls, and outside every rock, boulder, arch, the dock's posts (REQ-016) and the
  * installed frames. Velocity into a limit is removed, so the ROV stops there (REQ-001 AC-4, REQ-011 AC-3).
  */
 export function constrainToBay(p: Vector3, v: Vector3, radius: number = config.rov.radius): void {
   for (const rock of rocks) pushOutOfRock(p, v, rock, radius);
   for (const boulder of boulders) for (const tier of boulder.tiers) pushOutOfCylinder(p, v, boulder.x, boulder.z, tier.baseY, tier, radius);
   for (const arch of arches) pushOutOfArch(p, v, arch, radius);
-  pushOutOfCylinder(p, v, station.x, station.z, stationFloor, station.body, radius);
-  pushOutOfCylinder(p, v, station.x + station.mast.dx, station.z + station.mast.dz, stationFloor, station.mast, radius);
+  for (const post of posts) pushOutOfCylinder(p, v, post.x, post.z, post.baseY, post, radius);
   for (const frame of frameColumns) pushOutOfCylinder(p, v, frame.x, frame.z, frame.baseY, frame, radius);
 
   keepInDeepEnoughWater(p, v, radius);
@@ -342,12 +363,11 @@ export function terrainSolidAt(x: number, y: number, z: number, margin = 0): boo
   return y < floorHeight(x, z) + margin || insideRockAt(x, y, z, margin);
 }
 
-/** True when a point is inside the terrain, a rock, the station, an installed frame, or above the water (a shot ends there). */
+/** True when a point is inside the terrain, a rock, a dock post, an installed frame, or above the water (a shot ends there). */
 export function isSolidAt(x: number, y: number, z: number): boolean {
   if (y > bay.surfaceY) return true;
   if (terrainSolidAt(x, y, z)) return true;
-  if (insideCylinder(x, y, z, station.x, station.z, stationFloor, station.body, 0)) return true;
-  if (insideCylinder(x, y, z, station.x + station.mast.dx, station.z + station.mast.dz, stationFloor, station.mast, 0)) return true;
+  if (posts.some((post) => insideCylinder(x, y, z, post.x, post.z, post.baseY, post, 0))) return true;
   return frameColumns.some((frame) => insideCylinder(x, y, z, frame.x, frame.z, frame.baseY, frame, 0));
 }
 

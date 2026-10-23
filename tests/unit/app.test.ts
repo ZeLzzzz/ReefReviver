@@ -187,7 +187,7 @@ describe("HUD (REQ-002)", () => {
     await clickButton(ui, "English");
     await clickButton(ui, "Back");
     await clickButton(ui, "Resume");
-    expect(ui.querySelector(".message-full")?.textContent).toBe("Tank full, deposit at the station");
+    expect(ui.querySelector(".message-full")?.textContent).toBe("Tank full, deposit it at the recycling shed on land");
     expect(ui.querySelector(".stat-tank")?.textContent).toBe("Tank8/8");
   });
 });

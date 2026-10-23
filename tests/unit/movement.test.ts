@@ -1,9 +1,9 @@
 import { Vector3 } from "three";
 import { describe, expect, it } from "vitest";
 import { config } from "../../src/config";
-import { constrainToBay, floorHeight, rocks } from "../../src/game/bay";
+import { constrainToBay, floorHeight, posts, rocks } from "../../src/game/bay";
 import { aimDirection, followCamera } from "../../src/game/follow-camera";
-import { inStationZone, stationPosition } from "../../src/game/station";
+import { inStationZone } from "../../src/game/station";
 import { createRovState, forwardVector, steer, stepRov, type MoveInput, type RovState } from "../../src/game/rov";
 
 const { bay, rov } = config;
@@ -23,10 +23,10 @@ function rovAt(x: number, y: number, z: number, yaw = 0): RovState {
 }
 
 describe("ROV controls (REQ-001 AC-3)", () => {
-  it("starts near the station facing east (+X), into the bay, inside the water and above the floor (D-071)", () => {
+  it("starts off the west shore by the dock, facing east (+X) into the bay, inside the water and above the floor (D-071)", () => {
     const state = createRovState();
     expect(forwardVector(state.yaw).x).toBeCloseTo(1);
-    expect(Math.hypot(state.position.x - stationPosition.x, state.position.z - stationPosition.z)).toBeLessThan(20);
+    expect(Math.hypot(state.position.x - config.bay.dock.seaX, state.position.z - config.bay.dock.z)).toBeLessThan(25);
     const before = state.position.clone();
     constrainToBay(state.position, state.velocity);
     expect(state.position.distanceTo(before)).toBe(0);
@@ -145,43 +145,25 @@ describe("bay limits (REQ-001 AC-4)", () => {
     }
   });
 
-  describe("the recycling station is solid (REQ-002 AC-8, D-041)", () => {
-    const { body } = config.station;
-    const top = stationPosition.y + body.height;
-    const horizontal = (s: RovState) => Math.hypot(s.position.x - stationPosition.x, s.position.z - stationPosition.z);
-
-    it("stops the ROV at the station's side", () => {
-      // Facing -X (yaw -PI/2), level with the container, starting east of the station.
-      const state = rovAt(stationPosition.x + 5, stationPosition.y + 1.5, stationPosition.z, -Math.PI / 2);
-      fly(state, { forward: 1 }, 4, (s) => {
-        if (s.position.y < top) expect(horizontal(s)).toBeGreaterThanOrEqual(body.radius + rov.radius - 1e-9);
-      });
-      expect(horizontal(state)).toBeLessThan(body.radius + rov.radius + 0.5);
+  describe("the dock's posts are solid for the submarine (REQ-016)", () => {
+    it("stops the submarine at a post, under the deck", () => {
+      for (const post of posts.filter((p) => floorHeight(p.x, p.z) < -3)) {
+        const y = Math.max(floorHeight(post.x, post.z) + rov.radius + 0.5, -2.5);
+        // Facing -X (yaw -PI/2), from 4 m east of the post.
+        const state = rovAt(post.x + 4, y, post.z, -Math.PI / 2);
+        fly(state, { forward: 1 }, 3, (s) => {
+          expect(Math.hypot(s.position.x - post.x, s.position.z - post.z)).toBeGreaterThanOrEqual(post.radius + rov.radius - 1e-6);
+        });
+      }
     });
 
-    it("lets the ROV settle on top instead of sinking into it", () => {
-      const state = rovAt(stationPosition.x - 0.3, top + 3, stationPosition.z + 0.2, 0);
-      fly(state, { rise: -1 }, 4);
-      expect(state.position.y).toBeCloseTo(top + rov.radius, 5);
-    });
-
-    it("stops the ROV at the beacon mast", () => {
-      const { mast } = config.station;
-      const mx = stationPosition.x + mast.dx;
-      const mz = stationPosition.z + mast.dz;
-      const state = rovAt(mx, stationPosition.y + 5, mz + 4, Math.PI);
-      fly(state, { forward: 1 }, 3, (s) => {
-        expect(Math.hypot(s.position.x - mx, s.position.z - mz)).toBeGreaterThanOrEqual(mast.radius + rov.radius - 1e-9);
-      });
-    });
-
-    it("still lets the ROV into the deposit zone", () => {
-      const state = rovAt(stationPosition.x + 8, stationPosition.y + 1.5, stationPosition.z, -Math.PI / 2);
-      let entered = false;
-      fly(state, { forward: 1 }, 4, (s) => {
-        entered ||= inStationZone(s.position);
-      });
-      expect(entered).toBe(true);
+    it("has no station under the water any more: the old station's place is open water (D-078)", () => {
+      const state = rovAt(-108, -6, 8, Math.PI / 2);
+      constrainToBay(state.position, state.velocity);
+      const from = state.position.clone();
+      fly(state, { forward: 1 }, 2);
+      expect(state.position.x).toBeGreaterThan(from.x + 5);
+      expect(inStationZone(state.position)).toBe(false);
     });
   });
 

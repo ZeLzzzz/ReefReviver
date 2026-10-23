@@ -40,8 +40,9 @@ export const config = {
     // The rock wall on a rounded square (a superellipse of this exponent) about `radius` from the centre: it rises
     // from the floor to `top` over `width` metres, with a face that juts in and out by up to `jag`.
     wall: { radius: 147, width: 13, top: 8, jag: 5, shape: 4 },
-    // Where the recycling station will move to the land (D-069): left empty, nothing is placed within `clear`.
-    dock: { x: -124, z: 8, clear: 8 },
+    // The wooden dock (REQ-016): from landX on the beach out to seaX, halfWidth either side of z, its deck deckY above
+    // the surface. Nothing else is placed within `clear` of (x, z).
+    dock: { x: -124, z: 8, clear: 8, landX: -130, seaX: -116, halfWidth: 1.3, deckY: 0.9 },
     // Things that stand on the floor (station, reef sites, nets) get a level pad of this radius, blended back
     // to the natural floor over `padBlend`.
     padRadius: 4,
@@ -100,6 +101,8 @@ export const config = {
     cliffX: -150,
     cliffWidth: 8,
     cliffHeight: 12,
+    // The submarine parks at least this far to the side of the dock, never under it (REQ-016).
+    dockGap: 2.5,
     // Coconut palms (height in metres, lean toward the sea in radians) and rocks on the land (D-081).
     palms: [
       { x: -141, z: -72, height: 7, lean: 0.2 },
@@ -183,19 +186,23 @@ export const config = {
     // D-072: the station is on the shore, so trips are longer than in the small bay.
     capacity: 12,
   },
+  // REQ-016: the recycling shed on the land, near the dock (D-078, D-081); there is no station under water any more.
+  // x/z is the shed's centre. On foot, E inside the counter's zone deposits the tank (REQ-002 AC-3).
   station: {
-    // The recycling station stands near the west shore, beside the future dock (D-071), clear of every rock.
-    x: -108,
+    x: -145,
     z: 8,
-    // Pressing E inside this circle (and under zoneHeight above the floor) deposits the tank.
-    zoneRadius: 5,
-    zoneHeight: 8,
-    // The floor is levelled inside padRadius and blends back to the natural floor over padBlend.
+    // Walls: half-sizes along x and z, and height. The player cannot walk through them.
+    halfX: 2.5,
+    halfZ: 3.4,
+    height: 3.2,
+    // The counter is in the east wall, facing the sea; its zone is a circle on the ground in front of it.
+    zoneRadius: 2.2,
+    zoneDx: 4.3,
+    // The ground is levelled inside padRadius and blends back to the natural ground over padBlend.
     padRadius: 6.5,
     padBlend: 4,
-    // Solid parts the ROV cannot pass through (D-041): the container body, and the beacon mast beside it.
-    body: { radius: 1.6, height: 3.1 },
-    mast: { dx: 1.1, dz: -0.5, radius: 0.35, height: 6.9 },
+    // The beacon mast on the roof, seen from the sea; the HUD marker points at its lantern.
+    mast: { dx: -1.4, dz: -2.3, height: 7.5 },
   },
   // REQ-003: the cutter (key 1) frees the animals trapped in ghost nets.
   cutter: {

@@ -1,4 +1,5 @@
 import type { HudState } from "../game/hud-state";
+import { avoidRects } from "../game/marker";
 import type { ObjectiveId } from "../game/session";
 import { t, type Lang, type StringKey } from "../i18n/i18n";
 import { createMinimap } from "./minimap";
@@ -106,6 +107,9 @@ export function createHud(lang: Lang): HudView {
   );
   cutProgress.hidden = true;
 
+  const goalsPanel = h("section", { class: "hud-panel hud-goals", "aria-label": t(lang, "objectives.title") }, h("h2", {}, t(lang, "objectives.title")), goalList, phase2List, phase3List);
+  const statsPanel = h("section", { class: "hud-panel hud-stats" }, tank.row, meter, materials.row, score.row, cleanliness.row);
+
   // REQ-015: the screen fades out and back in while the player gets out of the submarine or back in (no flash).
   const fade = h("div", { class: "hud-fade", "aria-hidden": "true" });
 
@@ -118,16 +122,15 @@ export function createHud(lang: Lang): HudView {
     { class: "hud" },
     h("div", { class: "crosshair", "aria-hidden": "true" }),
     cutProgress,
-    h("section", { class: "hud-panel hud-goals", "aria-label": t(lang, "objectives.title") }, h("h2", {}, t(lang, "objectives.title")), goalList, phase2List, phase3List),
+    goalsPanel,
     minimap.element,
-    h("section", { class: "hud-panel hud-stats" }, tank.row, meter, materials.row, score.row, cleanliness.row),
+    statsPanel,
     toolPanel,
     h("div", { class: "hud-messages" }, fullMessage, notice, prompt),
     marker,
     fade,
   );
 
-  let markerWidth = 0;
   return {
     element,
     update(state) {
@@ -206,16 +209,19 @@ export function createHud(lang: Lang): HudView {
       // The marker always points to the station; it is loudest when the tank is full.
       marker.classList.toggle("urgent", state.tankFull);
       marker.classList.toggle("on-screen", state.marker.onScreen);
-      // Keep the whole label on screen when the marker rides the left or right edge.
-      const half = markerWidth / 2 + 8;
-      const left = Math.min(Math.max(state.marker.left, half), Math.max(half, window.innerWidth - half));
-      marker.style.transform = `translate(${left.toFixed(1)}px, ${state.marker.top.toFixed(1)}px) translate(-50%, -50%)`;
-      markerArrow.style.transform = `rotate(${state.marker.angle.toFixed(3)}rad)`;
       const label = `${t(lang, "station.name")} · ${state.stationDistance} m`;
-      if (markerLabel.textContent !== label) {
-        markerLabel.textContent = label;
-        markerWidth = marker.offsetWidth;
-      }
+      setText(markerLabel, label);
+      // Measured every frame: the full tank makes the marker bigger (bold, with a border).
+      const markerWidth = marker.offsetWidth;
+      const markerHeight = marker.offsetHeight;
+      // Keep the whole label on screen when the marker rides the left or right edge, and off every HUD panel and
+      // message (REQ-016 AC-5).
+      const half = markerWidth / 2 + 8;
+      const edgeLeft = Math.min(Math.max(state.marker.left, half), Math.max(half, window.innerWidth - half));
+      const panels = [goalsPanel, minimap.element, statsPanel, toolPanel, fullMessage, notice, prompt].map((panel) => panel.getBoundingClientRect());
+      const placed = avoidRects(edgeLeft, state.marker.top, markerWidth, markerHeight, panels, window.innerWidth, window.innerHeight);
+      marker.style.transform = `translate(${placed.x.toFixed(1)}px, ${placed.y.toFixed(1)}px) translate(-50%, -50%)`;
+      markerArrow.style.transform = `rotate(${state.marker.angle.toFixed(3)}rad)`;
     },
   };
 }

@@ -2,7 +2,8 @@ import { Vector3 } from "three";
 import { describe, expect, it } from "vitest";
 import { config } from "../../src/config";
 import { Session } from "../../src/game/session";
-import { distanceToStation, inStationZone, stationPosition } from "../../src/game/station";
+import { groundHeight, insideShed, standable } from "../../src/game/land";
+import { counterPosition, distanceToStation, inStationZone, stationPosition } from "../../src/game/station";
 import { START_TOOL, toolForKey } from "../../src/game/tools";
 
 const { tank, rewards, phase1, hud } = config;
@@ -182,21 +183,32 @@ describe("tools (D-019)", () => {
   });
 });
 
-describe("recycling station (REQ-002 AC-3)", () => {
-  const at = (dx: number, dy: number, dz: number) => new Vector3(stationPosition.x + dx, stationPosition.y + dy, stationPosition.z + dz);
+describe("the recycling shed's counter (REQ-016 AC-2, AC-4)", () => {
+  const ground = (x: number, z: number) => new Vector3(x, groundHeight(x, z), z);
 
-  it("the zone is a circle around the station, open upward", () => {
-    expect(inStationZone(at(0, 2, 0))).toBe(true);
-    expect(inStationZone(at(config.station.zoneRadius - 0.2, 2, 0))).toBe(true);
-    expect(inStationZone(at(config.station.zoneRadius + 0.5, 2, 0))).toBe(false);
-    expect(inStationZone(at(0, config.station.zoneHeight + 1, 0))).toBe(false);
+  it("is a circle on the ground in front of the shed's east wall, facing the sea", () => {
+    expect(counterPosition.x).toBeGreaterThan(stationPosition.x + config.station.halfX);
+    expect(inStationZone(ground(counterPosition.x, counterPosition.z))).toBe(true);
+    expect(inStationZone(ground(counterPosition.x + config.station.zoneRadius - 0.2, counterPosition.z))).toBe(true);
+    expect(inStationZone(ground(counterPosition.x + config.station.zoneRadius + 0.5, counterPosition.z))).toBe(false);
   });
 
-  it("is near the west shore, in water deep enough for the zone, a short swim from the start (D-071)", () => {
-    expect(stationPosition.x).toBeLessThan(-90);
-    expect(stationPosition.y).toBeLessThan(config.bay.surfaceY - 6);
-    const fromStart = distanceToStation(new Vector3(config.rov.start.x, 0, config.rov.start.z));
-    expect(fromStart).toBeGreaterThan(config.station.zoneRadius + 3);
-    expect(fromStart).toBeLessThan(20);
+  it("can be stood in: the player is not stopped by the shed before reaching it", () => {
+    expect(standable(counterPosition.x - 0.5, counterPosition.z)).toBe(true);
+    expect(insideShed(counterPosition.x, counterPosition.z, config.land.radius)).toBe(false);
+  });
+
+  it("is never reached from under the water (AC-4)", () => {
+    expect(inStationZone(new Vector3(counterPosition.x, -3, counterPosition.z))).toBe(false);
+    expect(inStationZone(new Vector3(-108, -6, 8))).toBe(false);
+  });
+
+  it("stands on the land near the dock, 20 to 30 m from it (D-081)", () => {
+    expect(stationPosition.y).toBeGreaterThan(config.bay.surfaceY + 2);
+    const { dock } = config.bay;
+    const fromDock = Math.hypot(stationPosition.x - (dock.landX + dock.seaX) / 2, stationPosition.z - dock.z);
+    expect(fromDock).toBeGreaterThanOrEqual(18);
+    expect(fromDock).toBeLessThanOrEqual(30);
+    expect(distanceToStation(new Vector3(dock.seaX, 0, dock.z))).toBeLessThan(32);
   });
 });

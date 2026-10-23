@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { boardAgain, goAshore, standAtCounter } from "./ashore";
 
 type Vec = [number, number, number];
 type Frame = { x: number; y: number; z: number; installed: boolean; fragments: number };
@@ -251,12 +252,12 @@ test.describe("Indonesian", () => {
     await page.mouse.down();
     await expect(stat(page, "tank")).toHaveText("1/12", { timeout: 20_000 });
     await page.mouse.up();
-    await reef(page, (h) => {
-      const [x, y, z] = h.station();
-      h.placeRov(x + 2, y + 2, z + 2, 0, 0);
-    });
+    // REQ-016: the deposit is made on foot at the shed's counter, then back in the submarine.
+    await goAshore(page);
+    await standAtCounter(page);
     await page.keyboard.press("KeyE");
     await expect(stat(page, "materials")).toHaveText("1");
+    await boardAgain(page);
     await expect(goals(page)).toHaveText([
       "Bersihkan teluk 1%/80%",
       "Bebaskan satwa 0/2",

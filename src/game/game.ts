@@ -31,8 +31,8 @@ import { ashoreSpot, canBoard, createWalker, eyePosition, lookWalker, stepWalker
 import { Rescue } from "./rescue";
 import { findAimPoint, SeedLauncher } from "./seed-launcher";
 import { Session, type SessionSummary } from "./session";
-import { distanceToStation, inStationZone, stationPosition } from "./station";
-import { createStationModel, STATION_MARKER_HEIGHT } from "./station-model";
+import { counterPosition, distanceToStation, inStationZone, stationPosition } from "./station";
+import { buildDockMesh, createStationModel, STATION_MARKER_HEIGHT } from "./station-model";
 import { toolForKey } from "./tools";
 import { TrashField } from "./trash";
 import { createTrashView } from "./trash-model";
@@ -129,7 +129,7 @@ export class Game implements GameView {
     this.renderer = new WebGLRenderer({ canvas, context, antialias: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.world = buildWorld(this.scene);
-    this.scene.add(this.rovModel, createStationModel(), this.trashView.group, this.beam, this.rescue.group, this.scanBeam);
+    this.scene.add(this.rovModel, createStationModel(), buildDockMesh(), this.trashView.group, this.beam, this.rescue.group, this.scanBeam);
     this.trashView.sync(this.field.items);
     this.scene.add(this.reefView.group, this.seedView.group, this.seaLifeView.group);
     this.reefView.sync(this.reef);
@@ -152,6 +152,8 @@ export class Game implements GameView {
         trashTotal: () => this.field.total,
         rocks: () => rocks.map((r) => [r.x, r.y, r.z, r.size]),
         station: () => [stationPosition.x, stationPosition.y, stationPosition.z],
+        // REQ-016: the middle of the counter's zone, in front of the shed.
+        counter: () => [counterPosition.x, counterPosition.z],
         // REQ-003: where the nets and animals are, and a clock of simulated seconds.
         clock: () => this.rescue.animals.elapsed,
         nets: () => this.rescue.nets.nets.map((n) => ({ id: n.id, species: n.species, cut: n.cut, center: n.center.toArray(), yaw: n.yaw, size: [n.width, n.height, n.length] })),
@@ -372,7 +374,9 @@ export class Game implements GameView {
     for (const code of this.input.takePressed()) {
       if (this.transition) continue;
       if (this.ashore) {
-        if (code === "KeyE" && canBoard(this.ashore.walker, this.ashore.sub)) this.startTransition("sub", null);
+        // REQ-016: at the shed's counter E deposits the tank; next to the submarine it gets back in.
+        if (code === "KeyE" && inStationZone(this.ashore.walker.position)) session.deposit();
+        else if (code === "KeyE" && canBoard(this.ashore.walker, this.ashore.sub)) this.startTransition("sub", null);
         continue;
       }
       session.select(toolForKey(code));
@@ -470,13 +474,9 @@ export class Game implements GameView {
     this.seedView.sync(this.seeds.shots);
   }
 
-  /** E aboard: deposits in the station zone, installs a frame near an empty reef site, or goes ashore near the beach. */
+  /** E aboard: installs a frame near an empty reef site, or goes ashore near the beach. It never deposits (REQ-016 AC-4). */
   private interact(): void {
     const { position } = this.rov;
-    if (inStationZone(position)) {
-      this.session.deposit();
-      return;
-    }
     if (this.reef.emptySiteNear(position.x, position.z) >= 0) {
       this.installFrame();
       return;
@@ -578,8 +578,8 @@ export class Game implements GameView {
       cleanliness: session.cleanliness,
       objectives: session.objectives,
       notice: session.currentNotice,
-      inStationZone: !this.ashore && inStationZone(this.rov.position),
-      stationDistance: Math.round(distanceToStation(this.rov.position)),
+      inStationZone: this.ashore !== null && inStationZone(this.ashore.walker.position),
+      stationDistance: Math.round(distanceToStation(this.ashore ? this.ashore.walker.position : this.rov.position)),
       marker: placeMarker(this.viewPoint, tanHalfFov, window.innerWidth, window.innerHeight, config.hud.markerMargin, config.hud.markerBottomMargin),
       sucking: this.sucking,
       cutProgress: this.rescue.progress, // REQ-003
@@ -587,7 +587,7 @@ export class Game implements GameView {
       unlocked: LOGBOOK_ENTRIES.filter((entry) => session.unlocked.has(entry.id)).map((entry) => entry.id),
       reef: {
         phase2: session.phase2Objectives,
-        canInstall: !this.ashore && !inStationZone(this.rov.position) && this.reef.emptySiteNear(this.rov.position.x, this.rov.position.z) >= 0,
+        canInstall: !this.ashore && this.reef.emptySiteNear(this.rov.position.x, this.rov.position.z) >= 0,
       },
       // REQ-005: the Phase 3 list, empty until the Bloom is over.
       phase3: session.phase3Objectives,

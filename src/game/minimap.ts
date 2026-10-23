@@ -83,6 +83,8 @@ export interface MinimapLayout {
   /** Rocks, boulders and the feet of the arches, in map units. */
   rocks: { x: number; y: number; radius: number }[];
   station: MapPoint;
+  /** REQ-016 AC-6: the dock, a line from the beach out over the water. */
+  dock: { from: MapPoint; to: MapPoint };
   frames: MapPoint[];
   patches: MapPoint[];
 }
@@ -103,6 +105,7 @@ export const minimapLayout: MinimapLayout = {
     ...archFeet,
   ],
   station: mapPoint(station.x, station.z),
+  dock: { from: mapPoint(bay.dock.landX, bay.dock.z), to: mapPoint(bay.dock.seaX, bay.dock.z) },
   frames: reef.frameSites.map((site) => mapPoint(site.x, site.z)),
   patches: reef.seagrassPatches.map((site) => mapPoint(site.x, site.z)),
 };

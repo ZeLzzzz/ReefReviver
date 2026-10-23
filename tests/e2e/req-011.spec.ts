@@ -29,17 +29,19 @@ async function startDive(page: Page) {
 test.describe("Indonesian", () => {
   test.use({ locale: "id-ID" });
 
-  test("the dive starts by the station on the west shore, facing east into a bay of 60 pieces of trash and a 12-item tank (AC-1, AC-5)", async ({ page }) => {
+  test("the dive starts off the west shore by the dock, facing east into a bay of 60 pieces of trash and a 12-item tank (AC-1, AC-5)", async ({ page }) => {
     await startDive(page);
-    const [x, , z] = await reef(page, (h) => h.rovPosition());
-    const [sx, , sz] = await reef(page, (h) => h.station());
-    expect(Math.hypot(x - sx, z - sz)).toBeLessThan(20);
+    const [x] = await reef(page, (h) => h.rovPosition());
+    // The shed stands on the land behind the beach (REQ-016), a short way from the start.
+    const [sx] = await reef(page, (h) => h.station());
     expect(x).toBeLessThan(-80);
+    expect(x - sx).toBeGreaterThan(20);
+    expect(x - sx).toBeLessThan(60);
     // Facing east (clicking Mulai can turn it a little under pointer lock; the exact start is a unit test).
     expect(Math.sin(await reef(page, (h) => h.rovYaw()))).toBeGreaterThan(0.5);
     expect(await reef(page, (h) => h.trashTotal())).toBe(60);
     await expect(page.locator(".stat-tank .stat-value")).toHaveText("0/12");
-    await expect(page.locator(".marker-label")).toHaveText(/^Stasiun daur ulang · \d+ m$/);
+    await expect(page.locator(".marker-label")).toHaveText(/^Gudang daur ulang · \d+ m$/);
   });
 
   test("the minimap shades the land, the rock wall and the depth of the floor (AC-6)", async ({ page }) => {

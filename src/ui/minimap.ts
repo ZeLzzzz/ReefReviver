@@ -52,6 +52,14 @@ export function createMinimap(lang: Lang): MinimapView {
 
   const terrain = layout.terrain.map((shade) => svg("path", { class: "mm-terrain", "data-shade": shade.shade, d: shade.path }));
   const rocks = layout.rocks.map((rock) => svg("circle", { class: "mm-rock", cx: rock.x.toFixed(1), cy: rock.y.toFixed(1), r: rock.radius.toFixed(1) }));
+  const dock = svg("line", {
+    class: "mm-dock",
+    "data-kind": "dock",
+    x1: layout.dock.from.x.toFixed(1),
+    y1: layout.dock.from.y.toFixed(1),
+    x2: layout.dock.to.x.toFixed(1),
+    y2: layout.dock.to.y.toFixed(1),
+  });
   const station = svg(
     "g",
     { class: "mm-icon", "data-kind": "station", transform: at(layout.station) },
@@ -82,6 +90,7 @@ export function createMinimap(lang: Lang): MinimapView {
     ...terrain,
     ...rocks,
     trashLayer,
+    dock,
     station,
     ...frames,
     ...patches,

@@ -2,12 +2,11 @@ import { Vector3 } from "three";
 import { describe, expect, it } from "vitest";
 import { config } from "../../src/config";
 import { AnimalField } from "../../src/game/animals";
-import { floorHeight, insideRockAt, rocks } from "../../src/game/bay";
+import { floorHeight, insideRockAt, posts, rocks } from "../../src/game/bay";
 import { generateTrash } from "../../src/game/trash";
 import { Session } from "../../src/game/session";
-import { stationPosition } from "../../src/game/station";
 
-const { nets, bay, station } = config;
+const { nets, bay } = config;
 
 describe("trapped animals (REQ-003 AC-6)", () => {
   it("start trapped, one turtle and one reef shark", () => {
@@ -101,7 +100,8 @@ describe("freed animals (REQ-003 AC-2, AC-3)", () => {
           (rock) => Math.hypot((x - rock.x) / (rock.size + radius), (y - rock.y) / (rock.height + radius), (z - rock.z) / (rock.size + radius)) >= 1 - 1e-6,
         );
         expect(clearOfRocks).toBe(true);
-        expect(Math.hypot(x - stationPosition.x, z - stationPosition.z)).toBeGreaterThanOrEqual(station.body.radius + radius - 1e-6);
+        // REQ-016: nor through the dock's posts.
+        expect(posts.every((post) => Math.hypot(x - post.x, z - post.z) >= post.radius + radius - 1e-6 || y > post.baseY + post.height + radius - 1e-6)).toBe(true);
         travelled[k] += animal.position.distanceTo(last[k]);
         last[k].copy(animal.position);
       });

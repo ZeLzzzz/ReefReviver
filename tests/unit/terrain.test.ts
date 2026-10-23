@@ -105,12 +105,14 @@ describe("a bay about 300 m wide with hills and valleys (REQ-011 AC-1)", () => {
     }
   });
 
-  it("starts the ROV near the station on the west shore (D-071)", () => {
+  it("starts the ROV near the west shore, a short swim from the dock (D-071, REQ-016)", () => {
     expect(rov.start.x).toBeLessThan(-80);
-    expect(Math.hypot(rov.start.x - stationPosition.x, rov.start.z - stationPosition.z)).toBeLessThan(20);
-    const fromShore = inland(stationPosition.x, stationPosition.z);
+    expect(Math.hypot(rov.start.x - bay.dock.seaX, rov.start.z - bay.dock.z)).toBeLessThan(25);
+    const fromShore = inland(rov.start.x, rov.start.z);
     expect(fromShore).toBeLessThan(-10);
-    expect(fromShore).toBeGreaterThan(-bay.shore.shelfWidth);
+    expect(fromShore).toBeGreaterThan(-bay.shore.shelfWidth - bay.shore.blendWidth);
+    // The recycling shed stands on the land behind the beach.
+    expect(inland(stationPosition.x, stationPosition.z)).toBeGreaterThan(10);
   });
 });
 
@@ -138,7 +140,7 @@ describe("the west shore (REQ-011 AC-2)", () => {
     const depth = bay.surfaceY - floorHeight(dock.x, dock.z);
     expect(depth).toBeGreaterThan(0.5);
     expect(depth).toBeLessThan(5);
-    expect(Math.hypot(dock.x - stationPosition.x, dock.z - stationPosition.z)).toBeLessThan(25);
+    expect(Math.hypot(dock.x - stationPosition.x, dock.z - stationPosition.z)).toBeLessThan(30);
     for (const rock of rocks) expect(Math.hypot(rock.x - dock.x, rock.z - dock.z)).toBeGreaterThan(dock.clear);
     for (const item of generateTrash()) expect(Math.hypot(item.home.x - dock.x, item.home.z - dock.z)).toBeGreaterThan(dock.clear);
     for (const thing of [...boulders, ...arches]) expect(Math.hypot(thing.x - dock.x, thing.z - dock.z)).toBeGreaterThan(dock.clear + 10);
@@ -297,8 +299,8 @@ describe("goals on the new map (REQ-011 AC-5)", () => {
     }
   });
 
-  it("stands the station, the nets, the reef sites and the seagrass patches on level floor the ROV can reach", () => {
-    const places = [{ x: stationPosition.x, z: stationPosition.z }, ...reef.frameSites, ...reef.seagrassPatches, ...nets.sites];
+  it("stands the nets, the reef sites and the seagrass patches on level floor the ROV can reach", () => {
+    const places = [...reef.frameSites, ...reef.seagrassPatches, ...nets.sites];
     for (const { x, z } of places) {
       const h = floorHeight(x, z);
       expect(h).toBeLessThan(bay.surfaceY - 4);
@@ -307,9 +309,9 @@ describe("goals on the new map (REQ-011 AC-5)", () => {
     }
   });
 
-  it("spreads the reef sites, patches and nets over the bay, away from the station", () => {
+  it("spreads the reef sites, patches and nets over the bay, away from the shore", () => {
     for (const site of [...reef.frameSites, ...reef.seagrassPatches, ...nets.sites]) {
-      expect(Math.hypot(site.x - stationPosition.x, site.z - stationPosition.z)).toBeGreaterThan(40);
+      expect(inland(site.x, site.z)).toBeLessThan(-60);
     }
   });
 });
