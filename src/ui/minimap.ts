@@ -1,6 +1,5 @@
 import { config } from "../config";
-import { minimapLayout, type MapMark, type MapPoint, type MinimapState } from "../game/minimap";
-import type { SiteStatus } from "../game/reef-sites";
+import { minimapLayout, type MapMark, type MapPoint, type MinimapState, type SiteMark } from "../game/minimap";
 import { t, type Lang } from "../i18n/i18n";
 import { h } from "./screens";
 
@@ -31,14 +30,14 @@ function setAttr(element: Element, name: string, value: string): void {
  * A reef site: a diamond for a frame, a circle for a seagrass patch. The status is in the shape, never colour alone:
  * empty is an outline, started is filled, planted is filled with a check mark (CSS shows each).
  */
-function siteIcon(kind: "frame" | "patch", point: MapPoint): SVGGElement {
+function siteIcon(kind: "frame" | "patch"): SVGGElement {
   const r = icon.site;
   const shape =
     kind === "frame"
       ? svg("polygon", { class: "mm-shape", points: `0,${-r} ${r},0 0,${r} ${-r},0` })
       : svg("circle", { class: "mm-shape", r: r - 0.5 });
   const check = svg("path", { class: "mm-check", d: "M-3.4 0.2 L-0.9 3 L3.6 -3" });
-  return svg("g", { class: "mm-icon mm-site", "data-kind": kind, "data-status": "empty", transform: at(point) }, shape, check);
+  return svg("g", { class: "mm-icon mm-site", "data-kind": kind, "data-status": "empty" }, shape, check);
 }
 
 /**
@@ -65,8 +64,9 @@ export function createMinimap(lang: Lang): MinimapView {
     { class: "mm-icon", "data-kind": "station", transform: at(layout.station) },
     svg("rect", { class: "mm-shape mm-solid", x: -s, y: -s, width: 2 * s, height: 2 * s }),
   );
-  const frames = layout.frames.map((point) => siteIcon("frame", point));
-  const patches = layout.patches.map((point) => siteIcon("patch", point));
+  // REQ-012: the sites move with every dive, so their icons are placed on each update.
+  const frames = Array.from({ length: config.reef.frames }, () => siteIcon("frame"));
+  const patches = Array.from({ length: config.reef.patches }, () => siteIcon("patch"));
   const netLayer = svg("g", { class: "mm-nets" });
   const trashLayer = svg("g", { class: "mm-trash" });
   const r = icon.rov;
@@ -101,11 +101,12 @@ export function createMinimap(lang: Lang): MinimapView {
   const north = h("span", { class: "mm-north", "aria-hidden": "true" }, t(lang, "minimap.north"));
   const element = h("section", { class: "hud-panel hud-minimap" }, map, north);
 
-  /** Rebuilds the marks of one layer only when the set of items changed. */
+  /** Rebuilds the marks of one layer only when the items or their places changed (REQ-012: a new dive moves them). */
   const layerState = (layer: SVGElement, build: (mark: MapMark) => SVGElement) => {
     let shown: readonly MapMark[] = [];
     return (marks: readonly MapMark[]) => {
-      if (marks.length === shown.length && marks.every((mark, i) => mark.id === shown[i].id)) return;
+      const same = (mark: MapMark, i: number) => mark.id === shown[i].id && mark.x === shown[i].x && mark.y === shown[i].y;
+      if (marks.length === shown.length && marks.every(same)) return;
       shown = marks;
       layer.replaceChildren(...marks.map(build));
     };
@@ -122,8 +123,12 @@ export function createMinimap(lang: Lang): MinimapView {
     svg("circle", { class: "mm-dot", "data-kind": "trash", "data-id": mark.id, cx: mark.x.toFixed(1), cy: mark.y.toFixed(1), r: icon.trash }),
   );
 
-  const setStatuses = (icons: readonly SVGGElement[], statuses: readonly SiteStatus[]) =>
-    icons.forEach((iconElement, i) => statuses[i] && setAttr(iconElement, "data-status", statuses[i]));
+  const setSites = (icons: readonly SVGGElement[], marks: readonly SiteMark[]) =>
+    icons.forEach((iconElement, i) => {
+      if (!marks[i]) return;
+      setAttr(iconElement, "data-status", marks[i].status);
+      setAttr(iconElement, "transform", at(marks[i]));
+    });
 
   return {
     element,
@@ -132,8 +137,8 @@ export function createMinimap(lang: Lang): MinimapView {
       const showSub = state.sub ? "" : "none";
       if (sub.style.display !== showSub) sub.style.display = showSub;
       if (state.sub) setAttr(sub, "transform", `${at(state.sub)} rotate(${state.sub.heading.toFixed(1)})`);
-      setStatuses(frames, state.frames);
-      setStatuses(patches, state.patches);
+      setSites(frames, state.frames);
+      setSites(patches, state.patches);
       setNets(state.nets);
       setTrash(state.trash);
     },

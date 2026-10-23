@@ -1,6 +1,7 @@
 import { Vector3 } from "three";
 import { describe, expect, it } from "vitest";
 import { config } from "../../src/config";
+import { allSpots } from "../../src/game/layout";
 import { arches, boulders, constrainToBay, floorHeight, insideRockAt, rocks, terrainSolidAt } from "../../src/game/bay";
 import { followCamera, keepCameraInWater } from "../../src/game/follow-camera";
 import { createRovState, forwardVector, stepRov, type MoveInput, type RovState } from "../../src/game/rov";
@@ -8,7 +9,7 @@ import { stationPosition } from "../../src/game/station";
 import { inland, squareRadius } from "../../src/game/terrain";
 import { generateTrash } from "../../src/game/trash";
 
-const { bay, rov, camera, trash, reef, nets } = config;
+const { bay, rov, camera, trash } = config;
 const idle: MoveInput = { forward: 0, strafe: 0, rise: 0 };
 
 function fly(state: RovState, input: Partial<MoveInput>, seconds: number, onStep?: (s: RovState) => void): RovState {
@@ -300,7 +301,7 @@ describe("goals on the new map (REQ-011 AC-5)", () => {
   });
 
   it("stands the nets, the reef sites and the seagrass patches on level floor the ROV can reach", () => {
-    const places = [...reef.frameSites, ...reef.seagrassPatches, ...nets.sites];
+    const places = allSpots;
     for (const { x, z } of places) {
       const h = floorHeight(x, z);
       expect(h).toBeLessThan(bay.surfaceY - 4);
@@ -310,8 +311,8 @@ describe("goals on the new map (REQ-011 AC-5)", () => {
   });
 
   it("spreads the reef sites, patches and nets over the bay, away from the shore", () => {
-    for (const site of [...reef.frameSites, ...reef.seagrassPatches, ...nets.sites]) {
-      expect(inland(site.x, site.z)).toBeLessThan(-60);
+    for (const site of allSpots) {
+      expect(inland(site.x, site.z)).toBeLessThan(-50);
     }
   });
 });

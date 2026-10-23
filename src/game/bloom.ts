@@ -15,8 +15,8 @@ export type BloomCondition = "clean" | "frames" | "seagrass";
 export function unmetConditions(progress: BloomProgress): BloomCondition[] {
   const unmet: BloomCondition[] = [];
   if (progress.cleanliness < phase1.cleanTarget) unmet.push("clean");
-  if (progress.framesPlanted < reef.frameSites.length) unmet.push("frames");
-  if (progress.patchesPlanted < reef.seagrassPatches.length) unmet.push("seagrass");
+  if (progress.framesPlanted < reef.frames) unmet.push("frames");
+  if (progress.patchesPlanted < reef.patches) unmet.push("seagrass");
   return unmet;
 }
 

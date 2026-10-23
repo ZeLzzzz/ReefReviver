@@ -73,6 +73,11 @@ async function aimAt(page: Page, rov: Vec, target: Vec) {
   );
 }
 
+/** REQ-012: aims the crosshair at (x, y, z) from whichever side is clear, `distance` m away and `rise` m above it. */
+async function aimAtPoint(page: Page, target: Vec, distance = 9, rise = 0) {
+  expect(await page.evaluate(([t, d, r]) => (window as any).__reef.aimAtPoint(t[0], t[1], t[2], d, r), [target, distance, rise] as const)).toBe(true);
+}
+
 /** Holds the left button until `done()` is true, then lets go. */
 async function shootUntil(page: Page, done: () => Promise<boolean>) {
   await page.mouse.down();
@@ -169,7 +174,7 @@ test.describe("Indonesian", () => {
     await expect(page.locator(".tool-hint")).toHaveText("Klik kiri untuk menembak bibit ke rangka atau petak lamun");
 
     const f = (await sites(page)).frames[0];
-    await aimAt(page, [f.x, f.y + 1, f.z + 9], [f.x, f.y + 1, f.z]);
+    await aimAtPoint(page, [f.x, f.y + 1, f.z]);
     await page.mouse.down();
     await expect.poll(async () => (await sites(page)).frames[0].fragments, { timeout: 30_000 }).toBeGreaterThanOrEqual(1);
     await page.screenshot({ path: "test-results/req-004-coral-1.png" });
@@ -193,7 +198,7 @@ test.describe("Indonesian", () => {
     await startDive(page);
     await pressDigit3(page);
     const p = (await sites(page)).patches[0];
-    await aimAt(page, [p.x - 8, p.y + 3, p.z], [p.x, p.y, p.z]);
+    await aimAtPoint(page, [p.x, p.y, p.z], 8, 3);
     await page.mouse.down();
     await expect.poll(async () => (await sites(page)).patches[0].seeds, { timeout: 30_000 }).toBeGreaterThanOrEqual(1);
     await page.screenshot({ path: "test-results/req-004-seagrass-1.png" });
@@ -217,7 +222,7 @@ test.describe("Indonesian", () => {
 
     // A site without a frame.
     const empty = s.frames[1];
-    await aimAt(page, [empty.x, empty.y + 1, empty.z + 9], [empty.x, empty.y + 0.3, empty.z]);
+    await aimAtPoint(page, [empty.x, empty.y + 0.3, empty.z], 9, 0.7);
     await page.mouse.down();
     await page.waitForTimeout(2500);
     await page.mouse.up();
@@ -275,11 +280,11 @@ test.describe("Indonesian", () => {
     await expect(goals(page).nth(3)).toHaveText("Pasang rangka 1/3");
     await pressDigit3(page);
     const s = await sites(page);
-    await aimAt(page, [s.frames[0].x, s.frames[0].y + 1, s.frames[0].z + 9], [s.frames[0].x, s.frames[0].y + 1, s.frames[0].z]);
+    await aimAtPoint(page, [s.frames[0].x, s.frames[0].y + 1, s.frames[0].z]);
     await shootUntil(page, async () => (await sites(page)).frames[0].fragments >= 3);
     await expect(goals(page).nth(4)).toHaveText("Tanam koral 1/3");
     const p = s.patches[0];
-    await aimAt(page, [p.x - 8, p.y + 3, p.z], [p.x, p.y, p.z]);
+    await aimAtPoint(page, [p.x, p.y, p.z], 8, 3);
     await shootUntil(page, async () => (await sites(page)).patches[0].seeds >= 3);
     await expect(goals(page).nth(5)).toHaveText("Tanam lamun 1/2");
     await expect(stat(page, "score")).toHaveText("110"); // 10 for the trash, 50 for the planted frame, 50 for the planted patch

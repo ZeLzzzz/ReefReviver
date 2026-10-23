@@ -17,9 +17,11 @@ import { Bloom } from "./bloom";
 import { aimDirection, followCamera, keepCameraInWater } from "./follow-camera";
 import type { HudState } from "./hud-state";
 import { Input } from "./input";
+import { terrainBlocks } from "./cutter";
 import { createCutterBeam, placeCutterBeam } from "./net-model";
 import { placeMarker } from "./marker";
 import { buildMinimap } from "./minimap";
+import { chooseLayout, type Layout } from "./layout";
 import { createReefView, createShotView } from "./reef-model";
 import { framePlanted, patchPlanted, ReefField } from "./reef-sites";
 import { aimedScanTarget, collectScanTargets, Scanner, type ScanHit } from "./scanner";
@@ -52,6 +54,12 @@ export interface GameView {
 }
 
 type Mode = "title" | "playing" | "paused";
+
+/**
+ * REQ-012: the seed of the first dive's layout; each new dive takes the next. The browser tests set VITE_TEST_SEED so
+ * their dives are the same every run; otherwise every dive is new. The player cannot choose it.
+ */
+const TEST_SEED = import.meta.env.DEV && import.meta.env.VITE_TEST_SEED ? Number(import.meta.env.VITE_TEST_SEED) : null;
 
 /** A faint cone from the ROV along the aim, shown while the vacuum is pulling. Apex at the origin, base toward +Z. */
 function createVacuumBeam(): Mesh {
@@ -91,7 +99,8 @@ export class Game implements GameView {
   private readonly viewPoint = new Vector3();
   // REQ-004: reef sites, frames, coral and seagrass, and the seed launcher.
   private readonly reef = new ReefField();
-  private readonly reefView = createReefView(this.reef);
+  private reefView = createReefView(this.reef);
+  private dives = 0;
   private readonly seeds = new SeedLauncher();
   private readonly seedView = createShotView();
   private readonly seedCamera = new Vector3();
@@ -178,6 +187,46 @@ export class Game implements GameView {
           constrainToBay(probe, new Vector3());
           return probe.distanceTo(new Vector3(x, y, z)) < 1e-6;
         },
+        // REQ-012: the sites move every dive, so tests aim at them from whichever side is clear. Puts the ROV `distance`
+        // m from (x, y, z) and `rise` m above it, so the crosshair ray (from the camera as it really is) passes through the
+        // point with nothing in the way. Returns false if no side works.
+        aimAtPoint: (x: number, y: number, z: number, distance = 9, rise = 0) => {
+          const target = new Vector3(x, y, z);
+          const camera = new Vector3();
+          const ahead = new Vector3();
+          const aim = new Vector3();
+          for (let k = 0; k < 24; k++) {
+            const yaw = Math.PI + (k / 24) * Math.PI * 2;
+            const at = new Vector3(x - Math.sin(yaw) * distance, y + rise, z - Math.cos(yaw) * distance);
+            const probe = at.clone();
+            constrainToBay(probe, new Vector3());
+            if (probe.distanceTo(at) > 1e-6) continue;
+            let best: number | null = null;
+            let bestError = Infinity;
+            for (let pitch = -1.0; pitch <= 0.6; pitch += 0.004) {
+              followCamera({ position: at, velocity: new Vector3(), yaw, pitch }, camera, ahead);
+              aimDirection(yaw, pitch, aim);
+              const toTarget = target.clone().sub(camera);
+              const along = toTarget.dot(aim);
+              if (along <= 0) continue;
+              const error = toTarget.addScaledVector(aim, -along).length();
+              if (error < bestError) {
+                bestError = error;
+                best = pitch;
+              }
+            }
+            if (best === null || bestError > 0.2) continue;
+            followCamera({ position: at, velocity: new Vector3(), yaw, pitch: best }, camera, ahead);
+            const toTarget = target.clone().sub(camera);
+            if (terrainBlocks(camera, toTarget.clone().normalize(), toTarget.length() - 0.6)) continue;
+            this.rov.position.copy(at);
+            this.rov.velocity.set(0, 0, 0);
+            this.rov.yaw = yaw;
+            this.rov.pitch = best;
+            return true;
+          }
+          return false;
+        },
         // The trash lies in groups (D-066): puts the ROV `distance` m from the nearest free item that can be approached
         // with no other item in or near the vacuum's cone, aimed straight at it. Returns the item's position, or null.
         aimAtTrash: (distance = 3) => {
@@ -263,6 +312,8 @@ export class Game implements GameView {
         },
         // Starts a new dive, as "main lagi" will (REQ-005: it must come back murky, with nothing planted).
         newDive: () => this.play(),
+        // REQ-012: how many dives have started, and the layout's seed for the browser tests.
+        dives: () => this.dives,
         bloom: () => ({ state: this.bloom.state, progress: this.bloom.progress, clarity: this.bloom.clarity, scannerOpen: this.session.bloomDone }),
         water: () => {
           const fog = this.scene.fog as Fog;
@@ -307,11 +358,14 @@ export class Game implements GameView {
     // REQ-015 AC-8: a new dive always starts aboard, at the start.
     this.ashore = null;
     this.transition = null;
+    // REQ-012: every dive puts the nets, the reef sites, the seagrass patches and the trash somewhere else.
+    this.dives += 1;
+    const layout = chooseLayout(TEST_SEED !== null ? TEST_SEED + this.dives : Math.floor(Math.random() * 2 ** 31));
     this.session = new Session(this.field.total);
-    this.field.reset();
+    this.field.reset(layout.trashSeed);
     this.trashView.sync(this.field.items);
-    this.rescue.reset(); // REQ-003
-    this.resetReef();
+    this.rescue.reset(layout); // REQ-003
+    this.resetReef(layout);
     this.resetBloom(); // REQ-005
     this.scanner.reset(); // REQ-006
     this.scanBeam.visible = false;
@@ -457,19 +511,23 @@ export class Game implements GameView {
     this.reefView.setBloom(clarity);
   }
 
-  /** REQ-005: a new dive starts murky, with pale coral, sprouts and no sea life. */
+  /** REQ-005: a new dive starts murky, with pale coral, sprouts and no sea life (the anemones by the new frames). */
   private resetBloom(): void {
     this.bloom.reset();
-    this.seaLife.reset();
+    this.seaLife.reset(this.reef.frames);
     this.showBloom(0);
     this.seaLifeView.sync(this.seaLife, 0);
   }
 
-  /** REQ-004: a new dive starts with no frames, coral or seagrass. */
-  private resetReef(): void {
-    this.reef.reset();
+  /** REQ-004: a new dive starts with no frames, coral or seagrass; REQ-012: at the layout's spots, so the view is rebuilt. */
+  private resetReef(layout: Layout): void {
+    this.reef.reset(layout);
     setFrameColumns([]);
     this.seeds.clear();
+    this.scene.remove(this.reefView.group);
+    this.reefView = createReefView(this.reef);
+    this.scene.add(this.reefView.group);
+    this.bloomShown = -1;
     this.reefView.sync(this.reef);
     this.seedView.sync(this.seeds.shots);
   }

@@ -228,7 +228,7 @@ describe("coral and seagrass grow (AC-2)", () => {
 
   it("start pale and small, with one material for each of the nine fragments", () => {
     view.setBloom(0);
-    expect(view.coralMaterials).toHaveLength(reef.frameSites.length * reef.fragmentsPerFrame);
+    expect(view.coralMaterials).toHaveLength(reef.frames * reef.fragmentsPerFrame);
     expect(new Set(view.coralMaterials.map((m) => m.color.getHex())).size).toBe(1);
     expect(view.look()).toEqual({ coralScale: 1, seagrassHeight: 1 });
   });
@@ -238,7 +238,7 @@ describe("coral and seagrass grow (AC-2)", () => {
     const colours = view.coralMaterials.map((m) => m.color.getHex());
     // Every frame holds three different colours: the reef is multi-coloured.
     expect(new Set(colours).size).toBeGreaterThanOrEqual(5);
-    for (let f = 0; f < reef.frameSites.length; f++) expect(new Set(colours.slice(f * 3, f * 3 + 3)).size).toBe(3);
+    for (let f = 0; f < reef.frames; f++) expect(new Set(colours.slice(f * 3, f * 3 + 3)).size).toBe(3);
     // Pastel: light (every channel at least 0x80) but not white.
     for (const colour of colours) {
       const [r, g, b] = channels(colour);
@@ -275,7 +275,7 @@ describe("coral and seagrass grow (AC-2)", () => {
 
 describe("the site markers fade out (AC-8, D-052)", () => {
   const view = createReefView(new ReefField());
-  const markers = reef.frameSites.length + reef.seagrassPatches.length;
+  const markers = reef.frames + reef.patches;
 
   it("show every marker before the Bloom", () => {
     view.setBloom(0);

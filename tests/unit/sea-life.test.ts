@@ -1,6 +1,7 @@
 import { Group, InstancedMesh, Mesh } from "three";
 import { describe, expect, it } from "vitest";
 import { config } from "../../src/config";
+import { defaultLayout } from "../../src/game/layout";
 import { floorHeight, insideRockAt, rocks } from "../../src/game/bay";
 import { inland, squareRadius } from "../../src/game/terrain";
 import { loopPose, SeaLife, type LoopSpec, type Pose, type SeaSpecies } from "../../src/game/sea-life";
@@ -26,8 +27,8 @@ describe("who returns (REQ-005 AC-3, D-038)", () => {
   const life = new SeaLife();
 
   it("has two clownfish at an anemone beside each of the three frames", () => {
-    expect(life.anemones).toHaveLength(reef.frameSites.length);
-    expect(count(life, "clownfish")).toBe(reef.frameSites.length * seaLife.clownfish.perAnemone);
+    expect(life.anemones).toHaveLength(reef.frames);
+    expect(count(life, "clownfish")).toBe(reef.frames * seaLife.clownfish.perAnemone);
   });
 
   it("has one yellowtail school, manta rays and dolphins", () => {
@@ -96,7 +97,7 @@ describe("the anemones", () => {
 
   it("stand on the floor beside their frame, in the bay, clear of rocks", () => {
     life.anemones.forEach((anemone, i) => {
-      const site = reef.frameSites[i];
+      const site = defaultLayout.frames[i];
       const distance = Math.hypot(anemone.x - site.x, anemone.z - site.z);
       // Outside the frame's solid column, within the interaction distance.
       expect(distance).toBeGreaterThan(reef.frame.radius + 0.5);
@@ -105,7 +106,7 @@ describe("the anemones", () => {
       expect(anemone.y).toBeLessThan(bay.surfaceY - 6);
       for (const rock of rocks) expect(Math.hypot(anemone.x - rock.x, anemone.z - rock.z)).toBeGreaterThan(rock.size + 1);
       // Not on a seagrass patch.
-      for (const patch of reef.seagrassPatches) expect(Math.hypot(anemone.x - patch.x, anemone.z - patch.z)).toBeGreaterThan(reef.patchRadius + 1);
+      for (const patch of defaultLayout.patches) expect(Math.hypot(anemone.x - patch.x, anemone.z - patch.z)).toBeGreaterThan(reef.patchRadius + 1);
     });
   });
 

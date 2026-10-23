@@ -88,29 +88,9 @@ async function standSouthOf(page: Page, kind: "frame" | "patch", index: number, 
   );
 }
 
-async function aimAt(page: Page, rov: Vec, target: Vec) {
-  await reef(
-    page,
-    (h, a) => {
-      const [rx, ry, rz] = a.rov;
-      const [tx, ty, tz] = a.target;
-      const yaw = Math.atan2(tx - rx, tz - rz);
-      const horizontal = Math.hypot(tx - rx, tz - rz);
-      let best = 0;
-      let bestError = Infinity;
-      for (let p = -1.0; p <= 0.6; p += 0.002) {
-        const camY = ry + 2 - 6 * Math.sin(p);
-        const t = (horizontal + 6 * Math.cos(p)) / Math.cos(p);
-        const error = Math.abs(camY + t * Math.sin(p) - ty);
-        if (error < bestError) {
-          best = p;
-          bestError = error;
-        }
-      }
-      h.placeRov(rx, ry, rz, yaw, best);
-    },
-    { rov, target },
-  );
+/** REQ-012: aims the crosshair at (x, y, z) from whichever side is clear, `distance` m away and `rise` m above it. */
+async function aimAtPoint(page: Page, target: Vec, distance = 9, rise = 0) {
+  expect(await page.evaluate(([t, d, r]) => (window as any).__reef.aimAtPoint(t[0], t[1], t[2], d, r), [target, distance, rise] as const)).toBe(true);
 }
 
 async function shootUntil(page: Page, done: () => Promise<boolean>) {
@@ -213,12 +193,12 @@ test.describe("Indonesian", () => {
     await page.keyboard.press("Digit3");
     await expect(page.locator(".tool-name")).toHaveText("3 Seed launcher");
     const s = await sites(page);
-    await aimAt(page, [s.frames[0].x, s.frames[0].y + 1, s.frames[0].z + 9], [s.frames[0].x, s.frames[0].y + 1, s.frames[0].z]);
+    await aimAtPoint(page, [s.frames[0].x, s.frames[0].y + 1, s.frames[0].z]);
     await shootUntil(page, async () => (await sites(page)).frames[0].fragments >= 3);
     await expect(icons(page, "frame").nth(0)).toHaveAttribute("data-status", "planted");
     await expect(icons(page, "frame").nth(0).locator(".mm-check")).toBeVisible();
     const p = s.patches[0];
-    await aimAt(page, [p.x - 8, p.y + 3, p.z], [p.x, p.y, p.z]);
+    await aimAtPoint(page, [p.x, p.y, p.z], 8, 3);
     await page.mouse.down();
     await expect(icons(page, "patch").nth(0)).toHaveAttribute("data-status", "started", { timeout: 40_000 });
     await shootUntil(page, async () => (await sites(page)).patches[0].seeds >= 3);

@@ -69,3 +69,18 @@ test("a model listed in the manifest loads from the sub-path, with the glTF load
   expect(requests).toContain("/game/assets/models/rov.glb");
   expect(requests.some((path) => /^\/game\/assets\/GLTFLoader-.*\.js$/.test(path))).toBe(true);
 });
+
+test("a refresh starts a new dive with the nets and reef sites somewhere else (REQ-012 AC-2)", async ({ page }) => {
+  // The production build has no test hooks and no fixed seed: the layout shows in the minimap's marks.
+  const marks = async () => {
+    await page.goto("/game/");
+    await page.getByRole("button", { name: "Mulai" }).click();
+    await expect(page.locator(".hud-minimap")).toBeVisible();
+    return page.locator('.hud-minimap [data-kind="frame"], .hud-minimap [data-kind="patch"], .hud-minimap [data-kind="net"]').evaluateAll((els) => els.map((el) => el.getAttribute("transform")));
+  };
+  const first = await marks();
+  expect(first).toHaveLength(7);
+  // Two random layouts can match by chance (a few in a thousand); a third try makes a false failure very unlikely.
+  const others = [await marks(), await marks()];
+  expect(others.some((other) => JSON.stringify(other) !== JSON.stringify(first))).toBe(true);
+});

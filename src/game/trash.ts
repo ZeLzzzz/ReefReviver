@@ -6,7 +6,6 @@ import { stationPosition } from "./station";
 import { pickNearestInCone } from "./vacuum";
 
 const { trash, vacuum, station } = config;
-const netSites = config.nets.sites;
 
 export type TrashKind = "bottle" | "bag" | "can";
 const KINDS: readonly TrashKind[] = ["bottle", "bag", "can"];
@@ -47,10 +46,10 @@ export function trashSpotOk(x: number, z: number): boolean {
   if (Math.hypot(x - stationPosition.x, z - stationPosition.z) < station.zoneRadius + 3) return false;
   if (Math.hypot(x - bay.dock.x, z - bay.dock.z) < bay.dock.clear) return false;
   if (Math.hypot(x - bay.cave.x, z - bay.cave.z) < bay.cave.clear) return false;
-  // REQ-003: no trash under a ghost net, where it would hide behind the net or stop the cutter.
-  if (netSites.some((site) => Math.hypot(x - site.x, z - site.z) < trash.clearOfNets)) return false;
-  // Nor on a reef site or a seagrass patch, where the seeds land.
-  if ([...reef.frameSites, ...reef.seagrassPatches].some((site) => Math.hypot(x - site.x, z - site.z) < trash.clearOfSites)) return false;
+  // REQ-003: no trash under a ghost net, where it would hide behind the net or stop the cutter; nor on a reef site or a
+  // seagrass patch, where the seeds land. REQ-012: kept clear of every spot one could be on.
+  if (config.nets.spots.some((site) => Math.hypot(x - site.x, z - site.z) < trash.clearOfNets)) return false;
+  if ([...reef.frameSpots, ...reef.patchSpots].some((site) => Math.hypot(x - site.x, z - site.z) < trash.clearOfSites)) return false;
   // Not inside or right against a rock, a boulder or an arch.
   return !insideRockAt(x, floor + trash.restHeight, z, 1.2);
 }
@@ -100,7 +99,11 @@ const easeIn = (t: number) => t * t;
 
 /** The trash on the floor and the vacuum's pull on it. Pure: no rendering, no DOM. */
 export class TrashField {
-  readonly items: TrashItem[] = generateTrash();
+  readonly items: TrashItem[];
+
+  constructor(seed: number = trash.seed) {
+    this.items = generateTrash(seed);
+  }
   private cooldown = 0;
 
   get total(): number {
@@ -144,9 +147,16 @@ export class TrashField {
     return arrived;
   }
 
-  /** Puts every item back on the floor, for a new dive. */
-  reset(): void {
+  /** Puts every item back on the floor for a new dive; REQ-012: a new seed lays them somewhere else. */
+  reset(seed?: number): void {
     this.cooldown = 0;
+    if (seed !== undefined) {
+      generateTrash(seed).forEach((fresh, i) => {
+        const item = this.items[i];
+        item.home.copy(fresh.home);
+        item.rotation = fresh.rotation;
+      });
+    }
     for (const item of this.items) {
       item.state = "free";
       item.pull = 0;

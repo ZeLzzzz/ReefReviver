@@ -208,9 +208,9 @@ export class Session {
     if (this.trashDeposited === 0) return [];
     const row = (id: ObjectiveId, current: number, target: number): Objective => ({ id, current, target, done: current >= target });
     return [
-      row("frames", this.framesInstalled, reef.frameSites.length),
-      row("coral", this.framesPlanted, reef.frameSites.length),
-      row("seagrass", this.patchesPlanted, reef.seagrassPatches.length),
+      row("frames", this.framesInstalled, reef.frames),
+      row("coral", this.framesPlanted, reef.frames),
+      row("seagrass", this.patchesPlanted, reef.patches),
     ];
   }
 
@@ -246,9 +246,9 @@ export class Session {
       animalsFreed: this.animalsFreed,
       animalsTotal: phase1.animals,
       framesPlanted: this.framesPlanted,
-      framesTotal: reef.frameSites.length,
+      framesTotal: reef.frames,
       patchesPlanted: this.patchesPlanted,
-      patchesTotal: reef.seagrassPatches.length,
+      patchesTotal: reef.patches,
       seconds: this.playSeconds,
       score: this.score,
     };

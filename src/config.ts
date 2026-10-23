@@ -219,9 +219,14 @@ export const config = {
     scorePerAnimal: 100,
     // A net is a dome on the floor. Width, height and length are its half-sizes; the animal is longer than the
     // net, so its head and tail stick out and stay visible, and aiming at them does not cut (AC-5).
-    sites: [
-      { species: "turtle", x: -40, z: 30, yaw: 0.6 },
-      { species: "reefShark", x: 60, z: -50, yaw: -0.8 },
+    // Net 0 traps the turtle and net 1 the reef shark; REQ-012 puts them on two of these spots each dive.
+    kinds: ["turtle", "reefShark"],
+    spots: [
+      { x: -40, z: 30, yaw: 0.6 },
+      { x: 60, z: -50, yaw: -0.8 },
+      { x: -75, z: -50, yaw: 1.4 },
+      { x: 15, z: 40, yaw: -0.3 },
+      { x: 95, z: 10, yaw: 2.2 },
     ],
     species: {
       turtle: {
@@ -291,17 +296,30 @@ export const config = {
   },
   // REQ-004: reef frames, coral fragments and seagrass seeds.
   reef: {
-    // D-014: three marked reef sites and two seagrass patches, spread over the bay (REQ-011) clear of the station,
-    // the rocks and the trash. The patches lie on the sand of the valleys.
-    frameSites: [
+    // D-014: three marked reef sites and two seagrass patches in every dive.
+    frames: 3,
+    patches: 2,
+    // REQ-012: each dive picks them from these spots (D-063, D-074), spread over the bay, clear of the shore, the rocks
+    // and the trash; every spot has a level pad. The seagrass spots lie on the sand of the valleys.
+    frameSpots: [
       { x: -5, z: 5 },
       { x: 70, z: -10 },
       { x: 25, z: 70 },
+      { x: -70, z: 25 },
+      { x: -30, z: -75 },
+      { x: 60, z: -75 },
+      { x: 100, z: 40 },
+      { x: -25, z: 100 },
     ],
-    seagrassPatches: [
+    patchSpots: [
       { x: -30, z: -25 },
       { x: 30, z: 100 },
+      { x: 55, z: 20 },
+      { x: -40, z: 70 },
+      { x: 40, z: -100 },
     ],
+    // AC-5: the spots picked for one dive cover at least this many quarters of the bay (out of 4).
+    spreadQuarters: 3,
     // 5 materials buy one frame (D-014).
     frameCost: 5,
     fragmentsPerFrame: 3,

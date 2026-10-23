@@ -1,5 +1,6 @@
 import { config } from "../config";
 import { floorHeight, type FrameColumn } from "./bay";
+import { defaultLayout, type Layout } from "./layout";
 
 const { reef } = config;
 
@@ -54,14 +55,24 @@ export function patchStatus(site: PatchSite): SiteStatus {
 }
 
 /**
- * The three reef sites and two seagrass patches and how far each one is. Pure state: the Session counts the
+ * The three reef sites and two seagrass patches of a dive (REQ-012: at its layout's spots) and how far each one is. Pure state: the Session counts the
  * progress and the score, the model draws it.
  */
 export class ReefField {
-  readonly frames: FrameSite[] = reef.frameSites.map(({ x, z }) => ({ x, y: floorHeight(x, z), z, installed: false, fragments: 0 }));
-  readonly patches: PatchSite[] = reef.seagrassPatches.map(({ x, z }) => ({ x, y: floorHeight(x, z), z, seeds: 0 }));
+  readonly frames: FrameSite[];
+  readonly patches: PatchSite[];
 
-  reset(): void {
+  constructor(layout: Layout = defaultLayout) {
+    this.frames = layout.frames.map(({ x, z }) => ({ x, y: floorHeight(x, z), z, installed: false, fragments: 0 }));
+    this.patches = layout.patches.map(({ x, z }) => ({ x, y: floorHeight(x, z), z, seeds: 0 }));
+  }
+
+  /** Empties every site for a new dive, moving them to the new layout's spots when one is given (REQ-012). */
+  reset(layout?: Layout): void {
+    if (layout) {
+      layout.frames.forEach(({ x, z }, i) => Object.assign(this.frames[i], { x, y: floorHeight(x, z), z }));
+      layout.patches.forEach(({ x, z }, i) => Object.assign(this.patches[i], { x, y: floorHeight(x, z), z }));
+    }
     for (const frame of this.frames) {
       frame.installed = false;
       frame.fragments = 0;

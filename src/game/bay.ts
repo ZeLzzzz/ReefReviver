@@ -1,10 +1,11 @@
 import { config } from "../config";
 import { Vector3 } from "three";
+import { allSpots } from "./layout";
 import { floorGradient, floorHeight, squareRadius, wallness } from "./terrain";
 
 export { floorHeight, floorSlope } from "./terrain";
 
-const { bay, station, reef, nets } = config;
+const { bay, station } = config;
 
 export interface Rock {
   x: number;
@@ -102,7 +103,7 @@ function keptClear(x: number, z: number, size: number): boolean {
   if (near(bay.dock.x, bay.dock.z, bay.dock.clear)) return true;
   if (near(bay.cave.x, bay.cave.z, bay.cave.clear)) return true;
   const siteClear = bay.padRadius + bay.padBlend + 2;
-  for (const site of [...reef.frameSites, ...reef.seagrassPatches, ...nets.sites]) if (near(site.x, site.z, siteClear)) return true;
+  for (const site of allSpots) if (near(site.x, site.z, siteClear)) return true;
   for (const boulder of bay.boulders) if (near(boulder.x, boulder.z, boulder.radius + 3)) return true;
   for (const arch of bay.arches) if (near(arch.x, arch.z, arch.radius + arch.tube + 3)) return true;
   return false;

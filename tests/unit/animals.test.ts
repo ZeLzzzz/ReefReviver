@@ -145,7 +145,7 @@ describe("animals are not trash (REQ-003 AC-5, REQ-002 AC-7)", () => {
 
   it("keeps trash out from under the nets", () => {
     for (const item of generateTrash()) {
-      for (const site of nets.sites) expect(Math.hypot(item.position.x - site.x, item.position.z - site.z)).toBeGreaterThanOrEqual(config.trash.clearOfNets);
+      for (const site of config.nets.spots) expect(Math.hypot(item.position.x - site.x, item.position.z - site.z)).toBeGreaterThanOrEqual(config.trash.clearOfNets);
     }
     expect(generateTrash()).toHaveLength(config.trash.count);
   });

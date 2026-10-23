@@ -169,7 +169,7 @@ describe("bay limits (REQ-001 AC-4)", () => {
 
   it("slides along a limit instead of sticking to it", () => {
     // Diving forward over a reef site's level pad: the floor stops the descent but not the forward motion.
-    const site = config.reef.frameSites[0];
+    const site = config.reef.frameSpots[0];
     const state = rovAt(site.x, floorHeight(site.x, site.z + 2) + rov.radius, site.z + 2, Math.PI);
     fly(state, { forward: 1, rise: -1 }, 1);
     expect(state.position.z).toBeLessThan(site.z);

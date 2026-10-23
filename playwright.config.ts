@@ -22,6 +22,8 @@ export default defineConfig({
   ],
   webServer: {
     command: `npx vite --port ${port} --strictPort`,
+    // REQ-012: the same layouts every run, so the tests are repeatable; players get a new one every dive.
+    env: { VITE_TEST_SEED: "1" },
     url: `http://localhost:${port}`,
     reuseExistingServer: false,
   },

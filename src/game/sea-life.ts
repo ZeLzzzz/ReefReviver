@@ -3,8 +3,9 @@ import { config } from "../config";
 import type { LogbookId } from "../logbook/entries";
 import { smoothstep } from "./bloom";
 import { floorHeight } from "./bay";
+import { defaultLayout, type Spot } from "./layout";
 
-const { seaLife, reef } = config;
+const { seaLife } = config;
 
 export type SeaSpecies = "clownfish" | "yellowtail" | "mantaRay" | "dolphin";
 
@@ -64,6 +65,8 @@ export interface SeaCreature {
   scannable: boolean;
   logbookId: LogbookId | null;
   loop: LoopSpec;
+  /** Clownfish only: the index of the anemone it lives at. */
+  anemone?: number;
   position: Vector3;
   yaw: number;
   pitch: number;
@@ -79,9 +82,9 @@ function mulberry32(seed: number): () => number {
   };
 }
 
-/** One anemone beside each reef frame (D-038). */
-export function generateAnemones(): Anemone[] {
-  return reef.frameSites.map(({ x, z }) => {
+/** One anemone beside each reef frame (D-038); REQ-012: beside the dive's frames. */
+export function generateAnemones(frames: readonly Spot[] = defaultLayout.frames): Anemone[] {
+  return frames.map(({ x, z }) => {
     const ax = x + seaLife.anemone.dx;
     const az = z + seaLife.anemone.dz;
     return { x: ax, y: floorHeight(ax, az), z: az };
@@ -97,15 +100,16 @@ const LOGBOOK_OF: Record<SeaSpecies, LogbookId | null> = {
 
 /** Clownfish at each anemone, the yellowtail school, the manta rays and the dolphins, with their loops. */
 export function generateCreatures(anemones: readonly Anemone[]): SeaCreature[] {
-  const loops: { species: SeaSpecies; loop: LoopSpec }[] = [];
+  const loops: { species: SeaSpecies; loop: LoopSpec; anemone?: number }[] = [];
   const random = mulberry32(53);
   const spread = (amount: number) => (random() * 2 - 1) * amount;
 
   const { clownfish, yellowtail, dolphins } = seaLife;
-  for (const anemone of anemones) {
+  for (const [home, anemone] of anemones.entries()) {
     for (let i = 0; i < clownfish.perAnemone; i++) {
       loops.push({
         species: "clownfish",
+        anemone: home,
         loop: {
           x: anemone.x,
           z: anemone.z,
@@ -181,9 +185,10 @@ export function generateCreatures(anemones: readonly Anemone[]): SeaCreature[] {
     });
   }
 
-  return loops.map(({ species, loop }, id) => ({
+  return loops.map(({ species, loop, anemone }, id) => ({
     id,
     species,
+    anemone,
     scannable: species !== "yellowtail",
     logbookId: LOGBOOK_OF[species],
     loop,
@@ -199,15 +204,17 @@ export function generateCreatures(anemones: readonly Anemone[]): SeaCreature[] {
  * size over `appearSeconds` and swims its loop. Pure: no rendering, no collision (the ROV passes through).
  */
 export class SeaLife {
-  readonly anemones = generateAnemones();
-  readonly creatures = generateCreatures(this.anemones);
+  readonly anemones: Anemone[];
+  readonly creatures: SeaCreature[];
   /** The Bloom has finished and the animals are (appearing) in the bay. */
   active = false;
   private time = 0;
   private appearTime = 0;
   private readonly pose: Pose = { x: 0, y: 0, z: 0, yaw: 0, pitch: 0 };
 
-  constructor() {
+  constructor(frames: readonly Spot[] = defaultLayout.frames) {
+    this.anemones = generateAnemones(frames);
+    this.creatures = generateCreatures(this.anemones);
     this.place();
   }
 
@@ -232,8 +239,18 @@ export class SeaLife {
     this.place();
   }
 
-  /** A new dive: the bay is empty again. */
-  reset(): void {
+  /** A new dive: the bay is empty again, and REQ-012 moves the anemones and their clownfish beside the new frames. */
+  reset(frames?: readonly Spot[]): void {
+    if (frames) {
+      generateAnemones(frames).forEach((anemone, i) => Object.assign(this.anemones[i], anemone));
+      for (const creature of this.creatures) {
+        if (creature.anemone === undefined) continue;
+        const anemone = this.anemones[creature.anemone];
+        creature.loop.x = anemone.x;
+        creature.loop.z = anemone.z;
+        creature.loop.y = anemone.y + seaLife.anemone.height + seaLife.clownfish.hover;
+      }
+    }
     this.active = false;
     this.time = 0;
     this.appearTime = 0;

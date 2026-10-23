@@ -1,6 +1,7 @@
 import { Vector3 } from "three";
 import { describe, expect, it } from "vitest";
 import { config } from "../../src/config";
+import { defaultLayout } from "../../src/game/layout";
 import { aimDirection } from "../../src/game/follow-camera";
 import type { HudState } from "../../src/game/hud-state";
 import { arches, boulders, floorHeight, rocks } from "../../src/game/bay";
@@ -98,10 +99,11 @@ describe("the ROV arrow's heading (REQ-010 AC-1)", () => {
 describe("landmarks (REQ-010 AC-2)", () => {
   it("lays out the station, three reef sites and two seagrass patches", () => {
     expect(minimapLayout.station).toEqual(mapPoint(config.station.x, config.station.z));
-    expect(minimapLayout.frames).toEqual(config.reef.frameSites.map((s) => mapPoint(s.x, s.z)));
-    expect(minimapLayout.patches).toEqual(config.reef.seagrassPatches.map((s) => mapPoint(s.x, s.z)));
-    expect(minimapLayout.frames).toHaveLength(3);
-    expect(minimapLayout.patches).toHaveLength(2);
+    const state = buildMinimap(input(scene(), 0));
+    expect(state.frames.map(({ x, y }) => ({ x, y }))).toEqual(defaultLayout.frames.map((s) => mapPoint(s.x, s.z)));
+    expect(state.patches.map(({ x, y }) => ({ x, y }))).toEqual(defaultLayout.patches.map((s) => mapPoint(s.x, s.z)));
+    expect(state.frames).toHaveLength(3);
+    expect(state.patches).toHaveLength(2);
   });
 
   it("shows the rocks, the boulders and the arches' feet as faint shapes in the water", () => {
@@ -117,18 +119,18 @@ describe("landmarks (REQ-010 AC-2)", () => {
 
   it("reports every site as empty at the start, then started and planted as they progress", () => {
     const world = scene();
-    expect(buildMinimap(input(world, 0)).frames).toEqual(["empty", "empty", "empty"]);
-    expect(buildMinimap(input(world, 0)).patches).toEqual(["empty", "empty"]);
+    expect(buildMinimap(input(world, 0)).frames.map((f) => f.status)).toEqual(["empty", "empty", "empty"]);
+    expect(buildMinimap(input(world, 0)).patches.map((p) => p.status)).toEqual(["empty", "empty"]);
     world.reef.install(1);
     world.reef.patches[0].seeds = 1;
     let state = buildMinimap(input(world, 0));
-    expect(state.frames).toEqual(["empty", "started", "empty"]);
-    expect(state.patches).toEqual(["started", "empty"]);
+    expect(state.frames.map((f) => f.status)).toEqual(["empty", "started", "empty"]);
+    expect(state.patches.map((p) => p.status)).toEqual(["started", "empty"]);
     world.reef.frames[1].fragments = config.reef.fragmentsPerFrame;
     world.reef.patches[0].seeds = config.reef.seedsPerPatch;
     state = buildMinimap(input(world, 0));
-    expect(state.frames).toEqual(["empty", "planted", "empty"]);
-    expect(state.patches).toEqual(["planted", "empty"]);
+    expect(state.frames.map((f) => f.status)).toEqual(["empty", "planted", "empty"]);
+    expect(state.patches.map((p) => p.status)).toEqual(["planted", "empty"]);
   });
 });
 
@@ -168,7 +170,7 @@ describe("nets (REQ-010 AC-3)", () => {
   it("shows both nets at the start, at their places", () => {
     const state = buildMinimap(input(scene(), 0));
     expect(state.nets.map((n) => n.id)).toEqual([0, 1]);
-    const site = config.nets.sites[0];
+    const site = defaultLayout.nets[0];
     expect(state.nets[0].x).toBeCloseTo(mapPoint(site.x, site.z).x);
     expect(state.nets[0].y).toBeCloseTo(mapPoint(site.x, site.z).y);
   });

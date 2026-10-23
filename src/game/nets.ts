@@ -1,6 +1,7 @@
 import { Vector3 } from "three";
 import { config } from "../config";
 import { floorHeight } from "./bay";
+import { defaultLayout, type Layout } from "./layout";
 
 const { nets, cutter } = config;
 
@@ -24,13 +25,14 @@ export interface Net {
   cutAge: number;
 }
 
-/** The nets, always at the same places, each with its own species. */
-export function generateNets(): Net[] {
-  return nets.sites.map((site, id) => {
-    const species = nets.species[site.species];
+/** The nets of a dive at the layout's spots (REQ-012): net 0 traps the turtle, net 1 the reef shark. */
+export function generateNets(layout: Layout = defaultLayout): Net[] {
+  return layout.nets.map((site, id) => {
+    const kind = nets.kinds[id];
+    const species = nets.species[kind];
     return {
       id,
-      species: site.species,
+      species: kind,
       // A little below the floor, so the dome's rim is buried and no gap shows.
       center: new Vector3(site.x, floorHeight(site.x, site.z) - 0.1, site.z),
       yaw: site.yaw,
@@ -45,7 +47,11 @@ export function generateNets(): Net[] {
 
 /** The ghost nets and whether each is still there. Pure: no rendering, no DOM. */
 export class NetField {
-  readonly nets: Net[] = generateNets();
+  readonly nets: Net[];
+
+  constructor(layout: Layout = defaultLayout) {
+    this.nets = generateNets(layout);
+  }
 
   get total(): number {
     return this.nets.length;
@@ -70,11 +76,16 @@ export class NetField {
     for (const net of this.nets) if (net.cut) net.cutAge = Math.min(net.cutAge + dt, cutter.netFadeSeconds);
   }
 
-  /** Puts every net back, for a new dive. */
-  reset(): void {
-    for (const net of this.nets) {
+  /** Puts every net back, for a new dive, at the new layout's spots when one is given (REQ-012). */
+  reset(layout?: Layout): void {
+    const fresh = layout ? generateNets(layout) : null;
+    this.nets.forEach((net, i) => {
+      if (fresh) {
+        net.center.copy(fresh[i].center);
+        net.yaw = fresh[i].yaw;
+      }
       net.cut = false;
       net.cutAge = 0;
-    }
+    });
   }
 }

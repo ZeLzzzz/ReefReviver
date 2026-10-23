@@ -5,6 +5,7 @@ import { Cutter, aimedNet, type NetHit, type Sphere } from "./cutter";
 import { followCamera } from "./follow-camera";
 import { createCutterBeam, createNetView, placeCutterBeam } from "./net-model";
 import { NetField, type Net } from "./nets";
+import type { Layout } from "./layout";
 import type { RovState } from "./rov";
 import type { Session } from "./session";
 import type { TrashItem } from "./trash";
@@ -72,10 +73,10 @@ export class Rescue {
     }
   }
 
-  /** Puts everything back for a new dive. */
-  reset(): void {
-    this.nets.reset();
-    this.animals.reset();
+  /** Puts everything back for a new dive, at the new layout's spots when one is given (REQ-012). */
+  reset(layout?: Layout): void {
+    this.nets.reset(layout);
+    this.animals.reset(layout);
     this.cutter.reset();
     this.beam.visible = false;
     this.sync(0);

@@ -1,6 +1,7 @@
 import { config } from "../config";
+import { allSpots } from "./layout";
 
-const { bay, station, reef, nets, land } = config;
+const { bay, station, land } = config;
 const { shore, wall } = bay;
 
 const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value));
@@ -97,12 +98,11 @@ function pad(x: number, z: number, radius: number, blend: number): Pad {
   return { x, z, radius, blend, y: naturalFloorHeight(x, z) };
 }
 
-/** The station, the reef sites, the seagrass patches and the nets stand on level ground. */
+/** The shed, and every spot for a reef site, a seagrass patch or a net, stand on level ground. */
 const pads: readonly Pad[] = [
   pad(station.x, station.z, station.padRadius, station.padBlend),
-  ...reef.frameSites.map((site) => pad(site.x, site.z, bay.padRadius, bay.padBlend)),
-  ...reef.seagrassPatches.map((site) => pad(site.x, site.z, bay.padRadius, bay.padBlend)),
-  ...nets.sites.map((site) => pad(site.x, site.z, bay.padRadius, bay.padBlend)),
+  // REQ-012: every spot a reef site, a seagrass patch or a net can be picked for.
+  ...allSpots.map((site) => pad(site.x, site.z, bay.padRadius, bay.padBlend)),
 ];
 
 /**

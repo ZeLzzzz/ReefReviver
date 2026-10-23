@@ -162,7 +162,9 @@ export function createNetView(nets: readonly Net[]): NetView {
         const gone = net.cut ? Math.min(1, net.cutAge / cutter.netFadeSeconds) : 0;
         model.visible = gone < 1;
         model.scale.setScalar(1 - gone);
-        model.position.y = net.center.y - gone * 0.6;
+        // REQ-012: a new dive can put the net somewhere else.
+        model.position.set(net.center.x, net.center.y - gone * 0.6, net.center.z);
+        model.rotation.y = net.yaw;
       }
     },
   };

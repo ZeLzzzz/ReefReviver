@@ -363,7 +363,12 @@ export function createSeaLifeView(life: SeaLife): SeaLifeView {
       if (scale <= 0) return;
       time += dt;
       const grown = Math.max(scale, 0.001);
-      for (const anemone of anemones) anemone.scale.setScalar(grown);
+      anemones.forEach((anemone, i) => {
+        // REQ-012: a new dive can put the anemones beside other frames.
+        const spot = current.anemones[i];
+        anemone.position.set(spot.x, spot.y, spot.z);
+        anemone.scale.setScalar(grown);
+      });
 
       school.forEach((fish, i) => {
         // Each fish is a little different in size, and waggles as it swims.

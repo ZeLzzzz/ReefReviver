@@ -5,7 +5,7 @@ import { frameStatus, patchStatus, type FrameSite, type PatchSite, type SiteStat
 import { wallness } from "./terrain";
 import type { TrashItem } from "./trash";
 
-const { minimap, bay, station, reef } = config;
+const { minimap, bay, station } = config;
 
 /** A point on the map, in map units (0..size, x to the right, y down). */
 export interface MapPoint {
@@ -85,8 +85,6 @@ export interface MinimapLayout {
   station: MapPoint;
   /** REQ-016 AC-6: the dock, a line from the beach out over the water. */
   dock: { from: MapPoint; to: MapPoint };
-  frames: MapPoint[];
-  patches: MapPoint[];
 }
 
 const archFeet = arches.flatMap((arch) =>
@@ -106,9 +104,12 @@ export const minimapLayout: MinimapLayout = {
   ],
   station: mapPoint(station.x, station.z),
   dock: { from: mapPoint(bay.dock.landX, bay.dock.z), to: mapPoint(bay.dock.seaX, bay.dock.z) },
-  frames: reef.frameSites.map((site) => mapPoint(site.x, site.z)),
-  patches: reef.seagrassPatches.map((site) => mapPoint(site.x, site.z)),
 };
+
+/** A reef site or a seagrass patch on the map, with its status. */
+export interface SiteMark extends MapPoint {
+  status: SiteStatus;
+}
 
 /** A net still trapping an animal, or a trash item on the floor, with where to draw it. */
 export interface MapMark extends MapPoint {
@@ -120,8 +121,9 @@ export interface MinimapState {
   rov: MapPoint & { heading: number };
   /** REQ-015: the submarine floating where it was left, while the player is on the land; null aboard. */
   sub: (MapPoint & { heading: number }) | null;
-  frames: SiteStatus[];
-  patches: SiteStatus[];
+  /** REQ-012: the dive's reef sites and seagrass patches, where they are and how far each one is. */
+  frames: SiteMark[];
+  patches: SiteMark[];
   /** Only the nets that have not been cut (AC-3). */
   nets: MapMark[];
   /** Empty while cleanliness is below the threshold (AC-4); otherwise every item still on the floor. */
@@ -155,8 +157,8 @@ export function buildMinimap({ rov, sub = null, frames, patches, nets, trash, cl
   return {
     rov: { ...mapPoint(rov.x, rov.z), heading: headingDegrees(rov.yaw) },
     sub: sub ? { ...mapPoint(sub.x, sub.z), heading: headingDegrees(sub.yaw) } : null,
-    frames: frames.map(frameStatus),
-    patches: patches.map(patchStatus),
+    frames: frames.map((site) => ({ ...mapPoint(site.x, site.z), status: frameStatus(site) })),
+    patches: patches.map((site) => ({ ...mapPoint(site.x, site.z), status: patchStatus(site) })),
     nets: nets.filter((net) => !net.cut).map((net) => ({ id: net.id, ...mapPoint(net.center.x, net.center.z) })),
     trash: marks,
   };

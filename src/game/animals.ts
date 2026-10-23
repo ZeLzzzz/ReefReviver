@@ -2,6 +2,7 @@ import { Vector3 } from "three";
 import { config } from "../config";
 import { constrainToBay, floorHeight } from "./bay";
 import type { Sphere } from "./cutter";
+import { defaultLayout, type Layout } from "./layout";
 import { generateNets, type AnimalSpecies } from "./nets";
 
 const { nets } = config;
@@ -45,8 +46,8 @@ const wrapAngle = (angle: number) => Math.atan2(Math.sin(angle), Math.cos(angle)
 const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value));
 
 /** One animal per net, lying where its net stands. */
-export function generateAnimals(): Animal[] {
-  return generateNets().map((net) => {
+export function generateAnimals(layout: Layout = defaultLayout): Animal[] {
+  return generateNets(layout).map((net) => {
     const home = new Vector3(net.center.x, net.center.y + 0.1 + nets.species[net.species].restHeight, net.center.z);
     return {
       id: net.id,
@@ -70,9 +71,15 @@ export function generateAnimals(): Animal[] {
  * Pure: no rendering, no DOM. Trash lives in its own field, so the vacuum can never take an animal.
  */
 export class AnimalField {
-  readonly animals: Animal[] = generateAnimals();
+  readonly animals: Animal[];
+  private layout: Layout;
   private time = 0;
   private random = mulberry32(31);
+
+  constructor(layout: Layout = defaultLayout) {
+    this.layout = layout;
+    this.animals = generateAnimals(layout);
+  }
 
   /** Seconds of game time the animals have been simulated; the end-to-end tests use it as a game clock. */
   get elapsed(): number {
@@ -114,10 +121,11 @@ export class AnimalField {
   }
 
   /** Puts every animal back into its net, for a new dive. */
-  reset(): void {
+  reset(layout?: Layout): void {
+    if (layout) this.layout = layout;
     this.time = 0;
     this.random = mulberry32(31);
-    const fresh = generateAnimals();
+    const fresh = generateAnimals(this.layout);
     this.animals.forEach((animal, i) => Object.assign(animal, fresh[i]));
   }
 

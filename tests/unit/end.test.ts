@@ -89,9 +89,9 @@ describe("summary (REQ-008 AC-2)", () => {
       animalsFreed: 1,
       animalsTotal: phase1.animals,
       framesPlanted: 1,
-      framesTotal: reef.frameSites.length,
+      framesTotal: reef.frames,
       patchesPlanted: 1,
-      patchesTotal: reef.seagrassPatches.length,
+      patchesTotal: reef.patches,
       seconds: 321,
       score: s.score,
     });
