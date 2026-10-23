@@ -131,7 +131,7 @@ test.describe("Indonesian", () => {
     expect(await reef(page, (h) => h.unlocked())).toEqual([]);
     expect(await reef(page, (h) => h.trash().length)).toBe(60);
     expect(await reef(page, (h) => h.bloom().state)).toBe("idle");
-    await expect(goals(page)).toHaveText(["Bersihkan teluk 0%/80%", "Bebaskan satwa 0/2", "Setor sampah ke stasiun"]);
+    await expect(goals(page)).toHaveText(["Bersihkan teluk 0%/80%", "Bebaskan satwa 0/2", "Setor sampah ke gudang"]);
   });
 });
 
@@ -155,6 +155,6 @@ test.describe("English", () => {
     expect(await reef(page, (h) => h.bloom().state)).toBe("idle");
     await expect.poll(async () => (await reef(page, (h) => h.hud()))?.score).toBe(0);
     expect(await playSeconds(page)).toBeLessThan(5);
-    await expect(goals(page)).toHaveText(["Clean the bay 0%/80%", "Free the animals 0/2", "Deposit trash at the station"]);
+    await expect(goals(page)).toHaveText(["Clean the bay 0%/80%", "Free the animals 0/2", "Deposit trash at the shed"]);
   });
 });

@@ -266,7 +266,7 @@ test.describe("Indonesian", () => {
     await expect(goals(page)).toHaveText([
       "Bersihkan teluk 1%/80%",
       "Bebaskan satwa 0/2",
-      "Setor sampah ke stasiun",
+      "Setor sampah ke gudang",
       "Pasang rangka 0/3",
       "Tanam koral 0/3",
       "Tanam lamun 0/2",
@@ -309,7 +309,7 @@ test.describe("English", () => {
     await standSouthOf(page, "frame", 1, 3);
     await expect(page.locator(".message-prompt")).toHaveText("Press E to install a frame (5 materials)");
     await page.keyboard.press("KeyE");
-    await expect(page.locator(".message-notice")).toHaveText("You need 5 materials. Deposit trash at the station.");
+    await expect(page.locator(".message-notice")).toHaveText("You need 5 materials. Deposit trash at the shed.");
     await page.keyboard.press("Digit3");
     await expect(page.locator(".tool-name")).toHaveText("3 Seed launcher");
     await expect(page.locator(".tool-hint")).toHaveText("Left click to shoot seeds at a frame or a seagrass patch");

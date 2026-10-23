@@ -141,7 +141,7 @@ describe("Phase 1 goals (REQ-002 AC-6)", () => {
     expect(find(s, "clean")).toMatchObject({ current: 80, done: true });
   });
 
-  it("ticks 'Setor sampah ke stasiun' after the first deposit, even a small one", () => {
+  it("ticks 'Setor sampah ke gudang' after the first deposit, even a small one", () => {
     const s = session();
     collect(s, 1);
     expect(find(s, "deposit").done).toBe(false);

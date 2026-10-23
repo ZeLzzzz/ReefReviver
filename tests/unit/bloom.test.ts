@@ -364,7 +364,7 @@ describe("HUD lists (AC-4, AC-5, D-043, D-049)", () => {
     expect(visibleGoals(hud.element)).toEqual([
       ["Clean the bay 90%/80%", true],
       ["Free the animals 0/2", false],
-      ["Deposit trash at the station", true],
+      ["Deposit trash at the shed", true],
       ["Install frames 3/3", true],
       ["Plant coral 3/3", true],
       ["Plant seagrass 1/2", false],
@@ -402,7 +402,7 @@ describe("HUD lists (AC-4, AC-5, D-043, D-049)", () => {
     const hud = createHud("id");
     hud.update(hudState(s));
     hud.update(hudState(new Session(40)));
-    expect(visibleGoals(hud.element).map(([text]) => text)).toEqual(["Bersihkan teluk 0%/80%", "Bebaskan satwa 0/2", "Setor sampah ke stasiun"]);
+    expect(visibleGoals(hud.element).map(([text]) => text)).toEqual(["Bersihkan teluk 0%/80%", "Bebaskan satwa 0/2", "Setor sampah ke gudang"]);
   });
 
   it("renders a state without any Phase 3 field (older fixtures)", () => {

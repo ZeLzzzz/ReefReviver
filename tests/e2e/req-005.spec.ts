@@ -147,7 +147,7 @@ test.describe("Indonesian", () => {
   test("the water clears over about 6 s, coral and seagrass grow, sea life returns, Phase 3 opens, controls work throughout (AC-1, 2, 3, 5, 6, 7)", async ({ page }) => {
     test.setTimeout(300_000);
     await startDive(page);
-    await expect(visibleGoals(page)).toHaveText(["Bersihkan teluk 0%/80%", "Bebaskan satwa 0/2", "Setor sampah ke stasiun"]);
+    await expect(visibleGoals(page)).toHaveText(["Bersihkan teluk 0%/80%", "Bebaskan satwa 0/2", "Setor sampah ke gudang"]);
     const murky = await reef(page, (h) => h.water());
     expect(murky.fogFar).toBe(24);
     expect(murky.background).toBe(murky.fog);
@@ -311,7 +311,7 @@ test.describe("English", () => {
     expect(new Set(look.coral).size).toBe(1);
     expect(look.markers).toEqual([1, 1, 1, 1, 1]);
     expect((await reef(page, (h) => h.seaLife())).active).toBe(false);
-    await expect(visibleGoals(page)).toHaveText(["Clean the bay 0%/80%", "Free the animals 0/2", "Deposit trash at the station"]);
+    await expect(visibleGoals(page)).toHaveText(["Clean the bay 0%/80%", "Free the animals 0/2", "Deposit trash at the shed"]);
     expect((await reef(page, (h) => h.trash())).length).toBe(60);
   });
 });

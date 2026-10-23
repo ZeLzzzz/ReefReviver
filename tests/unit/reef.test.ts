@@ -369,7 +369,7 @@ describe("HUD for reef work (REQ-004 AC-7, E prompt)", () => {
     const s = new Session(config.trash.count);
     const hud = createHud("id");
     hud.update(hudState(s));
-    expect(goals(hud.element)).toEqual(["Bersihkan teluk 0%/80%", "Bebaskan satwa 0/2", "Setor sampah ke stasiun"]);
+    expect(goals(hud.element)).toEqual(["Bersihkan teluk 0%/80%", "Bebaskan satwa 0/2", "Setor sampah ke gudang"]);
     expect(hud.element.querySelector<HTMLElement>(".goal-list-phase2")!.hidden).toBe(true);
     for (let i = 0; i < 6; i++) s.collect();
     s.deposit();
@@ -377,7 +377,7 @@ describe("HUD for reef work (REQ-004 AC-7, E prompt)", () => {
     expect(goals(hud.element)).toEqual([
       "Bersihkan teluk 9%/80%",
       "Bebaskan satwa 0/2",
-      "Setor sampah ke stasiun",
+      "Setor sampah ke gudang",
       "Pasang rangka 0/3",
       "Tanam koral 0/3",
       "Tanam lamun 0/2",
@@ -438,7 +438,7 @@ describe("texts (REQ-004, G-003, G-004)", () => {
       for (const value of [idStrings[key], enStrings[key]]) {
         expect(value).not.toMatch(/plastik|plastic|kembalikan|dikembalikan|lepas|release|return/i);
         // Trash is only mentioned as something to deposit at the station.
-        if (/sampah|trash/i.test(value)) expect(value).toMatch(/Setor sampah di stasiun|Deposit trash at the station/);
+        if (/sampah|trash/i.test(value)) expect(value).toMatch(/Setor sampah di stasiun|Deposit trash at the shed/);
       }
     }
   });

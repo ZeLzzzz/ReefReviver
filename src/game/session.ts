@@ -53,7 +53,7 @@ export class Session {
   materials = 0;
   /** Trash taken up by the vacuum (counts for cleanliness at once, not at deposit; AC-5). */
   trashRemoved = 0;
-  /** Total trash deposited so far, for the "Setor sampah ke stasiun" objective. */
+  /** Total trash deposited so far, for the "Setor sampah ke gudang" objective. */
   trashDeposited = 0;
   /** Nets cut and animals freed by the cutter (REQ-003). */
   netsCut = 0;

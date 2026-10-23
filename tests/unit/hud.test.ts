@@ -58,7 +58,7 @@ describe("HUD (REQ-002 AC-1, AC-6)", () => {
   it("lists the Phase 1 goals when the dive starts", () => {
     const hud = createHud("id");
     hud.update(state());
-    expect(goals(hud.element)).toEqual(["Bersihkan teluk 0%/80%", "Bebaskan satwa 0/2", "Setor sampah ke stasiun"]);
+    expect(goals(hud.element)).toEqual(["Bersihkan teluk 0%/80%", "Bebaskan satwa 0/2", "Setor sampah ke gudang"]);
     expect(hud.element.querySelectorAll(".goal.done")).toHaveLength(0);
   });
 
@@ -171,7 +171,7 @@ describe("languages (G-004)", () => {
     hud.update(fromSession(session, { inStationZone: true }));
     expect(text(hud.element, ".message-full")).toBe("Tank full, deposit it at the recycling shed on land");
     expect(text(hud.element, ".message-prompt")).toBe("Press E to deposit trash");
-    expect(goals(hud.element)).toEqual(["Clean the bay 28%/80%", "Free the animals 0/2", "Deposit trash at the station"]);
+    expect(goals(hud.element)).toEqual(["Clean the bay 28%/80%", "Free the animals 0/2", "Deposit trash at the shed"]);
     expect(text(hud.element, ".stat-score")).toBe("Score120");
   });
 

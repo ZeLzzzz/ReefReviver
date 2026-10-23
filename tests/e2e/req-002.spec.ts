@@ -46,7 +46,7 @@ test.describe("Indonesian", () => {
 
   test("goals are listed at the start (AC-6)", async ({ page }) => {
     await startDive(page);
-    await expect(page.locator(".goal-text")).toHaveText(["Bersihkan teluk 0%/80%", "Bebaskan satwa 0/2", "Setor sampah ke stasiun"]);
+    await expect(page.locator(".goal-text")).toHaveText(["Bersihkan teluk 0%/80%", "Bebaskan satwa 0/2", "Setor sampah ke gudang"]);
     await expect(page.locator(".goal.done")).toHaveCount(0);
     await expect(page.locator(".tool-name")).toHaveText("2 Vacuum");
     await expect(stat(page, "tank")).toHaveText("0/12");
@@ -172,7 +172,7 @@ test.describe("English", () => {
 
   test("the HUD is in English and follows a language change while paused (G-004)", async ({ page }) => {
     await startDive(page);
-    await expect(page.locator(".goal-text")).toHaveText(["Clean the bay 0%/80%", "Free the animals 0/2", "Deposit trash at the station"]);
+    await expect(page.locator(".goal-text")).toHaveText(["Clean the bay 0%/80%", "Free the animals 0/2", "Deposit trash at the shed"]);
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Language" }).click();
     await page.getByRole("button", { name: "Indonesia" }).click();
