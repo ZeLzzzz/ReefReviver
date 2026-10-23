@@ -584,8 +584,44 @@ export const config = {
       sand: { brown: 0x5a5638, green: 0x45653a, opacityBefore: 0.6, opacityAfter: 0.85 },
       sway: { amplitude: 0.35, period: 4.5, waveLength: 12, current: { x: 1, z: 0.35 } },
     },
-    // Decoration, passable: barrel sponges, sea fans and algae tufts. No kelp: it lives in cold seas (D-074).
-    decor: { sponges: 36, fans: 26, algae: 80, seed: 41 },
+    // Decoration, passable (REQ-013 AC-4, REQ-021; D-074, D-098, D-102): tropical algae, barrel sponges and sea fans, each
+    // where its kind grows. Per kind: how many (`count`), its size in metres (`size`: a range, a little bigger than real so it
+    // reads from the camera) and the radius it covers per metre of size (`reach`). No kelp: it lives in cold seas (D-074).
+    decor: {
+      seed: 41,
+      halimeda: { count: 30, size: [1, 1.2], reach: 0.25 },
+      padina: { count: 24, size: [0.85, 1.15], reach: 0.2 },
+      sargassum: { count: 16, size: [0.65, 1.2], reach: 0.3 },
+      sponge: { count: 30, size: [0.4, 1.2], reach: 0.45 },
+      fan: { count: 22, size: [1.15, 1.5], reach: 0.9 },
+      // Algae grow on hard ground (a rock, a boulder's top, an arch) and on the shallow shelf in the west, from `shallow` m
+      // down to `algaeDepth` m; sargassum only down to `sargassumDepth` m (AC-2).
+      shallow: 1.5,
+      algaeDepth: 12,
+      sargassumDepth: 10,
+      // Sponges grow on rocks, boulders and slopes from `spongeDepth` m down; sea fans on boulders, arches and slopes deeper
+      // than `fanDepth` m (AC-3, AC-4).
+      spongeDepth: 5,
+      fanDepth: 10,
+      // Hard ground is within `hardReach` m of a rock's or a boulder's edge, or of an arch's ring; a slope is steeper than `slope`.
+      hardReach: 2.5,
+      slope: 0.25,
+      // Every sea fan faces this current, a yaw in radians (AC-4).
+      current: 0.6,
+      // A piece stays `clearOfTrash` m beyond its reach from the dive's trash, so it never covers an item (AC-6); and `gap` m
+      // from the other pieces.
+      clearOfTrash: 1,
+      gap: 0.3,
+      // Dull before the Bloom (AC-5); after it each piece takes a colour of its kind, by its seed.
+      dull: 0x8f8a7c,
+      colours: {
+        halimeda: [0x5fae3f, 0x3f8f3a],
+        padina: [0xeee6cc, 0xd9ccaa],
+        sargassum: [0x8a6a34, 0x6b4c24],
+        sponge: [0xb05ac8, 0xe08a3c, 0xd9c84a],
+        fan: [0x8e5fd6, 0xc8455a],
+      },
+    },
     // Light rays from the surface after the Bloom (AC-3): this many shafts around the camera, within `spread` metres.
     rays: { count: 12, spread: 36, opacity: 0.1 },
   },

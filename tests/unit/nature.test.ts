@@ -58,15 +58,17 @@ describe("light rays (REQ-013 AC-3)", () => {
 });
 
 describe("decoration (REQ-013 AC-4, AC-6)", () => {
-  it("scatters sponges, sea fans and algae over the bay, and no kelp", () => {
+  it("scatters tropical algae, barrel sponges and sea fans over the bay, and no kelp (REQ-021 AC-1)", () => {
     const count = (kind: string) => decor.filter((d) => d.kind === kind).length;
-    expect(count("sponge")).toBe(nature.decor.sponges);
-    expect(count("fan")).toBe(nature.decor.fans);
-    expect(count("algae")).toBe(nature.decor.algae);
-    expect(new Set(decor.map((d) => d.kind))).toEqual(new Set(["sponge", "fan", "algae"]));
+    expect(count("halimeda")).toBe(nature.decor.halimeda.count);
+    expect(count("padina")).toBe(nature.decor.padina.count);
+    expect(count("sargassum")).toBe(nature.decor.sargassum.count);
+    expect(count("sponge")).toBe(nature.decor.sponge.count);
+    expect(count("fan")).toBe(nature.decor.fan.count);
+    expect(new Set(decor.map((d) => d.kind))).toEqual(new Set(["halimeda", "padina", "sargassum", "sponge", "fan"]));
     const quarters = new Set(decor.map((d) => (d.x > 0 ? 1 : 0) + (d.z > 0 ? 2 : 0)));
     expect(quarters.size).toBe(4);
-    for (const d of decor) expect(d.y).toBeLessThan(bay.surfaceY - 5);
+    for (const d of decor) expect(d.y).toBeLessThan(bay.surfaceY - nature.decor.shallow);
   });
 
   it("lets the submarine pass through small decoration, but not through a big coral cluster", () => {

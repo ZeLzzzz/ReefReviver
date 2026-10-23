@@ -153,6 +153,7 @@ export class Game implements GameView {
     this.world = buildWorld(this.scene);
     this.scene.add(this.rovModel, createStationModel(), buildDockMesh(), this.trashView.group, this.beam, this.rescue.group, this.scanBeam);
     this.trashView.sync(this.field.items);
+    this.natureView.setTrash(this.field.items.map((item) => item.home)); // REQ-021 AC-6
     this.scene.add(this.reefView.group, this.seedView.group, this.seaLifeView.group, this.natureView.group);
     this.scene.add(this.caveView.group);
     this.reefView.sync(this.reef);
@@ -380,6 +381,8 @@ export class Game implements GameView {
         // REQ-020: how many draw calls and triangles the last frame took.
         renderInfo: () => ({ calls: this.renderer.info.render.calls, triangles: this.renderer.info.render.triangles }),
         naturalTargets: () => naturalTargets.map((t) => ({ ...t })),
+        // REQ-021: the decoration shown this dive (after the trash rule), as plain pieces.
+        decorItems: () => this.natureView.decorItems().map((d) => ({ ...d })),
         // REQ-018: the grass on the land: how many blades, their average colour, and the wind's clock.
         grass: () => this.world.grass.look(),
         reefLook: () => ({ ...this.reefView.look(), coral: this.reefView.coralMaterials.map((m) => m.color.getHex()), markers: this.reefView.markerOpacity() }),
@@ -427,6 +430,7 @@ export class Game implements GameView {
     this.session = new Session(this.field.total);
     this.field.reset(layout.trashSeed);
     this.trashView.sync(this.field.items);
+    this.natureView.setTrash(this.field.items.map((item) => item.home)); // REQ-021 AC-6: no decoration over this dive's trash
     this.rescue.reset(layout); // REQ-003
     this.resetReef(layout);
     this.resetBloom(); // REQ-005
