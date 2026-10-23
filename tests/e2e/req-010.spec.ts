@@ -33,9 +33,9 @@ async function startDive(page: Page) {
   await page.waitForTimeout(300);
 }
 
-/** The map is `size` units wide and shows the cliff circle plus a margin: 200 units for 2 x (50 + 2) metres. */
-const mapX = (x: number) => ((x + 52) * 200) / 104;
-const mapY = (z: number) => ((z + 52) * 200) / 104;
+/** The map is `size` units wide and shows 150 m each way from the bay's centre (REQ-011): 200 units for 300 metres. */
+const mapX = (x: number) => ((x + 150) * 200) / 300;
+const mapY = (z: number) => ((z + 150) * 200) / 300;
 const transformOf = (x: number, z: number, heading: number) => `translate(${mapX(x).toFixed(1)} ${mapY(z).toFixed(1)}) rotate(${heading.toFixed(1)})`;
 
 type Box = { x: number; y: number; width: number; height: number };
@@ -154,12 +154,15 @@ test.describe("Indonesian", () => {
     const alpha = await map.evaluate((el) => getComputedStyle(el).backgroundColor);
     expect(alpha).toMatch(/rgba\(.*0\.\d+\)/);
 
-    // At the start the ROV is at (0, 32) facing north: the arrow points up.
+    // At the start the ROV is at (-96, 8) near the station on the west shore, facing about east. (Clicking Mulai can
+    // turn it a little under pointer lock, so the arrow is checked against the ROV's own heading.)
     const rov = icons(page, "rov");
-    await expect(rov).toHaveAttribute("transform", transformOf(0, 32, 0));
-    const up = await arrowDirection(page);
-    expect(up.x).toBeCloseTo(0, 1);
-    expect(up.y).toBeCloseTo(-1, 1);
+    const startYaw = await reef(page, (h) => h.rovYaw());
+    expect(Math.sin(startYaw)).toBeGreaterThan(0.5);
+    await expect(rov).toHaveAttribute("transform", transformOf(-96, 8, ((180 - (startYaw * 180) / Math.PI) % 360 + 360) % 360));
+    const facing = await arrowDirection(page);
+    expect(facing.x).toBeCloseTo(Math.sin(startYaw), 1);
+    expect(facing.y).toBeCloseTo(Math.cos(startYaw), 1);
 
     // Moving and turning moves and turns the arrow; the screen direction matches where the ROV faces (sin yaw, cos yaw).
     for (const [x, z, yaw] of [[-20, -10, Math.PI / 2], [15, 5, 0], [5, -30, -1]] as const) {
@@ -266,20 +269,10 @@ test.describe("Indonesian", () => {
     await expect(icons(page, "trash")).toHaveCount(left);
     await page.screenshot({ path: "test-results/req-010-trash.png" });
 
-    // Suck one item: its dot goes.
-    await page.evaluate(() => {
-      const hook = (window as any).__reef as Hook;
-      const [px, , pz] = hook.rovPosition();
-      const items = hook.trash();
-      items.sort((a, b) => Math.hypot(a[0] - px, a[2] - pz) - Math.hypot(b[0] - px, b[2] - pz));
-      const [x, y, z] = items[0];
-      const len = Math.hypot(x, z) || 1;
-      const rx = x - (x / len) * 3;
-      const rz = z - (z / len) * 3;
-      hook.placeRov(rx, y + 1, rz, Math.atan2(x - rx, z - rz), Math.atan2(-1, 3));
-    });
+    // Suck one item (one with no other item in the cone: the trash lies in groups): its dot goes.
+    expect(await page.evaluate(() => (window as any).__reef.aimAtTrash(3))).not.toBeNull();
     await page.mouse.down();
-    await expect(stat(page, "tank")).toHaveText("1/8", { timeout: 30_000 });
+    await expect(stat(page, "tank")).toHaveText("1/12", { timeout: 30_000 });
     await page.mouse.up();
     await expect(icons(page, "trash")).toHaveCount(left - 1);
     expect(await reef(page, (h) => h.trash().length)).toBe(left - 1);
@@ -325,7 +318,8 @@ test.describe("Indonesian", () => {
     test.setTimeout(90_000);
     await startDive(page);
     await reef(page, (h) => h.placeRov(-18, -6, -22, 0.8, 0));
-    await reef(page, (h) => h.removeTrash(30));
+    // 44 of 60 trash is 70 % of 60 trash and 2 nets: the dots show.
+    await reef(page, (h) => h.removeTrash(44));
     await expect(icons(page, "trash").first()).toBeVisible();
     const content = () => page.locator(".hud-minimap").evaluate((el) => el.outerHTML);
     await expect.poll(content).toContain(transformOf(-18, -22, ((180 - (0.8 * 180) / Math.PI) % 360 + 360) % 360));
@@ -340,7 +334,10 @@ test.describe("Indonesian", () => {
     await page.getByRole("button", { name: "Lanjut" }).click();
     await expect(page.locator(".hud-minimap")).toBeVisible();
     await expect(icons(page, "trash")).toHaveCount(dots);
-    expect(await content()).toBe(before);
+    // Clicking Lanjut moves Playwright's cursor, and under pointer lock that movement can turn the ROV a little, so the
+    // arrow's turn is left out; everything else on the map is as it was.
+    const withoutArrow = (html: string) => html.replace(/(data-kind="rov" transform="translate\([^)]*\)) rotate\([^)]*\)/, "$1");
+    expect(withoutArrow(await content())).toBe(withoutArrow(before));
     // The Logbook (REQ-006) hides the HUD the same way as the pause menu; it is not built yet, so it is not tested here.
   });
 });

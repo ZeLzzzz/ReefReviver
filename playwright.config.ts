@@ -6,6 +6,8 @@ const port = Number(process.env.E2E_PORT ?? 5179);
 export default defineConfig({
   testDir: "tests/e2e",
   reporter: "list",
+  // More browsers at once than this slow every page of the big bay (REQ-011) enough for timing-based tests to fail.
+  workers: 4,
   use: { baseURL: `http://localhost:${port}`, trace: "retain-on-failure" },
   projects: [
     {

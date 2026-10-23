@@ -1,6 +1,7 @@
 import { Vector3 } from "three";
 import { config } from "../config";
-import { floorHeight, rocks } from "./bay";
+import { floorHeight, floorSlope, insideRockAt } from "./bay";
+import { squareRadius, wallness } from "./terrain";
 import { stationPosition } from "./station";
 import { pickNearestInCone } from "./vacuum";
 
@@ -34,33 +35,63 @@ function mulberry32(seed: number): () => number {
   };
 }
 
-/** Scatters the trash over the floor: always the same layout, clear of rocks, the start and the station. */
-export function generateTrash(): TrashItem[] {
-  const random = mulberry32(trash.seed);
+/** True where an item may lie: in water deep enough, on gentle floor, clear of rocks, the start, the station and the sites. */
+export function trashSpotOk(x: number, z: number): boolean {
   const { start } = config.rov;
+  const { bay, reef } = config;
+  if (squareRadius(x, z) > bay.wall.radius - bay.wall.width - 6 || wallness(x, z) > 0) return false;
+  const floor = floorHeight(x, z);
+  if (floor > bay.surfaceY - trash.minDepth) return false;
+  if (floorSlope(x, z) > trash.maxSlope) return false;
+  if (Math.hypot(x - start.x, z - start.z) < trash.clearOfStart) return false;
+  if (Math.hypot(x - stationPosition.x, z - stationPosition.z) < station.zoneRadius + 3) return false;
+  if (Math.hypot(x - bay.dock.x, z - bay.dock.z) < bay.dock.clear) return false;
+  if (Math.hypot(x - bay.cave.x, z - bay.cave.z) < bay.cave.clear) return false;
+  // REQ-003: no trash under a ghost net, where it would hide behind the net or stop the cutter.
+  if (netSites.some((site) => Math.hypot(x - site.x, z - site.z) < trash.clearOfNets)) return false;
+  // Nor on a reef site or a seagrass patch, where the seeds land.
+  if ([...reef.frameSites, ...reef.seagrassPatches].some((site) => Math.hypot(x - site.x, z - site.z) < trash.clearOfSites)) return false;
+  // Not inside or right against a rock, a boulder or an arch.
+  return !insideRockAt(x, floor + trash.restHeight, z, 1.2);
+}
+
+/**
+ * Lays the trash on the floor in small groups (D-066): always the same layout for the same seed, every item on a
+ * good spot (see trashSpotOk) and apart from the others.
+ */
+export function generateTrash(seed: number = trash.seed): TrashItem[] {
+  const random = mulberry32(seed);
+  const reach = config.bay.wall.radius - config.bay.wall.width - 6;
   const items: TrashItem[] = [];
+  const centres: { x: number; z: number }[] = [];
   let attempts = 0;
   while (items.length < trash.count && attempts++ < 20000) {
-    const angle = random() * Math.PI * 2;
-    const distance = trash.minRadius + random() * (trash.maxRadius - trash.minRadius);
-    const x = Math.sin(angle) * distance;
-    const z = Math.cos(angle) * distance;
-    if (Math.hypot(x - start.x, z - start.z) < trash.clearOfStart) continue;
-    if (Math.hypot(x - stationPosition.x, z - stationPosition.z) < station.zoneRadius + 3) continue;
-    if (rocks.some((rock) => Math.hypot(x - rock.x, z - rock.z) < rock.size + 1.2)) continue;
-    // REQ-003: no trash under a ghost net, where it would hide behind the net or stop the cutter.
-    if (netSites.some((site) => Math.hypot(x - site.x, z - site.z) < trash.clearOfNets)) continue;
-    if (items.some((other) => Math.hypot(x - other.home.x, z - other.home.z) < trash.spacing)) continue;
-    const home = new Vector3(x, floorHeight(x, z) + trash.restHeight, z);
-    items.push({
-      id: items.length,
-      kind: KINDS[items.length % KINDS.length],
-      position: home.clone(),
-      home,
-      rotation: random() * Math.PI * 2,
-      state: "free",
-      pull: 0,
-    });
+    const cx = (random() * 2 - 1) * reach;
+    const cz = (random() * 2 - 1) * reach;
+    if (!trashSpotOk(cx, cz)) continue;
+    if (centres.some((c) => Math.hypot(cx - c.x, cz - c.z) < trash.groupSpacing)) continue;
+    centres.push({ x: cx, z: cz });
+    const wanted = Math.min(trash.groupSize, trash.count - items.length);
+    let placed = 0;
+    for (let tries = 0; placed < wanted && tries < 80; tries++) {
+      const angle = random() * Math.PI * 2;
+      const distance = tries === 0 ? 0 : Math.sqrt(random()) * trash.groupRadius;
+      const x = cx + Math.cos(angle) * distance;
+      const z = cz + Math.sin(angle) * distance;
+      if (!trashSpotOk(x, z)) continue;
+      if (items.some((other) => Math.hypot(x - other.home.x, z - other.home.z) < trash.spacing)) continue;
+      const home = new Vector3(x, floorHeight(x, z) + trash.restHeight, z);
+      items.push({
+        id: items.length,
+        kind: KINDS[items.length % KINDS.length],
+        position: home.clone(),
+        home,
+        rotation: random() * Math.PI * 2,
+        state: "free",
+        pull: 0,
+      });
+      placed += 1;
+    }
   }
   return items;
 }

@@ -1,7 +1,8 @@
 import { Group, InstancedMesh, Mesh } from "three";
 import { describe, expect, it } from "vitest";
 import { config } from "../../src/config";
-import { floorHeight, rocks } from "../../src/game/bay";
+import { floorHeight, insideRockAt, rocks } from "../../src/game/bay";
+import { inland, squareRadius } from "../../src/game/terrain";
 import { loopPose, SeaLife, type LoopSpec, type Pose, type SeaSpecies } from "../../src/game/sea-life";
 import { createSeaLifeView, createYellowtailGeometry } from "../../src/game/sea-life-model";
 import { stationPosition } from "../../src/game/station";
@@ -101,7 +102,7 @@ describe("the anemones", () => {
       expect(distance).toBeGreaterThan(reef.frame.radius + 0.5);
       expect(distance).toBeLessThan(reef.interactRadius);
       expect(anemone.y).toBe(floorHeight(anemone.x, anemone.z));
-      expect(Math.hypot(anemone.x, anemone.z)).toBeLessThan(bay.boundaryRadius - seaLife.edgeMargin);
+      expect(anemone.y).toBeLessThan(bay.surfaceY - 6);
       for (const rock of rocks) expect(Math.hypot(anemone.x - rock.x, anemone.z - rock.z)).toBeGreaterThan(rock.size + 1);
       // Not on a seagrass patch.
       for (const patch of reef.seagrassPatches) expect(Math.hypot(anemone.x - patch.x, anemone.z - patch.z)).toBeGreaterThan(reef.patchRadius + 1);
@@ -124,21 +125,23 @@ describe("the anemones", () => {
 describe("the school, rays and dolphins stay in the bay (AC-3)", () => {
   const free = (species: SeaSpecies) => (c: { species: SeaSpecies }) => c.species === species;
 
-  it("never get close to the cliffs, nor below the floor or above the surface", () => {
+  it("never get close to the rock wall or the shore, nor below the floor or above the surface (REQ-011 AC-7)", () => {
     const life = new SeaLife();
     swim(life, 600, () => {
       for (const c of life.creatures) {
-        expect(Math.hypot(c.position.x, c.position.z)).toBeLessThanOrEqual(bay.boundaryRadius - seaLife.edgeMargin);
+        expect(squareRadius(c.position.x, c.position.z)).toBeLessThan(bay.wall.radius - bay.wall.width - 5);
+        expect(inland(c.position.x, c.position.z)).toBeLessThan(-20);
         expect(c.position.y).toBeGreaterThan(floorHeight(c.position.x, c.position.z) + 0.3);
         expect(c.position.y).toBeLessThan(bay.surfaceY - 1);
       }
     });
   });
 
-  it("swim well above every rock and keep away from the station", () => {
+  it("swim well above every rock, boulder and arch and keep away from the station (REQ-011 AC-7)", () => {
     const life = new SeaLife();
     swim(life, 600, () => {
       for (const c of life.creatures.filter((x) => x.species !== "clownfish")) {
+        expect(insideRockAt(c.position.x, c.position.y, c.position.z, 1)).toBe(false);
         for (const rock of rocks) {
           const over = Math.hypot(c.position.x - rock.x, c.position.z - rock.z) < rock.size + 1;
           if (over) expect(c.position.y).toBeGreaterThan(rock.y + rock.height + 1);

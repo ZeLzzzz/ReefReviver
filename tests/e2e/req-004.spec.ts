@@ -8,6 +8,7 @@ type Hook = {
   station(): Vec;
   rovPosition(): Vec;
   placeRov(x: number, y: number, z: number, yaw: number, pitch: number): void;
+  aimAtTrash(distance: number): Vec | null;
   reefSites(): { frames: Frame[]; patches: Patch[] };
   giveMaterials(n: number): void;
 };
@@ -86,12 +87,13 @@ async function pressDigit3(page: Page) {
 test.describe("Indonesian", () => {
   test.use({ locale: "id-ID" });
 
-  test("three reef sites and two seagrass patches exist in the east, empty at the start (AC-1)", async ({ page }) => {
+  test("three reef sites and two seagrass patches exist out in the bay, empty at the start (AC-1)", async ({ page }) => {
     await startDive(page);
     const s = await sites(page);
     expect(s.frames).toHaveLength(3);
     expect(s.patches).toHaveLength(2);
-    for (const site of [...s.frames, ...s.patches]) expect(site.x).toBeGreaterThan(12);
+    const [stationX] = await reef(page, (h) => h.station());
+    for (const site of [...s.frames, ...s.patches]) expect(site.x).toBeGreaterThan(stationX + 40);
     expect(s.frames.every((f) => !f.installed && f.fragments === 0)).toBe(true);
     expect(s.patches.every((p) => p.seeds === 0)).toBe(true);
     // The Phase 2 list is not there before the first deposit.
@@ -225,8 +227,8 @@ test.describe("Indonesian", () => {
     await page.waitForTimeout(2000);
     await page.mouse.up();
 
-    // The cliff at the east edge of the bay, level with the ROV.
-    await reef(page, (h) => h.placeRov(36, -6, -20, Math.PI / 2, 0));
+    // The rock wall at the east edge of the bay, level with the ROV.
+    await reef(page, (h) => h.placeRov(122, -8, 10, Math.PI / 2, 0));
     await page.mouse.down();
     await page.waitForTimeout(2000);
     await page.mouse.up();
@@ -244,19 +246,10 @@ test.describe("Indonesian", () => {
     await expect(goals(page)).toHaveCount(3);
 
     // Suck one trash item, then deposit it at the station.
-    await page.evaluate(() => {
-      const hook = (window as any).__reef as Hook;
-      const [px, , pz] = hook.rovPosition();
-      const items = hook.trash();
-      items.sort((a, b) => Math.hypot(a[0] - px, a[2] - pz) - Math.hypot(b[0] - px, b[2] - pz));
-      const [x, y, z] = items[0];
-      const len = Math.hypot(x, z) || 1;
-      const rx = x - (x / len) * 3;
-      const rz = z - (z / len) * 3;
-      hook.placeRov(rx, y + 1, rz, Math.atan2(x - rx, z - rz), Math.atan2(-1, 3));
-    });
+    // The trash lies in groups: aim at one with no other item in the cone.
+    expect(await page.evaluate(() => ((window as any).__reef as Hook).aimAtTrash(3))).not.toBeNull();
     await page.mouse.down();
-    await expect(stat(page, "tank")).toHaveText("1/8", { timeout: 20_000 });
+    await expect(stat(page, "tank")).toHaveText("1/12", { timeout: 20_000 });
     await page.mouse.up();
     await reef(page, (h) => {
       const [x, y, z] = h.station();
@@ -265,7 +258,7 @@ test.describe("Indonesian", () => {
     await page.keyboard.press("KeyE");
     await expect(stat(page, "materials")).toHaveText("1");
     await expect(goals(page)).toHaveText([
-      "Bersihkan teluk 2%/80%",
+      "Bersihkan teluk 1%/80%",
       "Bebaskan satwa 0/2",
       "Setor sampah ke stasiun",
       "Pasang rangka 0/3",

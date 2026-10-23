@@ -6,8 +6,8 @@ Game browser 3D low-poly: pemain mengendalikan ROV untuk membersihkan teluk yang
 
 - Layar loading dengan progres saat file game dimuat. Kalau ada file yang gagal dimuat, muncul pesan dengan tombol Muat ulang.
 - Layar judul dengan pilihan bahasa Indonesia/English. Bahasa awal mengikuti bahasa browser, dan pilihan yang diganti diingat browser.
-- Menyelam dengan ROV di teluk yang keruh: kamera orang ketiga dan crosshair di tengah layar. ROV tidak bisa menembus dasar laut, tebing, batu, stasiun daur ulang, atau permukaan air.
-- Menyedot sampah dengan Vacuum (tahan klik kiri). Tangki muat 8 item; kalau penuh, setor di stasiun daur ulang dengan E untuk mendapat bahan. Penanda di layar menunjukkan arah stasiun.
+- Menyelam dengan ROV di teluk yang keruh selebar ±300 m: dasarnya naik turun dengan bukit, lembah pasir, batu besar bertingkat yang berpuncak datar, dan lengkungan batu, dari ±8 m sampai ±25 m di bawah permukaan. Sisi barat berupa pantai yang naik ke daratan, sisi lain ditutup dinding batu. Kamera orang ketiga dan crosshair di tengah layar. ROV mulai di dekat stasiun di pantai barat, menghadap ke timur. ROV tidak bisa menembus dasar laut, lereng, batu, dinding batu, pantai, stasiun daur ulang, atau permukaan air, tapi bisa lewat di bawah lengkungan batu. Kamera mendekat ke ROV kalau di belakangnya ada lereng, batu, atau dinding.
+- Menyedot sampah dengan Vacuum (tahan klik kiri). Sekitar 60 sampah tersebar dalam kelompok-kelompok kecil. Tangki muat 12 item; kalau penuh, setor di stasiun daur ulang dengan E untuk mendapat bahan. Penanda di layar menunjukkan arah dan jarak stasiun.
 - Memotong jaring hantu dengan Cutter (tahan klik kiri pada jaring 2 detik) untuk membebaskan penyu hijau dan hiu sirip hitam karang. Satwa yang bebas terus berkeliaran di teluk.
 - Memasang rangka terumbu baja/beton di 3 titik bertanda dengan E (5 bahan), lalu menembakkan bibit dengan Seed launcher: kena rangka jadi fragmen koral, kena petak pasir jadi biji lamun. 3 fragmen menanami satu rangka, 3 biji menanami satu petak.
 - The Bloom: begitu kebersihan teluk mencapai 80% dan ketiga rangka serta kedua petak lamun sudah ditanami, dalam ±6 detik air berubah dari keruh hijau-abu ke biru jernih, koral jadi pastel dan membesar, lamun tumbuh tinggi, dan penanda titik tanam memudar (letaknya tetap ada di minimap). Setelah itu ikan badut muncul di anemon dekat rangka, kawanan ikan ekor kuning, pari manta, dan lumba-lumba berenang di teluk, dan Scanner terbuka. Sisa sampah masih bisa disedot.
@@ -15,7 +15,7 @@ Game browser 3D low-poly: pemain mengendalikan ROV untuk membersihkan teluk yang
 - Marine Logbook (L): permainan berhenti, entri yang belum dipindai tampil sebagai siluet "???", dan entri yang terbuka berisi nama, fakta, kaitan dengan target SDG 14, serta sumbernya (tautan dibuka di tab baru). L atau Esc menutupnya.
 - Layar akhir: sekitar 3 detik setelah entri ketujuh terpindai, tampil ringkasan sesi (sampah terangkat, satwa diselamatkan, rangka koral dan petak lamun yang ditanami, waktu bermain, skor). Waktu bermain dihitung dari Mulai sampai entri ketujuh, tanpa waktu jeda dan saat Logbook terbuka. Main lagi memulai sesi baru dengan bahasa yang sama; Lanjut menjelajah kembali ke teluk yang sudah pulih.
 - HUD berisi tangki, bahan, skor, kebersihan teluk, alat aktif, daftar tujuan Fase 1, dan daftar tujuan Fase 2 setelah setoran pertama. Setelah Bloom, kedua daftar itu diganti tujuan Fase 3 (Pindai 0/7).
-- Minimap di pojok kanan atas (utara di atas), dengan panel statistik tepat di bawahnya. Peta menampilkan arah ROV, stasiun (kotak), titik terumbu (belah ketupat), petak lamun (lingkaran), dan jaring yang masih menjerat satwa (X). Tanda titik berubah saat rangka terpasang dan saat titik ditanami. Sisa sampah baru tampil sebagai titik setelah kebersihan mencapai 70%.
+- Minimap di pojok kanan atas (utara di atas), dengan panel statistik tepat di bawahnya. Peta menampilkan seluruh teluk: daratan di barat, dinding batu, dan dasar laut yang makin terang di bagian yang makin dangkal (puncak bukit), lalu arah ROV, stasiun (kotak), titik terumbu (belah ketupat), petak lamun (lingkaran), dan jaring yang masih menjerat satwa (X). Tanda titik berubah saat rangka terpasang dan saat titik ditanami. Sisa sampah baru tampil sebagai titik setelah kebersihan mencapai 70%.
 - Layar Kredit (dari layar judul): anggota tim, aset pihak ketiga, dan kode pihak ketiga beserta lisensinya. Isinya dibaca dari `CREDITS.md` saat build.
 - Menu jeda (Esc) berisi Lanjut, Kontrol, dan Bahasa. Game juga otomatis berhenti kalau kursor lepas, misalnya karena alt-tab.
 - Di HP/tablet muncul pesan "Mainkan di komputer". Di browser tanpa WebGL 2 muncul penjelasan, bukan layar hitam.
@@ -61,7 +61,7 @@ Model GLB/glTF diletakkan di `public/assets/` dan didaftarkan di `public/assets/
 
 ## Performa
 
-Diukur 2026-10-21 saat adegan terberat (setelah Bloom, semua satwa keluar), 1280×720 dan 1920×1080: Chromium dengan GPU NVIDIA 60 fps, Chromium dengan setelan bawaan (GPU AMD terintegrasi) 54–55 fps, Firefox 157 60 fps. Laptop: AMD Ryzen 7 5800HS, RAM 16 GB, NVIDIA GTX 1650 Mobile + AMD Radeon Vega, Arch Linux (Wayland).
+Diukur 2026-10-23 setelah peta diperluas (REQ-011), saat adegan terberat (setelah Bloom, semua satwa keluar) di dua titik terpadat, 1280×720 dan 1920×1080: Chromium dengan GPU NVIDIA 60 fps, Chromium dengan GPU AMD terintegrasi 60 fps, Firefox 60 fps. Medan terdiri dari 16 potongan (34.848 segitiga), dan potongan di luar pandangan tidak digambar. Laptop: AMD Ryzen 7 5800HS, RAM 16 GB, NVIDIA GTX 1650 Mobile + AMD Radeon Vega, Arch Linux (Wayland).
 
 ## Tes
 
@@ -71,18 +71,18 @@ npm run test:e2e   # tes di Chromium sungguhan (Playwright)
 npm run test:e2e:dist   # build, lalu mainkan hasil build dari sub-folder /game/
 ```
 
-Sebelum `test:e2e` pertama kali, pasang Chromium-nya dengan `npx playwright install chromium`. Tes e2e merender WebGL di GPU lewat ANGLE Vulkan. Di komputer tanpa GPU yang bisa dipakai, jalankan dengan `E2E_SWIFTSHADER=1` supaya WebGL dirender CPU lewat SwiftShader; cara ini jauh lebih lambat dan membuat CPU sibuk penuh selama tes. Tes menunggu ROV bergerak, bukan mengukur waktu.
+Sebelum `test:e2e` pertama kali, pasang Chromium-nya dengan `npx playwright install chromium`. Tes e2e merender WebGL di GPU lewat ANGLE Vulkan. Di komputer tanpa GPU yang bisa dipakai, jalankan dengan `E2E_SWIFTSHADER=1` supaya WebGL dirender CPU lewat SwiftShader; cara ini jauh lebih lambat dan membuat CPU sibuk penuh selama tes. Tes menunggu ROV bergerak, bukan mengukur waktu. Paling banyak 4 browser berjalan bersamaan; lebih dari itu, halaman peta besar jadi terlalu lambat untuk tes yang menunggu waktu.
 
 ## Struktur
 
 | Lokasi | Isi |
 |---|---|
-| `src/config.ts` | Semua angka yang bisa disetel saat playtest (ukuran teluk, kecepatan ROV, kabut, kamera, Bloom, satwa yang kembali, scanner, minimap) |
+| `src/config.ts` | Semua angka yang bisa disetel saat playtest (ukuran dan bentuk teluk: bukit, lembah, pantai, dinding, batu besar, lengkungan; kecepatan ROV, kabut, kamera, Bloom, satwa yang kembali, scanner, minimap) |
 | `src/i18n/id.json`, `en.json` | Semua teks di game. Kedua file harus punya kunci yang sama |
 | `src/logbook/entries.ts` | Data tujuh entri Marine Logbook: nama ilmiah, target SDG 14, dan sumber tiap fakta. Teksnya ada di file string (`logbook.*`) |
 | `src/app.ts`, `src/ui/` | Alur layar: loading, judul, kredit, bermain (HUD dan minimap), jeda, Marine Logbook, pesan perangkat/WebGL/gagal muat |
 | `src/assets.ts`, `public/assets/manifest.json` | Pemuat model artist dan daftar filenya |
 | `CREDITS.md` | Sumber layar Kredit: tim, aset pihak ketiga, kode pihak ketiga dan teks lisensinya |
 | `scripts/` | Cek ukuran build dan server lokal untuk mencoba build dari sub-folder |
-| `src/game/` | Adegan Three.js dan aturan main: teluk, ROV, tabrakan, kamera, input, sampah, vacuum, stasiun, jaring, satwa, cutter, titik terumbu, seed launcher, Bloom dan satwa yang kembali, scanner, sesi (tangki, skor, kebersihan, tujuan) |
+| `src/game/` | Adegan Three.js dan aturan main: medan teluk (`terrain.ts`: bukit, lembah, pantai, dinding batu), batu besar dan lengkungan batu, ROV, tabrakan, kamera, input, sampah, vacuum, stasiun, jaring, satwa, cutter, titik terumbu, seed launcher, Bloom dan satwa yang kembali, scanner, sesi (tangki, skor, kebersihan, tujuan) |
 | `tests/unit/`, `tests/e2e/`, `tests/e2e-dist/` | Unit test, tes browser, dan tes hasil build |

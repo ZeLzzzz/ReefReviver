@@ -2,6 +2,7 @@ import { Vector3 } from "three";
 import { describe, expect, it } from "vitest";
 import { config } from "../../src/config";
 import { floorHeight, rocks } from "../../src/game/bay";
+import { wallness } from "../../src/game/terrain";
 import { Cutter, aimedNet } from "../../src/game/cutter";
 import { aimDirection } from "../../src/game/follow-camera";
 import { generateNets, NetField } from "../../src/game/nets";
@@ -277,13 +278,12 @@ describe("where the nets stand (REQ-003, D-012)", () => {
     expect(nets.map((n) => n.species).sort()).toEqual(["reefShark", "turtle"]);
   });
 
-  it("puts them in the north half, clear of the east side, the station, the bay's edge, rocks and each other", () => {
+  it("puts them out in the bay, clear of the shore, the rock wall, the station, rocks and each other (REQ-011)", () => {
     for (const net of nets) {
       const { x, z } = net.center;
-      expect(z).toBeLessThanOrEqual(-12);
-      expect(z).toBeGreaterThanOrEqual(-38);
-      expect(x).toBeLessThanOrEqual(15);
-      expect(Math.hypot(x, z) + Math.max(net.width, net.length)).toBeLessThan(config.bay.boundaryRadius - 2);
+      expect(x).toBeGreaterThan(config.station.x + 40);
+      expect(net.center.y).toBeLessThan(config.bay.surfaceY - 6);
+      expect(wallness(x, z)).toBe(0);
       expect(Math.hypot(x - stationPosition.x, z - stationPosition.z)).toBeGreaterThan(config.station.padRadius + 5);
       for (const rock of rocks) expect(Math.hypot(x - rock.x, z - rock.z)).toBeGreaterThan(rock.size + Math.max(net.width, net.length) + 1);
     }

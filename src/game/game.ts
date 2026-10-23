@@ -12,7 +12,7 @@ import {
 } from "three";
 import { config } from "../config";
 import { LOGBOOK_ENTRIES, type LogbookId } from "../logbook/entries";
-import { rocks, setFrameColumns } from "./bay";
+import { constrainToBay, rocks, setFrameColumns } from "./bay";
 import { Bloom } from "./bloom";
 import { aimDirection, followCamera, keepCameraInWater } from "./follow-camera";
 import type { HudState } from "./hud-state";
@@ -75,7 +75,7 @@ function createScanBeam(): Mesh {
 export class Game implements GameView {
   private readonly renderer: WebGLRenderer;
   private readonly scene = new Scene();
-  private readonly camera = new PerspectiveCamera(config.camera.fov, 1, 0.1, 200);
+  private readonly camera = new PerspectiveCamera(config.camera.fov, 1, 0.1, config.camera.far);
   private readonly cameraTarget = new Vector3();
   private readonly rovModel = createRovModel();
   private readonly world: World;
@@ -162,6 +162,43 @@ export class Game implements GameView {
           this.rov.velocity.set(0, 0, 0);
           this.rov.yaw = yaw;
           this.rov.pitch = pitch;
+        },
+        // REQ-011: whether the ROV fits at a point (in open water, out of the terrain and the rocks).
+        fits: (x: number, y: number, z: number) => {
+          const probe = new Vector3(x, y, z);
+          constrainToBay(probe, new Vector3());
+          return probe.distanceTo(new Vector3(x, y, z)) < 1e-6;
+        },
+        // The trash lies in groups (D-066): puts the ROV `distance` m from the nearest free item that can be approached
+        // with no other item in or near the vacuum's cone, aimed straight at it. Returns the item's position, or null.
+        aimAtTrash: (distance = 3) => {
+          const free = this.field.items.filter((i) => i.state === "free");
+          free.sort((a, b) => a.position.distanceTo(this.rov.position) - b.position.distanceTo(this.rov.position));
+          const from = new Vector3();
+          const aim = new Vector3();
+          for (const item of free) {
+            for (let k = 0; k < 16; k++) {
+              const yaw = (k / 16) * Math.PI * 2;
+              from.set(item.position.x - Math.sin(yaw) * distance, item.position.y + 1, item.position.z - Math.cos(yaw) * distance);
+              const probe = from.clone();
+              constrainToBay(probe, new Vector3());
+              if (probe.distanceTo(from) > 1e-6) continue;
+              const pitch = Math.atan2(-1, distance);
+              aimDirection(yaw, pitch, aim);
+              const crowded = free.some((other) => {
+                if (other === item) return false;
+                const offset = other.position.clone().sub(from);
+                return offset.length() < config.vacuum.range + 2 && offset.normalize().dot(aim) > Math.cos(config.vacuum.coneHalfAngle + 0.25);
+              });
+              if (crowded) continue;
+              this.rov.position.copy(from);
+              this.rov.velocity.set(0, 0, 0);
+              this.rov.yaw = yaw;
+              this.rov.pitch = pitch;
+              return item.position.toArray();
+            }
+          }
+          return null;
         },
         // REQ-005: reach the Bloom quickly and read what it changes. (REQ-010's e2e tests use removeTrash too.)
         // Takes n free trash items out of the field and counts them as removed, like the vacuum, but without tank or score.
@@ -466,7 +503,7 @@ export class Game implements GameView {
     const angle = this.rov.yaw + Math.PI + Math.sin(this.titleTime * config.camera.titleOrbitSpeed * 4) * 0.6;
     const { position } = this.rov;
     this.camera.position.set(position.x + Math.sin(angle) * 7, position.y + 0.5, position.z + Math.cos(angle) * 7);
-    keepCameraInWater(this.camera.position);
+    keepCameraInWater(this.camera.position, position);
     this.cameraTarget.set(position.x, position.y + 2.6, position.z);
   }
 

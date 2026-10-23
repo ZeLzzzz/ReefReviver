@@ -42,7 +42,7 @@ async function startDive(page: Page) {
 async function reachBloom(page: Page) {
   await reef(page, (h) => {
     h.freeAnimals();
-    h.removeTrash(34);
+    h.removeTrash(50);
     h.plantAll();
   });
   await expect.poll(async () => (await reef(page, (h) => h.bloom())).state, { timeout: 200_000 }).toBe("done");
@@ -98,7 +98,7 @@ test.describe("Indonesian", () => {
     expect(seconds).toBeLessThan((Date.now() - started) / 1000 - 4.5);
     await expect(page.getByRole("heading", { name: "Teluk sudah pulih!" })).toBeVisible();
     expect(await stats(page)).toEqual([
-      ["Sampah terangkat", "34/40"],
+      ["Sampah terangkat", "50/60"],
       ["Satwa diselamatkan", "2/2"],
       ["Rangka koral ditanami", "3/3"],
       ["Petak lamun ditanami", "2/2"],
@@ -129,7 +129,7 @@ test.describe("Indonesian", () => {
     await page.getByRole("button", { name: "Mulai" }).click();
     await expect.poll(() => mode(page)).toBe("playing");
     expect(await reef(page, (h) => h.unlocked())).toEqual([]);
-    expect(await reef(page, (h) => h.trash().length)).toBe(40);
+    expect(await reef(page, (h) => h.trash().length)).toBe(60);
     expect(await reef(page, (h) => h.bloom().state)).toBe("idle");
     await expect(goals(page)).toHaveText(["Bersihkan teluk 0%/80%", "Bebaskan satwa 0/2", "Setor sampah ke stasiun"]);
   });
@@ -151,7 +151,7 @@ test.describe("English", () => {
     await expect.poll(() => mode(page)).toBe("playing");
     await expect(endScreen(page)).toHaveCount(0);
     expect(await reef(page, (h) => h.unlocked())).toEqual([]);
-    expect(await reef(page, (h) => h.trash().length)).toBe(40);
+    expect(await reef(page, (h) => h.trash().length)).toBe(60);
     expect(await reef(page, (h) => h.bloom().state)).toBe("idle");
     await expect.poll(async () => (await reef(page, (h) => h.hud()))?.score).toBe(0);
     expect(await playSeconds(page)).toBeLessThan(5);

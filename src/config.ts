@@ -2,20 +2,75 @@
 // Units: metres, seconds, radians. North is -Z.
 
 export const config = {
+  // REQ-011: a bay about 300 m wide (D-061). Rock walls close it on the north, east and south (D-062), the west is
+  // a shore where the floor rises to the surface and the land goes on above it (D-071).
   bay: {
-    // The ROV's centre never goes further than this from the bay's centre (AC-4).
-    boundaryRadius: 45,
-    // Cliffs close the bay on every side (D-035); their jagged face never comes closer than boundaryRadius + 2.
-    cliffRadius: 50,
-    cliffJag: 3,
-    cliffTop: 6,
-    cliffBottom: -24,
     surfaceY: 0,
-    floorDepth: -12,
-    // The floor gets deeper toward the south by this much at the boundary.
-    southSlope: 3,
-    rockCount: 12,
+    // The terrain mesh covers this many metres each way from the bay's centre; nothing is ever further out.
+    halfSize: 165,
+    // The rolling floor between the hills and valleys.
+    baseDepth: -16,
+    // Hill tops flatten out toward this depth and never rise above it (D-071: about 8 m down).
+    hillCap: -8,
+    // Round hills and valleys: height or depth at the centre, falling smoothly to nothing at `radius`.
+    hills: [
+      { x: -62, z: -72, radius: 26, height: 8 },
+      { x: -18, z: 42, radius: 22, height: 7 },
+      { x: 28, z: -24, radius: 28, height: 8 },
+      // The hill the cave will go through (REQ-014).
+      { x: 98, z: -88, radius: 26, height: 9 },
+      { x: 82, z: 62, radius: 28, height: 7 },
+      { x: -58, z: 98, radius: 20, height: 6 },
+      { x: 112, z: 8, radius: 18, height: 6 },
+      { x: -12, z: -112, radius: 20, height: 6 },
+      { x: -70, z: -10, radius: 14, height: 5 },
+    ],
+    valleys: [
+      { x: -28, z: -22, radius: 24, depth: 8 },
+      { x: 58, z: 18, radius: 22, depth: 7 },
+      { x: 28, z: 102, radius: 30, depth: 8 },
+      { x: 42, z: -100, radius: 22, depth: 7 },
+      { x: -40, z: 70, radius: 16, depth: 5 },
+      { x: 110, z: -40, radius: 16, depth: 6 },
+    ],
+    // The west shore: the waterline wanders around `waterlineX`; the floor rises to it over `shelfWidth` from
+    // `shelfDepth`, and blends into the rolling floor over `blendWidth` further out. Inland the land rises by
+    // `landRise` per metre up to `landHeight`. Between z = -openHalf and openHalf no rock wall closes the shore.
+    shore: { waterlineX: -132, wiggle: 5, shelfWidth: 30, shelfDepth: -10, blendWidth: 20, landRise: 0.35, landHeight: 5, openHalf: 100 },
+    // The rock wall on a rounded square (a superellipse of this exponent) about `radius` from the centre: it rises
+    // from the floor to `top` over `width` metres, with a face that juts in and out by up to `jag`.
+    wall: { radius: 147, width: 13, top: 8, jag: 5, shape: 4 },
+    // Where the recycling station will move to the land (D-069): left empty, nothing is placed within `clear`.
+    dock: { x: -124, z: 8, clear: 8 },
+    // Things that stand on the floor (station, reef sites, nets) get a level pad of this radius, blended back
+    // to the natural floor over `padBlend`.
+    padRadius: 4,
+    padBlend: 3,
+    // Small rocks scattered over the floor.
+    rockCount: 55,
     rockSeed: 7,
+    // Big flat-topped rocks in two tiers: the lower one `radius` wide and 60% of `height` tall, the upper one
+    // narrower on top of it.
+    boulders: [
+      { x: -45, z: -50, radius: 7, height: 5 },
+      { x: 5, z: 30, radius: 6, height: 4 },
+      { x: 45, z: 5, radius: 8, height: 6 },
+      { x: 88, z: 35, radius: 6, height: 5 },
+      { x: -20, z: -85, radius: 7, height: 5 },
+      { x: 60, z: 95, radius: 7, height: 5 },
+      { x: 112, z: 72, radius: 6, height: 4 },
+      { x: -82, z: 62, radius: 6, height: 4 },
+      { x: 35, z: -68, radius: 6, height: 5 },
+      { x: 95, z: -20, radius: 7, height: 5 },
+    ],
+    // Rock arches: half a ring standing on the floor, `radius` to the middle of its rock, `tube` thick, turned so
+    // the opening faces along (sin yaw, cos yaw). The ROV passes under them (REQ-011 AC-3).
+    arches: [
+      { x: 10, z: -55, yaw: 0.4, radius: 6, tube: 1.5 },
+      { x: -50, z: 50, yaw: -0.9, radius: 5, tube: 1.3 },
+    ],
+    // Kept free of rocks and trash for the cave (REQ-014).
+    cave: { x: 98, z: -88, clear: 30 },
   },
   rov: {
     radius: 0.8,
@@ -26,31 +81,44 @@ export const config = {
     mouseSensitivity: 0.0025,
     minPitch: -1.1,
     maxPitch: 0.7,
-    start: { x: 0, y: -6, z: 32, yaw: Math.PI },
+    // Near the station on the west shore, facing east into the bay (D-071).
+    start: { x: -96, y: -5, z: 8, yaw: Math.PI / 2 },
   },
   camera: {
     fov: 70,
     distance: 6,
     height: 2,
-    // Keeps the camera inside the water and off the floor and cliffs.
+    // Keeps the camera inside the water and off the floor.
     surfaceGap: 0.3,
     floorGap: 0.5,
+    // REQ-011 AC-4: the camera stops this far short of a slope, rock or wall between it and the ROV, found by
+    // stepping along that line by `step`.
+    clearance: 0.4,
+    step: 0.25,
+    // Far enough to see the fog-free markers across the whole bay.
+    far: 450,
     titleOrbitSpeed: 0.05,
   },
   trash: {
-    // D-012: about 40 items of plastic bottles, plastic bags and cans on the floor.
-    count: 40,
+    // D-066: about 60 items of plastic bottles, plastic bags and cans, lying in small groups.
+    count: 60,
     seed: 11,
-    // Items stay inside this ring around the bay centre, apart from each other and from rocks.
-    minRadius: 5,
-    maxRadius: 40,
-    spacing: 2.5,
+    // Groups of `groupSize` items (the last may be smaller) within `groupRadius` of the group's centre; group
+    // centres stay `groupSpacing` apart. Items keep `spacing` from each other.
+    groupSize: 5,
+    groupRadius: 4,
+    groupSpacing: 16,
+    spacing: 1.5,
     // How far the item's centre sits above the floor.
     restHeight: 0.15,
+    // Items lie in water at least `minDepth` deep, on floor that rises no more than `maxSlope` per metre.
+    minDepth: 4,
+    maxSlope: 0.6,
     // Kept clear of the start position and the station's deposit zone.
-    clearOfStart: 6,
-    // REQ-003: kept clear of the ghost nets by this much.
+    clearOfStart: 8,
+    // REQ-003: kept clear of the ghost nets by this much, and of the reef sites and seagrass patches.
     clearOfNets: 4,
+    clearOfSites: 5,
   },
   vacuum: {
     // Trash within this distance of the ROV and this angle around the aim direction (crosshair) can be sucked.
@@ -62,12 +130,13 @@ export const config = {
     interval: 0.2,
   },
   tank: {
-    capacity: 8,
+    // D-072: the station is on the shore, so trips are longer than in the small bay.
+    capacity: 12,
   },
   station: {
-    // The recycling station stands on the west side of the bay (D-011), clear of every rock.
-    x: -24,
-    z: 20,
+    // The recycling station stands near the west shore, beside the future dock (D-071), clear of every rock.
+    x: -108,
+    z: 8,
     // Pressing E inside this circle (and under zoneHeight above the floor) deposits the tank.
     zoneRadius: 5,
     zoneHeight: 8,
@@ -87,15 +156,15 @@ export const config = {
     // Cut nets shrink and sink away over this time.
     netFadeSeconds: 0.8,
   },
-  // REQ-003: two ghost nets in the north half of the bay (D-012), each with one trapped animal (D-027).
+  // REQ-003: two ghost nets (D-012), each with one trapped animal (D-027), out in the bay (REQ-011).
   nets: {
     // D-030: score for freeing one animal.
     scorePerAnimal: 100,
     // A net is a dome on the floor. Width, height and length are its half-sizes; the animal is longer than the
     // net, so its head and tail stick out and stay visible, and aiming at them does not cut (AC-5).
     sites: [
-      { species: "turtle", x: -9, z: -24, yaw: 0.6 },
-      { species: "reefShark", x: 9, z: -33, yaw: -0.8 },
+      { species: "turtle", x: -40, z: 30, yaw: 0.6 },
+      { species: "reefShark", x: 60, z: -50, yaw: -0.8 },
     ],
     species: {
       turtle: {
@@ -110,7 +179,7 @@ export const config = {
           { along: 0, radius: 0.5 },
           { along: 0.85, radius: 0.22 },
         ],
-        // Radius used to keep the swimming animal out of rocks and cliffs.
+        // Radius used to keep the swimming animal out of rocks, slopes and the rock wall.
         radius: 0.7,
         // While trapped it twists and shifts by up to this far inside the net (AC-6).
         struggle: 0.22,
@@ -142,7 +211,7 @@ export const config = {
     fleeSeconds: 3,
     wander: {
       // Wandering animals steer back toward the centre beyond this distance from the bay's centre.
-      keepInside: 36,
+      keepInside: 105,
       // Preferred height above the floor, the lowest they go above it, and the highest y they go.
       height: 3.2,
       minAboveFloor: 1.5,
@@ -165,16 +234,16 @@ export const config = {
   },
   // REQ-004: reef frames, coral fragments and seagrass seeds.
   reef: {
-    // D-014: three marked reef sites and two seagrass patches in the east part of the bay (x > 12), clear of the
-    // station in the west, the rocks and the trash.
+    // D-014: three marked reef sites and two seagrass patches, spread over the bay (REQ-011) clear of the station,
+    // the rocks and the trash. The patches lie on the sand of the valleys.
     frameSites: [
-      { x: 22, z: 8 },
-      { x: 31, z: -12 },
-      { x: 25, z: 28 },
+      { x: -5, z: 5 },
+      { x: 70, z: -10 },
+      { x: 25, z: 70 },
     ],
     seagrassPatches: [
-      { x: 36, z: 10 },
-      { x: 30, z: 20 },
+      { x: -30, z: -25 },
+      { x: 30, z: 100 },
     ],
     // 5 materials buy one frame (D-014).
     frameCost: 5,
@@ -233,9 +302,13 @@ export const config = {
   minimap: {
     // D-031: remaining trash shows as dots only from this cleanliness (percent) on, so exploring still matters early on.
     trashFromCleanliness: 70,
-    // The map is `size` x `size` units; north (-Z) is up. It shows the cliff circle plus this many metres around it.
+    // The map is `size` x `size` units; north (-Z) is up. It shows `extent` metres each way from the bay's centre.
     size: 200,
-    margin: 2,
+    extent: 150,
+    // REQ-011 AC-6: hills and valleys are shaded in `cells` x `cells` squares by the depth of the floor; floor
+    // above the surface is land (west) or rock wall.
+    cells: 80,
+    depthBands: [-11, -15, -19],
     // Icon sizes in map units (the minimap is about 200 px wide at full size, so one unit is about one pixel).
     icon: { station: 8, site: 8, net: 6.5, trash: 2.6, rov: 12 },
   },
@@ -297,33 +370,32 @@ export const config = {
     // The decorative yellowtail school: not scannable (D-038).
     yellowtail: {
       count: 24,
-      centre: { x: 6, z: 0 },
-      radiusX: 24,
-      radiusZ: 16,
-      y: -5.5,
-      speed: 0.12,
+      centre: { x: 0, z: 0 },
+      radiusX: 70,
+      radiusZ: 55,
+      y: -5,
+      speed: 0.042,
       // Each fish keeps within this of the school's loop: along it (radians), across it, and in height.
-      spreadAlong: 0.07,
+      spreadAlong: 0.025,
       spreadAcross: 1.5,
       spreadY: 1.2,
     },
+    // REQ-011 AC-7: the loops cross the whole bay, high enough to clear the hill tops, rocks and arches.
     mantaRays: [
-      { x: 4, z: -10, radiusX: 26, radiusZ: 18, y: -6.5, speed: 0.07, phase: 0, direction: 1 },
-      { x: 8, z: 6, radiusX: 20, radiusZ: 24, y: -6.0, speed: 0.06, phase: 2.5, direction: -1 },
+      { x: 10, z: -20, radiusX: 75, radiusZ: 60, y: -5.65, speed: 0.024, phase: 0, direction: 1 },
+      { x: 20, z: 15, radiusX: 65, radiusZ: 80, y: -5.7, speed: 0.022, phase: 2.5, direction: -1 },
     ],
     dolphins: {
       count: 3,
-      centre: { x: 4, z: -8 },
-      radiusX: 28,
-      radiusZ: 24,
+      centre: { x: 10, z: -10 },
+      radiusX: 90,
+      radiusZ: 80,
       y: -2.7,
       bob: 0.5,
-      speed: 0.13,
-      spreadAlong: 0.09,
+      speed: 0.04,
+      spreadAlong: 0.028,
       spreadAcross: 1.6,
     },
-    // The ROV, rocks and cliffs are never in the way, but the loops stay at least this far inside the bay boundary.
-    edgeMargin: 5,
   },
 } as const;
 

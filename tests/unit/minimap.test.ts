@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest";
 import { config } from "../../src/config";
 import { aimDirection } from "../../src/game/follow-camera";
 import type { HudState } from "../../src/game/hud-state";
-import { buildMinimap, headingDegrees, mapPoint, minimapLayout, trashVisible, type MinimapInput, type MinimapState } from "../../src/game/minimap";
+import { arches, boulders, floorHeight, rocks } from "../../src/game/bay";
+import { buildMinimap, headingDegrees, mapPoint, minimapLayout, shadeAt, trashVisible, type MinimapInput, type MinimapState } from "../../src/game/minimap";
 import { NetField } from "../../src/game/nets";
 import { ReefField } from "../../src/game/reef-sites";
 import { Session } from "../../src/game/session";
@@ -35,15 +36,19 @@ describe("minimap coordinates (REQ-010 AC-1)", () => {
     expect(mapPoint(20, 0).y).toBe(centre.y);
   });
 
-  it("keeps the whole bay, cliffs included, inside the map", () => {
-    for (const [x, z] of [[bay.cliffRadius, 0], [-bay.cliffRadius, 0], [0, bay.cliffRadius], [0, -bay.cliffRadius]]) {
+  it("keeps the whole bay, rock wall and shore included, inside the map (REQ-011 AC-6)", () => {
+    const wall = bay.wall.radius;
+    for (const [x, z] of [[wall, 0], [-wall, 0], [0, wall], [0, -wall]]) {
       const p = mapPoint(x, z);
       expect(p.x).toBeGreaterThan(0);
       expect(p.x).toBeLessThan(minimap.size);
       expect(p.y).toBeGreaterThan(0);
       expect(p.y).toBeLessThan(minimap.size);
     }
-    expect(minimapLayout.bay.radius + minimapLayout.bay.x).toBeLessThan(minimap.size);
+    // Around the water, the map's edges show land on the west and the rock wall elsewhere.
+    const edge = minimap.extent - 2;
+    expect(shadeAt(-edge, 0)).toBe("land");
+    for (const [x, z] of [[edge, 0], [0, edge], [0, -edge]]) expect(shadeAt(x, z)).toBe("wall");
   });
 
   it("puts the ROV at its map position", () => {
@@ -60,8 +65,8 @@ describe("the ROV arrow's heading (REQ-010 AC-1)", () => {
     return { x: Math.sin(a), y: -Math.cos(a) };
   };
 
-  it("points up at the start, where the ROV faces north", () => {
-    expect(headingDegrees(rovConfig.start.yaw)).toBeCloseTo(0);
+  it("points right at the start, where the ROV faces east", () => {
+    expect(headingDegrees(rovConfig.start.yaw)).toBeCloseTo(90);
   });
 
   it("points the way the camera aims, on the map, for every yaw", () => {
@@ -99,9 +104,15 @@ describe("landmarks (REQ-010 AC-2)", () => {
     expect(minimapLayout.patches).toHaveLength(2);
   });
 
-  it("shows the rocks as faint shapes inside the bay", () => {
-    expect(minimapLayout.rocks.length).toBeGreaterThan(0);
-    for (const rock of minimapLayout.rocks) expect(Math.hypot(rock.x - minimapLayout.bay.x, rock.y - minimapLayout.bay.y)).toBeLessThan(minimapLayout.bay.radius);
+  it("shows the rocks, the boulders and the arches' feet as faint shapes in the water", () => {
+    expect(minimapLayout.rocks.length).toBe(rocks.length + boulders.length + 2 * arches.length);
+    for (const rock of minimapLayout.rocks) {
+      expect(rock.x).toBeGreaterThan(0);
+      expect(rock.x).toBeLessThan(minimap.size);
+      const x = rock.x / (minimap.size / (2 * minimap.extent)) - minimap.extent;
+      const z = rock.y / (minimap.size / (2 * minimap.extent)) - minimap.extent;
+      expect(floorHeight(x, z)).toBeLessThan(bay.surfaceY);
+    }
   });
 
   it("reports every site as empty at the start, then started and planted as they progress", () => {
@@ -118,6 +129,38 @@ describe("landmarks (REQ-010 AC-2)", () => {
     state = buildMinimap(input(world, 0));
     expect(state.frames).toEqual(["empty", "planted", "empty"]);
     expect(state.patches).toEqual(["planted", "empty"]);
+  });
+});
+
+describe("hills, valleys, shore and wall on the map (REQ-011 AC-6)", () => {
+  const depthRank = (shade: string) => (shade.startsWith("depth-") ? Number(shade.slice(6)) : -1);
+
+  it("shades the hill tops shallower than the valleys", () => {
+    for (const hill of bay.hills) {
+      for (const valley of bay.valleys) expect(depthRank(shadeAt(hill.x, hill.z))).toBeLessThan(depthRank(shadeAt(valley.x, valley.z)));
+    }
+    const shades = new Set(minimapLayout.terrain.map((t) => t.shade));
+    for (let band = 0; band <= minimap.depthBands.length; band++) expect(shades).toContain(`depth-${band}`);
+    expect(shades).toContain("land");
+    expect(shades).toContain("wall");
+  });
+
+  it("covers the whole map with squares, each of one shade, and no square twice", () => {
+    let area = 0;
+    for (const { path } of minimapLayout.terrain) {
+      for (const [, , , w, h] of path.matchAll(/M([\d.]+) ([\d.]+)h([\d.]+)v([\d.]+)/g)) area += Number(w) * Number(h);
+    }
+    expect(area).toBeCloseTo(minimap.size * minimap.size, -1);
+  });
+
+  it("draws one shape per shade in the HUD, under the landmarks", () => {
+    const hud = createHud("id");
+    hud.update(hudState(buildMinimap(input(scene(), 0))));
+    const terrain = [...hud.element.querySelectorAll(".mm-terrain")];
+    expect(terrain.map((t) => t.getAttribute("data-shade"))).toEqual(minimapLayout.terrain.map((t) => t.shade));
+    const svg = hud.element.querySelector(".mm-map")!;
+    const order = [...svg.children];
+    expect(order.indexOf(terrain[terrain.length - 1])).toBeLessThan(order.indexOf(svg.querySelector('[data-kind="station"]')!));
   });
 });
 
@@ -177,11 +220,11 @@ describe("remaining trash (REQ-010 AC-4)", () => {
   it("counts real cleanliness: 70% is reached by removing trash and cutting nets", () => {
     const world = scene();
     const session = new Session(world.field.total);
-    session.trashRemoved = 28; // 28 of 42 = 66%
+    session.trashRemoved = 42; // 42 of 62 = 67%
     expect(trashVisible(session.cleanliness)).toBe(false);
-    session.trashRemoved = 29; // 29 of 42 = 69%
+    session.trashRemoved = 43; // 43 of 62 = 69%
     expect(trashVisible(session.cleanliness)).toBe(false);
-    session.trashRemoved = 30; // 30 of 42 = 71%
+    session.trashRemoved = 44; // 44 of 62 = 70.97%
     expect(trashVisible(session.cleanliness)).toBe(true);
   });
 });

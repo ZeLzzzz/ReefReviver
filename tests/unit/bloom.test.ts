@@ -46,20 +46,20 @@ describe("the conditions (REQ-005 AC-1, AC-4)", () => {
     expect(unmetConditions({ cleanliness: 0, framesPlanted: 0, patchesPlanted: 0 })).toEqual(["clean", "frames", "seagrass"]);
   });
 
-  it("follow the Session's real counters: 34 of 40 trash is 80 % of 40 trash and 2 nets", () => {
-    expect(session(34, 3, 2).bloomReady).toBe(true);
-    // 33 of 42 is 78 %, 2 frames or 1 patch is not enough, whatever else holds.
-    expect(session(33, 3, 2).bloomReady).toBe(false);
-    expect(session(40, 2, 2).bloomReady).toBe(false);
-    expect(session(40, 3, 1).bloomReady).toBe(false);
+  it("follow the Session's real counters: 50 of 60 trash is 80 % of 60 trash and 2 nets", () => {
+    expect(session(50, 3, 2).bloomReady).toBe(true);
+    // 49 of 62 is 79 %, 2 frames or 1 patch is not enough, whatever else holds.
+    expect(session(49, 3, 2).bloomReady).toBe(false);
+    expect(session(60, 2, 2).bloomReady).toBe(false);
+    expect(session(60, 3, 1).bloomReady).toBe(false);
   });
 
   it("count cut nets for cleanliness like the rest of the game, but nets are not required", () => {
-    const s = session(32, 3, 2);
+    const s = session(48, 3, 2);
     expect(s.bloomReady).toBe(false);
     s.netsCut = 2;
     expect(s.bloomReady).toBe(true);
-    expect(session(34, 3, 2).netsCut).toBe(0);
+    expect(session(50, 3, 2).netsCut).toBe(0);
   });
 });
 
@@ -305,11 +305,11 @@ describe("the site markers fade out (AC-8, D-052)", () => {
 describe("Phase 3 (AC-5)", () => {
   it("has no list before the Bloom is over", () => {
     expect(new Session(40).phase3Objectives).toEqual([]);
-    expect(session(34, 3, 2).phase3Objectives).toEqual([]);
+    expect(session(50, 3, 2).phase3Objectives).toEqual([]);
   });
 
   it("opens the Scanner with a notice and a 'scan 0 of every Logbook entry' goal", () => {
-    const s = session(34, 3, 2);
+    const s = session(50, 3, 2);
     s.openScanner();
     expect(s.currentNotice).toEqual({ key: "bloom.scannerOpen" });
     expect(s.phase3Objectives).toEqual([{ id: "scan", current: 0, target: LOGBOOK_ENTRIES.length, done: false }]);
@@ -317,10 +317,10 @@ describe("Phase 3 (AC-5)", () => {
   });
 
   it("leaves the remaining trash to be vacuumed", () => {
-    const s = session(34, 3, 2);
+    const s = session(50, 3, 2);
     s.openScanner();
     expect(s.collect()).toBe(true);
-    expect(s.trashRemoved).toBe(35);
+    expect(s.trashRemoved).toBe(51);
     expect(s.tank).toBe(1);
   });
 
@@ -356,8 +356,8 @@ describe("HUD lists (AC-4, AC-5, D-043, D-049)", () => {
 
   it("shows the unmet condition without a check mark while only some conditions hold (AC-4)", () => {
     // Deposited at least once, so the Phase 2 list is up; 90 % clean, frames planted, one patch missing.
-    const s = session(38, 3, 1);
-    s.trashDeposited = 38;
+    const s = session(56, 3, 1);
+    s.trashDeposited = 56;
     s.framesInstalled = 3;
     const hud = createHud("en");
     hud.update(hudState(s));
@@ -375,8 +375,8 @@ describe("HUD lists (AC-4, AC-5, D-043, D-049)", () => {
   });
 
   it("replaces the Phase 1 and 2 lists by 'Pindai 0/7' once the Bloom is over (AC-5)", () => {
-    const s = session(34, 3, 2);
-    s.trashDeposited = 34;
+    const s = session(50, 3, 2);
+    s.trashDeposited = 50;
     s.framesInstalled = 3;
     const hud = createHud("id");
     hud.update(hudState(s));
@@ -388,7 +388,7 @@ describe("HUD lists (AC-4, AC-5, D-043, D-049)", () => {
   });
 
   it("shows the Phase 3 list in English too", () => {
-    const s = session(34, 3, 2);
+    const s = session(50, 3, 2);
     s.openScanner();
     const hud = createHud("en");
     hud.update(hudState(s));
@@ -397,7 +397,7 @@ describe("HUD lists (AC-4, AC-5, D-043, D-049)", () => {
   });
 
   it("brings the Phase 1 list back for a state without Phase 3", () => {
-    const s = session(34, 3, 2);
+    const s = session(50, 3, 2);
     s.openScanner();
     const hud = createHud("id");
     hud.update(hudState(s));

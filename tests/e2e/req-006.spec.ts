@@ -96,7 +96,7 @@ const animal = (species: string) => `(() => { const a = h.animals().find((a) => 
 
 async function reachBloom(page: Page) {
   await reef(page, (h) => {
-    h.removeTrash(34);
+    h.removeTrash(50);
     h.plantAll();
   });
   await expect.poll(async () => (await reef(page, (h) => h.bloom())).state, { timeout: 200_000 }).toBe("done");

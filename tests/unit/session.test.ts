@@ -16,9 +16,9 @@ function collect(s: Session, n: number) {
 }
 
 describe("tank and score (REQ-002 AC-1, AC-2)", () => {
-  it("starts empty with a capacity of 8", () => {
+  it("starts empty with a capacity of 12 (D-072)", () => {
     const s = session();
-    expect([s.tank, s.capacity, s.score, s.materials, s.tankFull]).toEqual([0, 8, 0, 0, false]);
+    expect([s.tank, s.capacity, s.score, s.materials, s.tankFull]).toEqual([0, 12, 0, 0, false]);
   });
 
   it("each trash adds 1 to the tank and 10 to the score", () => {
@@ -33,9 +33,9 @@ describe("tank and score (REQ-002 AC-1, AC-2)", () => {
     collect(s, tank.capacity);
     expect(s.tankFull).toBe(true);
     expect(s.collect()).toBe(false);
-    expect(s.tank).toBe(8);
-    expect(s.score).toBe(8 * rewards.scorePerTrash);
-    expect(s.trashRemoved).toBe(8);
+    expect(s.tank).toBe(12);
+    expect(s.score).toBe(12 * rewards.scorePerTrash);
+    expect(s.trashRemoved).toBe(12);
   });
 });
 
@@ -93,7 +93,7 @@ describe("cleanliness (REQ-002 AC-5, D-013)", () => {
     const s = session();
     collect(s, 8);
     const afterSucking = s.cleanliness;
-    expect(afterSucking).toBe(19); // 8 / 42 = 19.05 %
+    expect(afterSucking).toBe(12); // 8 / 62 = 12.9 %
     s.deposit();
     expect(s.cleanliness).toBe(afterSucking);
   });
@@ -101,15 +101,15 @@ describe("cleanliness (REQ-002 AC-5, D-013)", () => {
   it("is rounded down", () => {
     const s = session();
     collect(s, 1);
-    expect(s.cleanliness).toBe(2); // 2.38 %
+    expect(s.cleanliness).toBe(1); // 1.61 %
     collect(s, 6);
-    expect(s.cleanliness).toBe(16); // 7 / 42 = 16.67 %
+    expect(s.cleanliness).toBe(11); // 7 / 62 = 11.29 %
   });
 
-  it("reads 95% with all 40 trash removed and no net cut", () => {
+  it("reads 96% with all 60 trash removed and no net cut", () => {
     const s = session();
     s.trashRemoved = config.trash.count;
-    expect(s.cleanliness).toBe(95);
+    expect(s.cleanliness).toBe(96);
   });
 
   it("counts cut nets as well and reaches 100%", () => {
@@ -134,9 +134,9 @@ describe("Phase 1 goals (REQ-002 AC-6)", () => {
 
   it("ticks 'Bersihkan teluk' at 80% and not before", () => {
     const s = session();
-    s.trashRemoved = 33; // 78 %
+    s.trashRemoved = 49; // 79.03 %
     expect(find(s, "clean").done).toBe(false);
-    s.trashRemoved = 34; // 80.95 %
+    s.trashRemoved = 50; // 80.65 %
     expect(find(s, "clean")).toMatchObject({ current: 80, done: true });
   });
 
@@ -192,9 +192,11 @@ describe("recycling station (REQ-002 AC-3)", () => {
     expect(inStationZone(at(0, config.station.zoneHeight + 1, 0))).toBe(false);
   });
 
-  it("is on the west side of the bay, inside the ROV's boundary and away from the start", () => {
-    expect(stationPosition.x).toBeLessThan(0);
-    expect(Math.hypot(stationPosition.x, stationPosition.z) + config.station.zoneRadius).toBeLessThan(config.bay.boundaryRadius);
-    expect(distanceToStation(new Vector3(config.rov.start.x, 0, config.rov.start.z))).toBeGreaterThan(20);
+  it("is near the west shore, in water deep enough for the zone, a short swim from the start (D-071)", () => {
+    expect(stationPosition.x).toBeLessThan(-90);
+    expect(stationPosition.y).toBeLessThan(config.bay.surfaceY - 6);
+    const fromStart = distanceToStation(new Vector3(config.rov.start.x, 0, config.rov.start.z));
+    expect(fromStart).toBeGreaterThan(config.station.zoneRadius + 3);
+    expect(fromStart).toBeLessThan(20);
   });
 });

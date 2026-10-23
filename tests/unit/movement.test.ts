@@ -1,9 +1,8 @@
 import { Vector3 } from "three";
 import { describe, expect, it } from "vitest";
 import { config } from "../../src/config";
-import { cliffFaceRadius, constrainToBay, floorHeight, rocks } from "../../src/game/bay";
+import { constrainToBay, floorHeight, rocks } from "../../src/game/bay";
 import { aimDirection, followCamera } from "../../src/game/follow-camera";
-import { createCliffGeometry } from "../../src/game/world";
 import { inStationZone, stationPosition } from "../../src/game/station";
 import { createRovState, forwardVector, steer, stepRov, type MoveInput, type RovState } from "../../src/game/rov";
 
@@ -24,9 +23,10 @@ function rovAt(x: number, y: number, z: number, yaw = 0): RovState {
 }
 
 describe("ROV controls (REQ-001 AC-3)", () => {
-  it("starts facing north (-Z) inside the bay and above the floor", () => {
+  it("starts near the station facing east (+X), into the bay, inside the water and above the floor (D-071)", () => {
     const state = createRovState();
-    expect(forwardVector(state.yaw).z).toBeCloseTo(-1);
+    expect(forwardVector(state.yaw).x).toBeCloseTo(1);
+    expect(Math.hypot(state.position.x - stationPosition.x, state.position.z - stationPosition.z)).toBeLessThan(20);
     const before = state.position.clone();
     constrainToBay(state.position, state.velocity);
     expect(state.position.distanceTo(before)).toBe(0);
@@ -34,17 +34,17 @@ describe("ROV controls (REQ-001 AC-3)", () => {
 
   it("W moves forward along the heading and S moves back", () => {
     const forward = fly(createRovState(), { forward: 1 }, 1);
-    expect(forward.position.z).toBeLessThan(rov.start.z - 2);
-    expect(forward.position.x).toBeCloseTo(rov.start.x, 5);
+    expect(forward.position.x).toBeGreaterThan(rov.start.x + 2);
+    expect(forward.position.z).toBeCloseTo(rov.start.z, 5);
 
     const back = fly(createRovState(), { forward: -1 }, 1);
-    expect(back.position.z).toBeGreaterThan(rov.start.z + 2);
+    expect(back.position.x).toBeLessThan(rov.start.x - 2);
   });
 
   it("D strafes right and A strafes left", () => {
-    // Facing north, right is east (+X).
-    expect(fly(createRovState(), { strafe: 1 }, 1).position.x).toBeGreaterThan(2);
-    expect(fly(createRovState(), { strafe: -1 }, 1).position.x).toBeLessThan(-2);
+    // Facing east, right is south (+Z).
+    expect(fly(createRovState(), { strafe: 1 }, 1).position.z).toBeGreaterThan(rov.start.z + 2);
+    expect(fly(createRovState(), { strafe: -1 }, 1).position.z).toBeLessThan(rov.start.z - 2);
   });
 
   it("Space rises and Shift dives", () => {
@@ -69,8 +69,8 @@ describe("ROV controls (REQ-001 AC-3)", () => {
   it("the mouse turns the ROV: right turns right, up looks up", () => {
     const state = createRovState();
     steer(state, Math.PI / 2 / rov.mouseSensitivity, 0);
-    // Facing north, a right turn faces east.
-    expect(forwardVector(state.yaw).x).toBeCloseTo(1);
+    // Facing east, a right turn faces south.
+    expect(forwardVector(state.yaw).z).toBeCloseTo(1);
     steer(state, 0, -100);
     expect(state.pitch).toBeGreaterThan(0);
   });
@@ -112,14 +112,6 @@ describe("third-person camera (REQ-001 AC-3, D-029)", () => {
     expect(position.y).toBeGreaterThan(floorHeight(position.x, position.z));
   });
 
-  it("stays in front of the cliffs when the ROV backs against the boundary", () => {
-    // At the northern boundary facing south, "behind" is inside the cliffs.
-    const state = rovAt(0, -6, -bay.boundaryRadius, 0);
-    const position = new Vector3();
-    followCamera(state, position, new Vector3());
-    const angle = Math.atan2(position.x, position.z);
-    expect(Math.hypot(position.x, position.z)).toBeLessThan(cliffFaceRadius(angle, position.y));
-  });
 });
 
 describe("bay limits (REQ-001 AC-4)", () => {
@@ -127,7 +119,8 @@ describe("bay limits (REQ-001 AC-4)", () => {
     const state = fly(createRovState(), { rise: -1 }, 20, (s) => {
       expect(s.position.y).toBeGreaterThanOrEqual(floorHeight(s.position.x, s.position.z) + rov.radius - 1e-9);
     });
-    expect(state.position.y).toBeCloseTo(floorHeight(state.position.x, state.position.z) + rov.radius, 5);
+    // On a slope the ROV rests against it, a hair higher than straight above the floor.
+    expect(state.position.y).toBeCloseTo(floorHeight(state.position.x, state.position.z) + rov.radius, 1);
   });
 
   it("stops at the water surface", () => {
@@ -135,40 +128,10 @@ describe("bay limits (REQ-001 AC-4)", () => {
     expect(state.position.y).toBe(bay.surfaceY - rov.radius);
   });
 
-  it.each([
-    ["the northern cliffs", Math.PI],
-    ["the eastern cliffs", Math.PI / 2],
-    ["the western cliffs", -Math.PI / 2],
-    ["the southern cliffs", 0],
-  ])("stops at %s", (_name, yaw) => {
-    const state = rovAt(0, -5, 0, yaw);
-    fly(state, { forward: 1 }, 25, (s) => {
-      expect(Math.hypot(s.position.x, s.position.z)).toBeLessThanOrEqual(bay.boundaryRadius + 1e-9);
-    });
-    expect(Math.hypot(state.position.x, state.position.z)).toBeGreaterThan(bay.boundaryRadius - 0.5);
-  });
-
-  it("keeps the cliff face out of the ROV's reach everywhere", () => {
-    for (let angle = -Math.PI; angle < Math.PI; angle += 0.01) {
-      for (let y = bay.cliffBottom; y <= bay.cliffTop; y += 0.5) {
-        expect(cliffFaceRadius(angle, y)).toBeGreaterThanOrEqual(bay.boundaryRadius + rov.radius);
-      }
-    }
-  });
-
-  it("cliffs close the bay on every side", () => {
-    const position = createCliffGeometry().attributes.position;
-    const covered = new Set<number>();
-    for (let i = 0; i < position.count; i++) {
-      const degrees = (Math.atan2(position.getX(i), position.getZ(i)) * 180) / Math.PI;
-      covered.add(Math.floor((degrees + 360) % 360 / 10));
-    }
-    expect(covered.size).toBe(36);
-  });
-
   it("does not pass through rocks", () => {
-    const reachable = rocks.filter((r) => Math.hypot(r.x, r.z) < bay.boundaryRadius - 6);
-    expect(reachable.length).toBeGreaterThan(0);
+    // Rocks with open water level with them on the west side, where the ROV starts its run.
+    const reachable = rocks.filter((r) => floorHeight(r.x - r.size - 4, r.z) < r.y - rov.radius - 0.5);
+    expect(reachable.length).toBeGreaterThan(2);
     for (const rock of reachable) {
       // Yaw PI/2 faces +X, straight at the rock.
       const state = rovAt(rock.x - rock.size - 4, rock.y, rock.z, Math.PI / 2);
@@ -223,9 +186,10 @@ describe("bay limits (REQ-001 AC-4)", () => {
   });
 
   it("slides along a limit instead of sticking to it", () => {
-    // Diving forward: the floor stops the descent but not the forward motion.
-    const state = rovAt(0, floorHeight(0, 10) + rov.radius, 10, Math.PI);
+    // Diving forward over a reef site's level pad: the floor stops the descent but not the forward motion.
+    const site = config.reef.frameSites[0];
+    const state = rovAt(site.x, floorHeight(site.x, site.z + 2) + rov.radius, site.z + 2, Math.PI);
     fly(state, { forward: 1, rise: -1 }, 1);
-    expect(state.position.z).toBeLessThan(8);
+    expect(state.position.z).toBeLessThan(site.z);
   });
 });

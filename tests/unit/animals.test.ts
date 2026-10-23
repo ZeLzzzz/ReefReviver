@@ -2,7 +2,7 @@ import { Vector3 } from "three";
 import { describe, expect, it } from "vitest";
 import { config } from "../../src/config";
 import { AnimalField } from "../../src/game/animals";
-import { floorHeight, rocks } from "../../src/game/bay";
+import { floorHeight, insideRockAt, rocks } from "../../src/game/bay";
 import { generateTrash } from "../../src/game/trash";
 import { Session } from "../../src/game/session";
 import { stationPosition } from "../../src/game/station";
@@ -91,13 +91,16 @@ describe("freed animals (REQ-003 AC-2, AC-3)", () => {
       field.animals.forEach((animal, k) => {
         const { x, y, z } = animal.position;
         const radius = nets.species[animal.species].radius;
-        expect(Math.hypot(x, z)).toBeLessThanOrEqual(bay.boundaryRadius + 1e-6);
+        expect(Math.max(Math.abs(x), Math.abs(z))).toBeLessThan(bay.halfSize - 3);
         expect(y).toBeGreaterThanOrEqual(floorHeight(x, z) + radius - 1e-6);
+        // REQ-011 AC-7: never inside a boulder or an arch either.
+        expect(insideRockAt(x, y, z, radius - 0.05)).toBe(false);
         expect(y).toBeLessThanOrEqual(bay.surfaceY - radius + 1e-6);
-        for (const rock of rocks) {
-          const d = Math.hypot((x - rock.x) / (rock.size + radius), (y - rock.y) / (rock.height + radius), (z - rock.z) / (rock.size + radius));
-          expect(d).toBeGreaterThanOrEqual(1 - 1e-6);
-        }
+        // One check for all the rocks: there are many of them in the big bay.
+        const clearOfRocks = rocks.every(
+          (rock) => Math.hypot((x - rock.x) / (rock.size + radius), (y - rock.y) / (rock.height + radius), (z - rock.z) / (rock.size + radius)) >= 1 - 1e-6,
+        );
+        expect(clearOfRocks).toBe(true);
         expect(Math.hypot(x - stationPosition.x, z - stationPosition.z)).toBeGreaterThanOrEqual(station.body.radius + radius - 1e-6);
         travelled[k] += animal.position.distanceTo(last[k]);
         last[k].copy(animal.position);

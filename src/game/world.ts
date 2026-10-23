@@ -18,11 +18,13 @@ import {
   Points,
   PointsMaterial,
   type Scene,
+  TorusGeometry,
   type Vector3,
 } from "three";
 import { assets } from "../assets";
 import { config } from "../config";
-import { cliffFaceRadius, floorHeight, rocks } from "./bay";
+import { arches, boulders, floorHeight, floorSlope, rocks, type Arch, type Boulder } from "./bay";
+import { wallness } from "./terrain";
 import { waterAt } from "./bloom";
 import { compactGroup, hasMesh } from "./model-utils";
 
@@ -67,65 +69,136 @@ export function buildRockMesh(variant: number): Group {
   return compactGroup(group);
 }
 
-function addFloor(scene: Scene): void {
-  const geometry = new PlaneGeometry(200, 200, 100, 100);
-  geometry.rotateX(-Math.PI / 2);
-  const position = geometry.attributes.position;
-  const colors = new Float32Array(position.count * 3);
-  const sandBase = new Color(0xb8a984);
-  const sandRidge = new Color(0xc9bc98);
-  const sandTrough = new Color(0x968968);
-  const temp = new Color();
+const TERRAIN_STEP = 2.5;
+const TERRAIN_CHUNKS = 4;
 
-  for (let i = 0; i < position.count; i++) {
-    const x = position.getX(i);
-    const z = position.getZ(i);
-    const y = floorHeight(x, z);
-    position.setY(i, y);
-    const ripple = 0.5 + 0.5 * Math.sin(x * 0.35 + z * 0.25) * Math.cos(z * 0.4 - x * 0.15);
-    temp.copy(sandTrough).lerp(sandBase, Math.min(1, Math.max(0, (y + 15) / 5))).lerp(sandRidge, ripple * 0.45);
-    colors[i * 3] = temp.r;
-    colors[i * 3 + 1] = temp.g;
-    colors[i * 3 + 2] = temp.b;
-  }
-  geometry.setAttribute("color", new Float32BufferAttribute(colors, 3));
-  geometry.computeVertexNormals();
-  scene.add(new Mesh(geometry, new MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 1 })));
+const sandLight = new Color(0xc2b48e);
+const sandDeep = new Color(0x8f8464);
+const algae = new Color(0x6f7d48);
+const rockLight = new Color(0x8a826f);
+const rockDark = new Color(0x5b5548);
+const beach = new Color(0xd8c690);
+const land = new Color(0x9c8e60);
+
+function smoothstep(edge0: number, edge1: number, x: number): number {
+  const t = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)));
+  return t * t * (3 - 2 * t);
 }
 
-export function createCliffGeometry(): CylinderGeometry {
-  const height = bay.cliffTop - bay.cliffBottom;
-  const geometry = new CylinderGeometry(bay.cliffRadius, bay.cliffRadius, height, 72, 10, true);
-  geometry.translate(0, bay.cliffBottom + height / 2, 0);
-  const position = geometry.attributes.position;
-  const colors = new Float32Array(position.count * 3);
-  const deepRock = new Color(0x585346);
-  const midRock = new Color(0x77705f);
-  const topRock = new Color(0x968d78);
-  const temp = new Color();
+/**
+ * The ground's colour at a point: sand on the flats (darker deeper down), algae turf on gentle hill tops, rock on
+ * steep slopes and the walls, and beach and land above the water (REQ-011).
+ */
+function groundColour(x: number, y: number, z: number, out: Color): Color {
+  const slope = floorSlope(x, z);
+  const ripple = 0.5 + 0.5 * Math.sin(x * 0.35 + z * 0.25) * Math.cos(z * 0.4 - x * 0.15);
+  const strata = 0.5 + 0.5 * Math.sin(y * 1.4 + Math.sin(x * 0.11 + z * 0.07) * 2);
+  if (y > 0.2 && wallness(x, z) < 0.3) return out.copy(beach).lerp(land, smoothstep(1, 3, y));
+  out.copy(sandDeep).lerp(sandLight, smoothstep(-24, -10, y)).lerp(sandLight, ripple * 0.25);
+  out.lerp(algae, smoothstep(-12.5, -9.5, y) * (1 - smoothstep(0.2, 0.45, slope)) * 0.85);
+  const rocky = Math.max(smoothstep(0.55, 1.1, slope), wallness(x, z));
+  return out.lerp(tmpRock.copy(rockDark).lerp(rockLight, strata), rocky);
+}
+const tmpRock = new Color();
 
+/** The terrain in TERRAIN_CHUNKS x TERRAIN_CHUNKS meshes, so the ones out of view are skipped when drawing. */
+export function buildTerrainChunks(): Mesh[] {
+  const material = new MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 1 });
+  const span = (bay.halfSize * 2) / TERRAIN_CHUNKS;
+  const segments = Math.round(span / TERRAIN_STEP);
+  const colour = new Color();
+  const meshes: Mesh[] = [];
+  for (let i = 0; i < TERRAIN_CHUNKS; i++) {
+    for (let j = 0; j < TERRAIN_CHUNKS; j++) {
+      const cx = -bay.halfSize + span * (i + 0.5);
+      const cz = -bay.halfSize + span * (j + 0.5);
+      const geometry = new PlaneGeometry(span, span, segments, segments);
+      geometry.rotateX(-Math.PI / 2);
+      geometry.translate(cx, 0, cz);
+      const position = geometry.attributes.position;
+      const colors = new Float32Array(position.count * 3);
+      for (let k = 0; k < position.count; k++) {
+        const x = position.getX(k);
+        const z = position.getZ(k);
+        const y = floorHeight(x, z);
+        position.setY(k, y);
+        groundColour(x, y, z, colour);
+        colors[k * 3] = colour.r;
+        colors[k * 3 + 1] = colour.g;
+        colors[k * 3 + 2] = colour.b;
+      }
+      geometry.setAttribute("color", new Float32BufferAttribute(colors, 3));
+      geometry.computeVertexNormals();
+      geometry.computeBoundingSphere();
+      const mesh = new Mesh(geometry, material);
+      mesh.name = `terrain-${i}-${j}`;
+      meshes.push(mesh);
+    }
+  }
+  return meshes;
+}
+
+/** A repeatable pseudo-random number in -1..1 for a point, so vertices shared by two faces move together. */
+function hash(x: number, y: number, z: number): number {
+  const h = Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453;
+  return (h - Math.floor(h)) * 2 - 1;
+}
+
+/** One tier of a boulder: a rough upright cylinder of unit radius and height, flat on top, never wider than 1. */
+function buildTierGeometry(seed: number): CylinderGeometry {
+  const geometry = new CylinderGeometry(0.97, 1, 1, 9, 2);
+  const position = geometry.attributes.position;
   for (let i = 0; i < position.count; i++) {
     const x = position.getX(i);
     const y = position.getY(i);
     const z = position.getZ(i);
-    const angle = Math.atan2(x, z);
-    const radius = cliffFaceRadius(angle, y);
-    position.setXYZ(i, Math.sin(angle) * radius, y, Math.cos(angle) * radius);
-    const h = Math.min(1, Math.max(0, (y - bay.cliffBottom) / height));
-    const strata = 0.5 + 0.5 * Math.sin(y * 1.4 + Math.sin(angle * 7) * 0.8);
-    temp.copy(deepRock).lerp(midRock, h).lerp(topRock, h * strata * 0.65);
-    colors[i * 3] = temp.r;
-    colors[i * 3 + 1] = temp.g;
-    colors[i * 3 + 2] = temp.b;
+    const radial = Math.hypot(x, z);
+    if (radial < 1e-6) continue;
+    const k = 0.93 + 0.07 * (0.5 + 0.5 * hash(x + seed, y, z));
+    position.setXYZ(i, x * k, y < 0.49 ? y + 0.06 * hash(z, x + seed, y) : y, z * k);
   }
-  geometry.setAttribute("color", new Float32BufferAttribute(colors, 3));
   geometry.computeVertexNormals();
   return geometry;
 }
 
-function addCliffs(scene: Scene): void {
-  const material = new MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 1, side: DoubleSide });
-  scene.add(new Mesh(createCliffGeometry(), material));
+/** A flat-topped boulder in tiers, matching its collision cylinders (REQ-011 AC-1, AC-3). */
+export function buildBoulderMesh(boulder: Boulder, seed: number): Group {
+  const group = new Group();
+  group.name = "boulder";
+  boulder.tiers.forEach((tier, index) => {
+    const material = new MeshStandardMaterial({ color: index === 0 ? 0x766f60 : 0x8a8372, flatShading: true, roughness: 0.95 });
+    const mesh = new Mesh(buildTierGeometry(seed * 3 + index), material);
+    mesh.scale.set(tier.radius, tier.height, tier.radius);
+    mesh.position.set(boulder.x, tier.baseY + tier.height / 2, boulder.z);
+    mesh.rotation.y = seed * 1.3 + index;
+    group.add(mesh);
+  });
+  return group;
+}
+
+/** A rock arch: half a rough ring standing on the floor, turned so its opening faces along its yaw (REQ-011 AC-3). */
+export function buildArchMesh(arch: Arch, seed: number): Mesh {
+  const geometry = new TorusGeometry(arch.radius, arch.tube, 7, 18, Math.PI);
+  const position = geometry.attributes.position;
+  for (let i = 0; i < position.count; i++) {
+    const x = position.getX(i);
+    const y = position.getY(i);
+    const z = position.getZ(i);
+    const k = arch.tube * 0.12;
+    position.setXYZ(i, x + k * hash(x + seed, y, z), y + k * hash(y, z + seed, x), z + k * hash(z, x, y + seed));
+  }
+  geometry.computeVertexNormals();
+  const mesh = new Mesh(geometry, new MeshStandardMaterial({ color: 0x7c7563, flatShading: true, roughness: 0.95 }));
+  mesh.name = "arch";
+  mesh.position.set(arch.x, arch.y, arch.z);
+  mesh.rotation.y = arch.yaw;
+  return mesh;
+}
+
+function addTerrain(scene: Scene): void {
+  for (const mesh of buildTerrainChunks()) scene.add(mesh);
+  boulders.forEach((boulder, index) => scene.add(buildBoulderMesh(boulder, index)));
+  arches.forEach((arch, index) => scene.add(buildArchMesh(arch, index)));
 }
 
 function addRocks(scene: Scene): void {
@@ -140,7 +213,7 @@ function addRocks(scene: Scene): void {
   });
 }
 function addSurface(scene: Scene): MeshBasicMaterial {
-  const geometry = new PlaneGeometry(200, 200);
+  const geometry = new PlaneGeometry(bay.halfSize * 2 + 40, bay.halfSize * 2 + 40);
   geometry.rotateX(Math.PI / 2);
   geometry.translate(0, bay.surfaceY, 0);
   const material = new MeshBasicMaterial({ color: water.murky.surfaceColor, transparent: true, opacity: 0.5, side: DoubleSide });
@@ -192,8 +265,7 @@ export function buildWorld(scene: Scene): World {
   sun.position.set(10, 30, 5);
   scene.add(sun);
 
-  addFloor(scene);
-  addCliffs(scene);
+  addTerrain(scene);
   addRocks(scene);
   const surface = addSurface(scene);
   const snow = addMarineSnow(scene);

@@ -7,6 +7,8 @@ type Hook = {
   station(): Vec;
   rovPosition(): Vec;
   placeRov(x: number, y: number, z: number, yaw: number, pitch: number): void;
+  fits(x: number, y: number, z: number): boolean;
+  aimAtTrash(distance: number): Vec | null;
 };
 const reef = <T>(page: Page, fn: (hook: Hook) => T, arg?: unknown) =>
   page.evaluate(`(${fn.toString()})(window.__reef, ${JSON.stringify(arg ?? null)})`) as Promise<T>;
@@ -24,27 +26,17 @@ async function startDive(page: Page) {
   await page.waitForTimeout(300);
 }
 
-/** Puts the ROV 3 m from the nearest free trash item, towards the bay's centre, aimed straight at it. */
+/** Puts the ROV 3 m from the nearest free trash item it can approach with no other item in the cone, aimed straight at it. */
 async function aimAtNearestTrash(page: Page, distance = 3): Promise<Vec> {
-  return page.evaluate((d) => {
-    const reef = (window as any).__reef as Hook;
-    const [px, , pz] = reef.rovPosition();
-    const items = reef.trash();
-    items.sort((a, b) => Math.hypot(a[0] - px, a[2] - pz) - Math.hypot(b[0] - px, b[2] - pz));
-    const [x, y, z] = items[0];
-    const len = Math.hypot(x, z) || 1;
-    const rx = x - (x / len) * d;
-    const rz = z - (z / len) * d;
-    const ry = y + 1;
-    reef.placeRov(rx, ry, rz, Math.atan2(x - rx, z - rz), Math.atan2(y - ry, d));
-    return items[0];
-  }, distance);
+  const item = await page.evaluate((d) => ((window as any).__reef as Hook).aimAtTrash(d), distance);
+  expect(item).not.toBeNull();
+  return item!;
 }
 
 /** Holds the left mouse button until the tank reaches `count`, then lets go. */
 async function suckUntil(page: Page, count: number) {
   await page.mouse.down();
-  await expect(stat(page, "tank")).toHaveText(new RegExp(`^${count}/8$`), { timeout: 20_000 });
+  await expect(stat(page, "tank")).toHaveText(new RegExp(`^${count}/12$`), { timeout: 20_000 });
   await page.mouse.up();
 }
 
@@ -56,7 +48,7 @@ test.describe("Indonesian", () => {
     await expect(page.locator(".goal-text")).toHaveText(["Bersihkan teluk 0%/80%", "Bebaskan satwa 0/2", "Setor sampah ke stasiun"]);
     await expect(page.locator(".goal.done")).toHaveCount(0);
     await expect(page.locator(".tool-name")).toHaveText("2 Vacuum");
-    await expect(stat(page, "tank")).toHaveText("0/8");
+    await expect(stat(page, "tank")).toHaveText("0/12");
     await page.screenshot({ path: "test-results/req-002-start.png" });
   });
 
@@ -67,10 +59,10 @@ test.describe("Indonesian", () => {
     await page.mouse.down();
     await expect.poll(() => page.locator(".hud.sucking").count()).toBe(1);
     await page.screenshot({ path: "test-results/req-002-sucking.png" });
-    await expect(stat(page, "tank")).toHaveText("1/8", { timeout: 20_000 });
+    await expect(stat(page, "tank")).toHaveText("1/12", { timeout: 20_000 });
     await page.mouse.up();
     await expect(stat(page, "score")).toHaveText("10");
-    await expect(stat(page, "cleanliness")).toHaveText("2%");
+    await expect(stat(page, "cleanliness")).toHaveText("1%"); // 1 of 60 trash and 2 nets
     expect(await reef(page, (h) => h.trash().length)).toBe(before - 1);
   });
 
@@ -78,7 +70,7 @@ test.describe("Indonesian", () => {
     await startDive(page);
     await aimAtNearestTrash(page);
     await page.waitForTimeout(1500);
-    await expect(stat(page, "tank")).toHaveText("0/8");
+    await expect(stat(page, "tank")).toHaveText("0/12");
 
     // Face the biggest rock from 3 m away, keeping clear of the trash in the cone.
     const clear = await page.evaluate(() => {
@@ -95,7 +87,7 @@ test.describe("Indonesian", () => {
           const d = Math.hypot(dx, dz);
           return d < 10 && (dx * Math.sin(yaw) + dz * Math.cos(yaw)) / d > 0.6;
         });
-        if (ahead) continue;
+        if (ahead || !hook.fits(rx, y + 0.5, rz)) continue;
         hook.placeRov(rx, y + 0.5, rz, yaw, 0);
         return true;
       }
@@ -105,38 +97,38 @@ test.describe("Indonesian", () => {
     await page.mouse.down();
     await page.waitForTimeout(2500);
     await page.mouse.up();
-    await expect(stat(page, "tank")).toHaveText("0/8");
+    await expect(stat(page, "tank")).toHaveText("0/12");
     await expect(stat(page, "score")).toHaveText("0");
   });
 
   test("full tank: no more suction, message and marker to the station; deposit with E (AC-2, AC-3, AC-4, AC-5)", async ({ page }) => {
     test.setTimeout(120_000);
     await startDive(page);
-    for (let n = 1; n <= 8; n++) {
+    for (let n = 1; n <= 12; n++) {
       await aimAtNearestTrash(page);
       await suckUntil(page, n);
     }
-    await expect(stat(page, "tank")).toHaveText("8/8");
-    await expect(stat(page, "score")).toHaveText("80");
-    await expect(stat(page, "cleanliness")).toHaveText("19%");
+    await expect(stat(page, "tank")).toHaveText("12/12");
+    await expect(stat(page, "score")).toHaveText("120");
+    await expect(stat(page, "cleanliness")).toHaveText("19%"); // 12 of 60 trash and 2 nets
     await expect(page.locator(".message-full")).toHaveText("Tangki penuh, setor ke stasiun");
     await expect(page.locator(".station-marker")).toBeVisible();
     await expect(page.locator(".marker-label")).toContainText("Stasiun daur ulang");
     await page.screenshot({ path: "test-results/req-002-full.png" });
 
-    // A ninth item is not sucked.
+    // A 13th item is not sucked.
     const left = await reef(page, (h) => h.trash().length);
     await aimAtNearestTrash(page);
     await page.mouse.down();
     await page.waitForTimeout(2500);
     await page.mouse.up();
-    await expect(stat(page, "tank")).toHaveText("8/8");
+    await expect(stat(page, "tank")).toHaveText("12/12");
     expect(await reef(page, (h) => h.trash().length)).toBe(left);
 
     // E outside the zone does nothing.
     await page.keyboard.press("KeyE");
     await page.waitForTimeout(500);
-    await expect(stat(page, "tank")).toHaveText("8/8");
+    await expect(stat(page, "tank")).toHaveText("12/12");
 
     // At the station: the zone prompt shows, E empties the tank into materials; cleanliness stays.
     await reef(page, (h) => {
@@ -145,10 +137,10 @@ test.describe("Indonesian", () => {
     });
     await expect(page.locator(".message-prompt")).toHaveText("Tekan E untuk menyetor sampah");
     await page.keyboard.press("KeyE");
-    await expect(stat(page, "tank")).toHaveText("0/8");
-    await expect(stat(page, "materials")).toHaveText("8");
+    await expect(stat(page, "tank")).toHaveText("0/12");
+    await expect(stat(page, "materials")).toHaveText("12");
     await expect(stat(page, "cleanliness")).toHaveText("19%");
-    await expect(page.locator(".message-notice")).toHaveText("Disetor, bahan +8");
+    await expect(page.locator(".message-notice")).toHaveText("Disetor, bahan +12");
     await expect(page.locator(".message-full")).toBeHidden();
     await expect(page.locator('.goal[data-goal="deposit"]')).toHaveClass(/done/);
     await page.screenshot({ path: "test-results/req-002-deposited.png" });
@@ -156,7 +148,7 @@ test.describe("Indonesian", () => {
     // E again with an empty tank.
     await page.keyboard.press("KeyE");
     await expect(page.locator(".message-notice")).toHaveText("Tangki kosong");
-    await expect(stat(page, "materials")).toHaveText("8");
+    await expect(stat(page, "materials")).toHaveText("12");
   });
 
   test("key 4 does nothing yet; the pause controls list the new controls", async ({ page }) => {

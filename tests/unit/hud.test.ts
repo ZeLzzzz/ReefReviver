@@ -48,7 +48,7 @@ describe("HUD (REQ-002 AC-1, AC-6)", () => {
     const hud = createHud("id");
     hud.update(state());
     expect(hud.element.querySelector(".crosshair")).not.toBeNull();
-    expect(text(hud.element, ".stat-tank")).toBe("Tangki0/8");
+    expect(text(hud.element, ".stat-tank")).toBe("Tangki0/12");
     expect(text(hud.element, ".stat-score")).toBe("Skor0");
     expect(text(hud.element, ".stat-materials")).toBe("Bahan0");
     expect(text(hud.element, ".stat-cleanliness")).toBe("Kebersihan teluk0%");
@@ -85,7 +85,7 @@ describe("HUD (REQ-002 AC-1, AC-6)", () => {
     hud.update(fromSession(session));
     for (let i = 0; i < 3; i++) session.collect();
     hud.update(fromSession(session));
-    expect(text(hud.element, ".stat-tank")).toBe("Tangki3/8");
+    expect(text(hud.element, ".stat-tank")).toBe("Tangki3/12");
     expect(text(hud.element, ".stat-score")).toBe("Skor30");
     expect(text(hud.element, ".stat-cleanliness")).toBe("Kebersihan teluk7%");
   });
@@ -94,20 +94,20 @@ describe("HUD (REQ-002 AC-1, AC-6)", () => {
 describe("full tank (REQ-002 AC-2)", () => {
   it("shows 'Tangki penuh, setor ke stasiun' in text and the station marker with its distance", () => {
     const session = new Session(40);
-    for (let i = 0; i < 8; i++) session.collect();
+    for (let i = 0; i < 12; i++) session.collect();
     const hud = createHud("id");
     hud.update(fromSession(session));
     const message = hud.element.querySelector<HTMLElement>(".message-full")!;
     expect(message.hidden).toBe(false);
     expect(message.textContent).toBe("Tangki penuh, setor ke stasiun");
-    expect(text(hud.element, ".stat-tank")).toBe("Tangki8/8");
+    expect(text(hud.element, ".stat-tank")).toBe("Tangki12/12");
     expect(hud.element.querySelector(".station-marker")!.classList.contains("urgent")).toBe(true);
     expect(text(hud.element, ".marker-label")).toBe("Stasiun daur ulang · 37 m");
   });
 
   it("hides the message again after a deposit", () => {
     const session = new Session(40);
-    for (let i = 0; i < 8; i++) session.collect();
+    for (let i = 0; i < 12; i++) session.collect();
     const hud = createHud("id");
     hud.update(fromSession(session));
     session.deposit();
@@ -166,13 +166,13 @@ describe("messages (REQ-002 AC-3, AC-4)", () => {
 describe("languages (G-004)", () => {
   it("shows English text in an English HUD", () => {
     const session = new Session(40);
-    for (let i = 0; i < 8; i++) session.collect();
+    for (let i = 0; i < 12; i++) session.collect();
     const hud = createHud("en");
     hud.update(fromSession(session, { inStationZone: true }));
     expect(text(hud.element, ".message-full")).toBe("Tank full, deposit at the station");
     expect(text(hud.element, ".message-prompt")).toBe("Press E to deposit trash");
-    expect(goals(hud.element)).toEqual(["Clean the bay 19%/80%", "Free the animals 0/2", "Deposit trash at the station"]);
-    expect(text(hud.element, ".stat-score")).toBe("Score80");
+    expect(goals(hud.element)).toEqual(["Clean the bay 28%/80%", "Free the animals 0/2", "Deposit trash at the station"]);
+    expect(text(hud.element, ".stat-score")).toBe("Score120");
   });
 
   it("never suggests that trash or plastic goes back to the sea (G-003)", () => {

@@ -2,6 +2,7 @@ import { Box3, Mesh, type MeshBasicMaterial, Vector3 } from "three";
 import { describe, expect, it } from "vitest";
 import { config } from "../../src/config";
 import { constrainToBay, isSolidAt, rocks, setFrameColumns } from "../../src/game/bay";
+import { wallness } from "../../src/game/terrain";
 import type { HudState } from "../../src/game/hud-state";
 import { aimDirection } from "../../src/game/follow-camera";
 import { createReefView } from "../../src/game/reef-model";
@@ -30,12 +31,13 @@ describe("sites (REQ-004 AC-1 placement)", () => {
   const field = new ReefField();
   const all = [...field.frames, ...field.patches];
 
-  it("has three reef sites and two seagrass patches in the east of the bay", () => {
+  it("has three reef sites and two seagrass patches out in the bay, away from the shore and the rock wall (REQ-011)", () => {
     expect(field.frames).toHaveLength(3);
     expect(field.patches).toHaveLength(2);
     for (const site of all) {
-      expect(site.x).toBeGreaterThan(12);
-      expect(Math.hypot(site.x, site.z) + reef.patchRadius).toBeLessThan(config.bay.boundaryRadius - 2);
+      expect(site.x).toBeGreaterThan(config.station.x + 40);
+      expect(site.y).toBeLessThan(config.bay.surfaceY - 6);
+      expect(wallness(site.x, site.z)).toBe(0);
     }
   });
 
@@ -331,11 +333,12 @@ describe("the seed launcher (REQ-004 AC-4 to AC-6)", () => {
 });
 
 describe("the bay's solid check", () => {
-  it("is true under the floor, above the surface, outside the boundary and inside rocks, false in open water", () => {
+  it("is true under the floor, above the surface, in the rock wall, in the land and inside rocks, false in open water", () => {
     expect(isSolidAt(0, -6, 30)).toBe(false);
     expect(isSolidAt(0, -40, 30)).toBe(true);
     expect(isSolidAt(0, 1, 30)).toBe(true);
-    expect(isSolidAt(60, -6, 0)).toBe(true);
+    expect(isSolidAt(config.bay.halfSize - 5, -6, 0)).toBe(true);
+    expect(isSolidAt(-config.bay.halfSize + 5, -1, 0)).toBe(true);
     expect(isSolidAt(rocks[0].x + 0.1, rocks[0].y, rocks[0].z)).toBe(true);
   });
 });
@@ -372,7 +375,7 @@ describe("HUD for reef work (REQ-004 AC-7, E prompt)", () => {
     s.deposit();
     hud.update(hudState(s));
     expect(goals(hud.element)).toEqual([
-      "Bersihkan teluk 14%/80%",
+      "Bersihkan teluk 9%/80%",
       "Bebaskan satwa 0/2",
       "Setor sampah ke stasiun",
       "Pasang rangka 0/3",

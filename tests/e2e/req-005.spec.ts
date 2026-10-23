@@ -90,26 +90,15 @@ async function startSampler(page: Page) {
 const samples = (page: Page) => page.evaluate(() => (window as any).__samples as Sample[]);
 const channels = (hex: number) => [(hex >> 16) & 0xff, (hex >> 8) & 0xff, hex & 0xff];
 
-/** Puts the ROV 3 m from the nearest free trash item, towards the bay's centre, aimed straight at it. */
+/** Puts the ROV 3 m from the nearest free trash item it can approach with no other item in the cone, aimed straight at it. */
 async function aimAtNearestTrash(page: Page, distance = 3) {
-  await page.evaluate((d) => {
-    const hook = (window as any).__reef as Hook;
-    const [px, , pz] = hook.rovPosition();
-    const items = hook.trash();
-    items.sort((a, b) => Math.hypot(a[0] - px, a[2] - pz) - Math.hypot(b[0] - px, b[2] - pz));
-    const [x, y, z] = items[0];
-    const len = Math.hypot(x, z) || 1;
-    const rx = x - (x / len) * d;
-    const rz = z - (z / len) * d;
-    const ry = y + 1;
-    hook.placeRov(rx, ry, rz, Math.atan2(x - rx, z - rz), Math.atan2(y - ry, d));
-  }, distance);
+  expect(await page.evaluate((d) => (window as any).__reef.aimAtTrash(d), distance)).not.toBeNull();
 }
 
-/** Cleans the bay to 80 % and plants everything: the Bloom starts at once. */
+/** Cleans the bay to 80 % (50 of 60 trash and 2 nets) and plants everything: the Bloom starts at once. */
 async function meetBothConditions(page: Page) {
   await reef(page, (h) => {
-    h.removeTrash(34);
+    h.removeTrash(50);
     h.plantAll();
   });
 }
@@ -137,7 +126,7 @@ test.describe("Indonesian", () => {
     // 80 % clean, but nothing planted: a new dive.
     await reef(page, (h) => h.newDive());
     await page.mouse.move(0, 0);
-    await reef(page, (h) => h.removeTrash(34));
+    await reef(page, (h) => h.removeTrash(50));
     await wait(1);
     expect(await bloomState(page)).toBe("idle");
     await expect(page.locator('.goal[data-goal="clean"]')).toHaveClass(/done/);
@@ -252,7 +241,8 @@ test.describe("Indonesian", () => {
     expect([count("clownfish"), count("yellowtail"), count("mantaRay"), count("dolphin")]).toEqual([6, 24, 2, 3]);
     expect(life.anemones).toHaveLength(3);
     expect(life.creatures.filter((c) => c.species === "yellowtail").every((c) => !c.scannable)).toBe(true);
-    for (const c of life.creatures) expect(Math.hypot(c.position[0], c.position[2])).toBeLessThan(45);
+    // In the bay's water, short of the rock wall and the shore (REQ-011).
+    for (const c of life.creatures) expect(Math.max(Math.abs(c.position[0]), Math.abs(c.position[2]))).toBeLessThan(140);
     const later = await reef(page, (h) => h.seaLife());
     expect(later.creatures.some((c, i) => Math.hypot(c.position[0] - life.creatures[i].position[0], c.position[2] - life.creatures[i].position[2]) > 0.05)).toBe(true);
     await page.screenshot({ path: "test-results/req-005-clear.png" });
@@ -271,13 +261,13 @@ test.describe("Indonesian", () => {
     await startDive(page);
     await meetBothConditions(page);
     await expect.poll(() => bloomState(page), { timeout: 150_000 }).toBe("done");
-    expect((await reef(page, (h) => h.trash())).length).toBe(6);
+    expect((await reef(page, (h) => h.trash())).length).toBe(10);
     await aimAtNearestTrash(page);
     await page.mouse.down();
-    await expect(stat(page, "tank")).toHaveText("1/8", { timeout: 30_000 });
+    await expect(stat(page, "tank")).toHaveText("1/12", { timeout: 30_000 });
     await page.mouse.up();
     await expect(stat(page, "score")).toHaveText(/^(10|\d+)$/);
-    expect((await reef(page, (h) => h.trash())).length).toBe(5);
+    expect((await reef(page, (h) => h.trash())).length).toBe(9);
     await expect(visibleGoals(page)).toHaveText(["Pindai 0/7"]);
   });
 });
@@ -322,6 +312,6 @@ test.describe("English", () => {
     expect(look.markers).toEqual([1, 1, 1, 1, 1]);
     expect((await reef(page, (h) => h.seaLife())).active).toBe(false);
     await expect(visibleGoals(page)).toHaveText(["Clean the bay 0%/80%", "Free the animals 0/2", "Deposit trash at the station"]);
-    expect((await reef(page, (h) => h.trash())).length).toBe(40);
+    expect((await reef(page, (h) => h.trash())).length).toBe(60);
   });
 });

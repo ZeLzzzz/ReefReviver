@@ -33,7 +33,7 @@ test("the build starts from a sub-path with relative requests only, and a dive b
   await page.getByRole("button", { name: "Mulai" }).click();
   await expect.poll(() => page.evaluate(() => document.pointerLockElement?.id)).toBe("scene");
   await expect(page.locator(".crosshair")).toBeVisible();
-  await expect(page.locator(".stat-tank .stat-value")).toHaveText("0/8");
+  await expect(page.locator(".stat-tank .stat-value")).toHaveText("0/12");
   await page.screenshot({ path: "test-results/req-009-dist-playing.png" });
 
   // The test hooks are stripped from the production build.

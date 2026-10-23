@@ -220,7 +220,11 @@ describe("aiming at a target", () => {
   });
 
   it("does not see through a rock or the floor", () => {
-    const rock = rocks[0];
+    // A rock with open water around it at its height, so only the rock itself can be in the way.
+    const rock = rocks.find((r) =>
+      [[0, 4], [0, -4], [r.size + 6, -4]].every(([dx, dz]) => floorHeight(r.x + dx, r.z + dz) < r.y + r.height * 0.4 - 1),
+    )!;
+    expect(rock).toBeDefined();
     const above = new Vector3(rock.x, rock.y + rock.height * 0.4, rock.z);
     // The target lies 4 m behind the rock's centre, the ray comes from 4 m in front of it, at the rock's height.
     const start = new Vector3(rock.x, above.y, rock.z + 4);

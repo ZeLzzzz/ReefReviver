@@ -1,6 +1,6 @@
 import { Vector3 } from "three";
 import { config } from "../config";
-import { floorHeight, rocks } from "./bay";
+import { terrainSolidAt } from "./bay";
 import type { Net } from "./nets";
 
 const { cutter } = config;
@@ -18,7 +18,7 @@ export interface NetHit {
   point: Vector3;
 }
 
-/** How finely the ray is walked to find the floor; a net is bigger than this, so no net slips through. */
+/** How finely the ray is walked to find the floor and the rocks; a net is bigger than this, so no net slips through. */
 const FLOOR_STEP = 0.25;
 
 /**
@@ -92,18 +92,10 @@ export function aimedNet(origin: Vector3, dir: Vector3, rov: Vector3, nets: read
   return { net, point };
 }
 
-/** Whether a rock or the floor lies on the ray before `distance` (shared by the cutter and the scanner). */
+/** Whether the floor, a rock, a boulder or an arch lies on the ray before `distance` (shared by the cutter and the scanner). */
 export function terrainBlocks(origin: Vector3, dir: Vector3, distance: number): boolean {
-  for (const rock of rocks) {
-    tmpCentre.set(rock.x, rock.y, rock.z);
-    tmpRadii.set(rock.size, rock.height, rock.size);
-    const t = rayEllipsoid(origin, dir, tmpCentre, tmpRadii, 0, false);
-    if (t !== null && t < distance) return true;
-  }
   for (let t = FLOOR_STEP; t < distance; t += FLOOR_STEP) {
-    const x = origin.x + dir.x * t;
-    const z = origin.z + dir.z * t;
-    if (origin.y + dir.y * t < floorHeight(x, z)) return true;
+    if (terrainSolidAt(origin.x + dir.x * t, origin.y + dir.y * t, origin.z + dir.z * t)) return true;
   }
   return false;
 }

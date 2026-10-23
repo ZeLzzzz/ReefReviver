@@ -16,6 +16,14 @@ function lookAt(target: Vector3, distance: number, fromYaw = 0) {
   return { nozzle, aim: aimDirection(fromYaw, 0) };
 }
 
+/** Moves every item but the first `keep` far away, so only those can be in the cone (the trash lies in groups, D-066). */
+function isolate(field: TrashField, keep = 1) {
+  for (const item of field.items.slice(keep)) {
+    item.home.set(item.home.x, -500, item.home.z);
+    item.position.copy(item.home);
+  }
+}
+
 /** Runs the field like the game does: sucking, collecting arrivals into the session. */
 function run(field: TrashField, session: Session, nozzle: Vector3, aim: Vector3, seconds: number, sucking = true) {
   const dt = 1 / 60;
@@ -28,15 +36,15 @@ function run(field: TrashField, session: Session, nozzle: Vector3, aim: Vector3,
 describe("trash layout (D-012)", () => {
   const items = generateTrash();
 
-  it("scatters 40 items of three kinds, the same every time", () => {
+  it("lays 60 items of three kinds, the same every time (D-066)", () => {
     expect(items).toHaveLength(trash.count);
     expect(new Set(items.map((i) => i.kind))).toEqual(new Set(["bottle", "bag", "can"]));
     expect(generateTrash().map((i) => i.home.toArray())).toEqual(items.map((i) => i.home.toArray()));
   });
 
-  it("lies on the floor inside the bay, apart from each other", () => {
+  it("lies on the floor under water, apart from each other", () => {
     for (const item of items) {
-      expect(Math.hypot(item.home.x, item.home.z)).toBeLessThanOrEqual(trash.maxRadius);
+      expect(floorHeight(item.home.x, item.home.z)).toBeLessThan(config.bay.surfaceY - trash.minDepth);
       expect(item.home.y).toBeCloseTo(floorHeight(item.home.x, item.home.z) + trash.restHeight);
     }
     for (let i = 0; i < items.length; i++)
@@ -95,6 +103,7 @@ describe("sucking trash (REQ-002 AC-1)", () => {
     const field = new TrashField();
     const session = new Session(field.total);
     const target = field.items[0];
+    isolate(field);
     const { nozzle, aim } = lookAt(target.home, 3);
 
     run(field, session, nozzle, aim, vacuum.interval + 0.05);
@@ -108,7 +117,7 @@ describe("sucking trash (REQ-002 AC-1)", () => {
     expect(session.tank).toBe(1);
     expect(session.score).toBe(config.rewards.scorePerTrash);
     expect(session.trashRemoved).toBe(1);
-    expect(session.cleanliness).toBe(2);
+    expect(session.cleanliness).toBe(1); // 1 / 62 = 1.6 %
   });
 
   it("ends the pull at the drone's position", () => {
@@ -151,6 +160,7 @@ describe("sucking trash (REQ-002 AC-1)", () => {
     const field = new TrashField();
     const session = new Session(field.total);
     const first = field.items[0];
+    isolate(field, 3);
     // Put two more items right beside the first so all sit in the cone.
     field.items[1].home.set(first.home.x + 0.6, first.home.y, first.home.z + 0.4);
     field.items[1].position.copy(field.items[1].home);
@@ -164,12 +174,13 @@ describe("sucking trash (REQ-002 AC-1)", () => {
 });
 
 describe("full tank (REQ-002 AC-2)", () => {
-  it("stops sucking at 8/8, and the tank never overfills even with trash still in the cone", () => {
+  it("stops sucking at 12/12, and the tank never overfills even with trash still in the cone", () => {
     const field = new TrashField();
     const session = new Session(field.total);
     const first = field.items[0];
-    // A cluster of 12 items in front of the drone.
-    for (let i = 0; i < 12; i++) {
+    isolate(field, 16);
+    // A cluster of 16 items in front of the drone.
+    for (let i = 0; i < 16; i++) {
       field.items[i].home.set(first.home.x + (i % 4) * 0.5, first.home.y, first.home.z + Math.floor(i / 4) * 0.5);
       field.items[i].position.copy(field.items[i].home);
     }

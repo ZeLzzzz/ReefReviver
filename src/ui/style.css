@@ -559,10 +559,33 @@ kbd {
   height: var(--map-size);
 }
 
-.mm-bay {
-  fill: rgba(241, 243, 236, 0.1);
-  stroke: rgba(241, 243, 236, 0.45);
-  stroke-width: 1.5;
+/* REQ-011: the bay's floor, lighter where it is shallower (hill tops), with the land and the rock wall around it. */
+.mm-terrain {
+  shape-rendering: crispEdges;
+}
+
+.mm-terrain[data-shade="land"] {
+  fill: rgba(222, 202, 146, 0.62);
+}
+
+.mm-terrain[data-shade="wall"] {
+  fill: rgba(150, 144, 132, 0.62);
+}
+
+.mm-terrain[data-shade="depth-0"] {
+  fill: rgba(176, 226, 236, 0.34);
+}
+
+.mm-terrain[data-shade="depth-1"] {
+  fill: rgba(150, 206, 226, 0.24);
+}
+
+.mm-terrain[data-shade="depth-2"] {
+  fill: rgba(120, 180, 214, 0.15);
+}
+
+.mm-terrain[data-shade="depth-3"] {
+  fill: rgba(90, 150, 200, 0.07);
 }
 
 .mm-rock {
@@ -622,7 +645,7 @@ kbd {
   stroke-linejoin: round;
 }
 
-/* North is up; the letter sits in the corner, outside the bay's circle. */
+/* North is up; the letter sits in the corner, on the rock wall. */
 .mm-north {
   position: absolute;
   top: 6px;

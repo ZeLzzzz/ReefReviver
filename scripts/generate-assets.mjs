@@ -38,7 +38,7 @@ const server = await createServer({ server: { middlewareMode: true }, appType: "
 
 try {
   const { buildRovMesh } = await server.ssrLoadModule("/src/game/rov-model.ts");
-  const { buildRockMesh, createCliffGeometry } = await server.ssrLoadModule("/src/game/world.ts");
+  const { buildRockMesh, buildTerrainChunks } = await server.ssrLoadModule("/src/game/world.ts");
   const { buildTrashMesh } = await server.ssrLoadModule("/src/game/trash-model.ts");
   const { buildStationMesh } = await server.ssrLoadModule("/src/game/station-model.ts");
   const { buildTurtleMesh, buildSharkMesh } = await server.ssrLoadModule("/src/game/animal-model.ts");
@@ -100,9 +100,8 @@ try {
     console.log(`${id.padEnd(18)} | ${String(triangles).padStart(5)} tris | ${(buffer.byteLength / 1024).toFixed(1).padStart(6)} KB`);
   }
 
-  const cliffGeo = createCliffGeometry();
-  const cliffTris = cliffGeo.index ? cliffGeo.index.count / 3 : cliffGeo.attributes.position.count / 3;
-  console.log(`bay-cliffs (proc)  | ${String(cliffTris).padStart(5)} tris`);
+  const terrainTris = buildTerrainChunks().reduce((sum, mesh) => sum + countTriangles(mesh), 0);
+  console.log(`bay-terrain (proc) | ${String(terrainTris).padStart(5)} tris`);
 
   writeFileSync(
     join(process.cwd(), "public", "assets", "manifest.json"),

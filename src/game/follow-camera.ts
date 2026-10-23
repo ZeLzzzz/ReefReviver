@@ -1,6 +1,6 @@
 import { Vector3 } from "three";
 import { config } from "../config";
-import { floorHeight } from "./bay";
+import { floorHeight, terrainSolidAt } from "./bay";
 import type { RovState } from "./rov";
 
 const { camera, bay } = config;
@@ -9,16 +9,28 @@ export function aimDirection(yaw: number, pitch: number, out = new Vector3()): V
   return out.set(Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch));
 }
 
-/** Pulls a camera position back into open water: under the surface, above the floor, short of the cliffs. */
-export function keepCameraInWater(p: Vector3): void {
-  const maxDistance = bay.cliffRadius - bay.cliffJag - 0.5;
-  const distance = Math.hypot(p.x, p.z);
-  if (distance > maxDistance) {
-    p.x *= maxDistance / distance;
-    p.z *= maxDistance / distance;
-  }
+const blocked = (x: number, y: number, z: number) => y > bay.surfaceY - camera.surfaceGap || terrainSolidAt(x, y, z, camera.clearance);
+
+/**
+ * Pulls a camera position back into open water: under the surface and above the floor, and short of any slope,
+ * rock, boulder, arch or wall on the line from `from` (the ROV) to it, so the view is never inside them (REQ-011 AC-4).
+ */
+export function keepCameraInWater(p: Vector3, from: Vector3): void {
   p.y = Math.max(p.y, floorHeight(p.x, p.z) + camera.floorGap);
   p.y = Math.min(p.y, bay.surfaceY - camera.surfaceGap);
+  const dx = p.x - from.x;
+  const dy = p.y - from.y;
+  const dz = p.z - from.z;
+  const length = Math.hypot(dx, dy, dz);
+  let free = 0;
+  for (let t = camera.step; t < length + camera.step; t += camera.step) {
+    const k = Math.min(t, length) / length;
+    if (blocked(from.x + dx * k, from.y + dy * k, from.z + dz * k)) {
+      p.set(from.x + (dx * free) / length, from.y + (dy * free) / length, from.z + (dz * free) / length);
+      return;
+    }
+    free = Math.min(t, length);
+  }
 }
 
 const aim = new Vector3();
@@ -31,6 +43,6 @@ export function followCamera(state: RovState, outPosition: Vector3, outTarget: V
   aimDirection(state.yaw, state.pitch, aim);
   outPosition.copy(state.position).addScaledVector(aim, -camera.distance);
   outPosition.y += camera.height;
-  keepCameraInWater(outPosition);
+  keepCameraInWater(outPosition, state.position);
   outTarget.copy(outPosition).add(aim);
 }

@@ -10,6 +10,7 @@ type Hook = {
   trash(): Vec[];
   rocks(): [number, number, number, number][];
   rovPosition(): Vec;
+  station(): Vec;
   placeRov(x: number, y: number, z: number, yaw: number, pitch: number): void;
 };
 const reef = <T>(page: Page, fn: (hook: Hook, arg: any) => T, arg?: unknown) =>
@@ -91,15 +92,16 @@ test.describe("Indonesian", () => {
     expect(rows).toContain("1 = Pilih Cutter");
   });
 
-  test("the nets stand in the north half with a trapped turtle and shark that struggle in place (AC-6)", async ({ page }) => {
+  test("the nets stand out in the bay with a trapped turtle and shark that struggle in place (AC-6)", async ({ page }) => {
     test.setTimeout(90_000);
     await startDive(page);
     const nets = await reef(page, (h) => h.nets());
+    const station = await reef(page, (h) => h.station());
     expect(nets.map((n) => n.species).sort()).toEqual(["reefShark", "turtle"]);
     for (const net of nets) {
-      expect(net.center[2]).toBeLessThan(-12);
-      expect(net.center[2]).toBeGreaterThan(-38);
-      expect(net.center[0]).toBeLessThan(15);
+      // REQ-011: out in the bay, well away from the station on the shore, in water deeper than 6 m.
+      expect(Math.hypot(net.center[0] - station[0], net.center[2] - station[2])).toBeGreaterThan(40);
+      expect(net.center[1]).toBeLessThan(-6);
       expect(net.cut).toBe(false);
     }
     const first = await reef(page, (h) => h.animals());
@@ -135,7 +137,7 @@ test.describe("Indonesian", () => {
     await expect(page.locator(".message-notice")).toHaveText("Penyu hijau dibebaskan! +100", { timeout: 30_000 });
     await page.mouse.up();
     await expect(stat(page, "score")).toHaveText("100");
-    await expect(stat(page, "cleanliness")).toHaveText("2%");
+    await expect(stat(page, "cleanliness")).toHaveText("1%"); // 1 of 60 trash and 2 nets
     await expect(page.locator('.goal[data-goal="free"] .goal-text')).toHaveText("Bebaskan satwa 1/2");
     await expect(page.locator(".cut-progress")).toBeHidden();
     const [net] = await reef(page, (h) => h.nets());
@@ -159,7 +161,7 @@ test.describe("Indonesian", () => {
     await expect(page.locator('.goal[data-goal="free"]')).toHaveClass(/done/);
     await expect(page.locator('.goal[data-goal="free"] .goal-text')).toHaveText("Bebaskan satwa 2/2");
     await expect(stat(page, "score")).toHaveText("200");
-    await expect(stat(page, "cleanliness")).toHaveText("4%");
+    await expect(stat(page, "cleanliness")).toHaveText("3%"); // 2 of 62
     await expect(page.locator(".message-notice")).toHaveText("Hiu sirip hitam karang dibebaskan! +100");
 
     // They swim off, then wander for good: always inside the bay, always moving.
@@ -172,7 +174,8 @@ test.describe("Indonesian", () => {
       await gameSeconds(page, 2);
       const now = await reef(page, (h) => h.animals());
       now.forEach((a, k) => {
-        expect(Math.hypot(a.position[0], a.position[2])).toBeLessThanOrEqual(45);
+        // Inside the bay's water, short of the rock wall and the shore (REQ-011: about 300 m across).
+        expect(Math.max(Math.abs(a.position[0]), Math.abs(a.position[2]))).toBeLessThan(140);
         expect(a.position[1]).toBeLessThan(0);
         travelled += Math.hypot(a.position[0] - before[k].position[0], a.position[2] - before[k].position[2]);
       });
@@ -233,7 +236,7 @@ test.describe("Indonesian", () => {
     expect(await cutProgress(page)).toBe(0);
     await page.mouse.up();
     expect(await reef(page, (h) => h.trash().length)).toBe(trashBefore);
-    await expect(stat(page, "tank")).toHaveText("0/8");
+    await expect(stat(page, "tank")).toHaveText("0/12");
 
     // A rock.
     await reef(page, (h) => {
@@ -270,7 +273,7 @@ test.describe("Indonesian", () => {
     expect((await reef(page, (h) => h.nets())).map((n) => n.cut)).toEqual([true, false]);
     expect((await reef(page, (h) => h.animals())).map((a) => a.state)).toEqual(["wandering", "trapped"]);
     await expect(stat(page, "score")).toHaveText("100");
-    await expect(stat(page, "tank")).toHaveText("0/8");
+    await expect(stat(page, "tank")).toHaveText("0/12");
   });
 });
 
