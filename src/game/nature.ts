@@ -6,7 +6,7 @@ import { squareRadius, wallness } from "./terrain";
 
 const { nature, bay, rov, scanner } = config;
 
-function mulberry32(seed: number): () => number {
+export function mulberry32(seed: number): () => number {
   let a = seed;
   return () => {
     a = (a + 0x6d2b79f5) | 0;

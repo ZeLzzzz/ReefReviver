@@ -29,6 +29,7 @@ import { arches, boulders, floorHeight, floorSlope, rocks, type Arch, type Bould
 import { wallness } from "./terrain";
 import { caveLevel } from "./cave";
 import { waterAt } from "./bloom";
+import { createGrassView, type GrassView } from "./grass-model";
 import { compactGroup, hasMesh } from "./model-utils";
 
 const { bay, water, land } = config;
@@ -320,6 +321,8 @@ export interface World {
   setAbove(above: boolean): void;
   /** REQ-014: 0 in open water, 1 deep in the cave: the light, the fog and the marine snow darken by it, Bloom or not. */
   setCave(level: number): void;
+  /** REQ-018: the grass on the land, which sways in the wind and never changes colour. */
+  grass: GrassView;
 }
 
 /** The bay before the Bloom: murky green-grey water with short visibility (REQ-001 AC-3). */
@@ -337,6 +340,8 @@ export function buildWorld(scene: Scene): World {
   addTerrain(scene);
   addRocks(scene);
   addLand(scene);
+  const grass = createGrassView();
+  scene.add(grass.mesh);
   const surface = addSurface(scene);
   const snow = addMarineSnow(scene);
   const fog = scene.fog as Fog;
@@ -382,8 +387,10 @@ export function buildWorld(scene: Scene): World {
   };
 
   return {
+    grass,
     update(dt, around) {
       snow.update(dt, around);
+      grass.update(dt);
       if (above) {
         sunDisk.position.copy(around).addScaledVector(sunDirection, 380);
         sunDisk.lookAt(around);

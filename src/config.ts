@@ -157,6 +157,34 @@ export const config = {
       { x: -142, z: 46, radius: 1 },
       { x: -145, z: 62, radius: 1.4 },
     ],
+    // REQ-018: grass on the land (D-097), from `fromInland` metres inland from the waterline to the foot of the cliff, at
+    // most `maxHeight` tall and always green. The ground is cut into `spacing` squares; each holds a tuft of `bladesPerTuft`
+    // blades with the chance `tuftChance`, the blades within `tuftRadius` of its centre.
+    grass: {
+      seed: 53,
+      fromInland: 8,
+      spacing: 0.5,
+      tuftChance: 0.85,
+      bladesPerTuft: 5,
+      tuftRadius: 0.3,
+      minHeight: 0.18,
+      maxHeight: 0.5,
+      // Metres across a blade's base, and how far (radians) a blade leans off upright.
+      width: 0.09,
+      lean: 0.25,
+      // The ground may rise by no more than this per metre; the steep foot of the cliff is steeper.
+      maxSlope: 0.5,
+      // Clear of the shed's walls and the dock by `structureClear`, of the counter's zone ring by `counterClear` beyond the
+      // ring, and of palm trunks and rocks by `obstacleClear`.
+      structureClear: 0.8,
+      counterClear: 0.5,
+      obstacleClear: 0.2,
+      // Each blade takes a shade between these two greens.
+      shades: [0x3f7d2e, 0x8dbb4e],
+      // The wind (AC-4): it bends each tip sideways by up to `amplitude` metres in a gust. A gust comes round every `period`
+      // seconds, its waves are `waveLength` metres long, and the wind blows toward (x, z).
+      sway: { amplitude: 0.06, period: 6, waveLength: 6, wind: { x: 0.8, z: 0.6 } },
+    },
     // Above the water: the sky, the light haze over the bay, and the sea seen from above.
     sky: 0x9fd6f2,
     hazeNear: 80,

@@ -378,6 +378,8 @@ export class Game implements GameView {
         // REQ-013: the natural reef's look (coral colours, seagrass, rays), and where its corals and meadows are.
         natureLook: () => this.natureView.look(),
         naturalTargets: () => naturalTargets.map((t) => ({ ...t })),
+        // REQ-018: the grass on the land: how many blades, their average colour, and the wind's clock.
+        grass: () => this.world.grass.look(),
         reefLook: () => ({ ...this.reefView.look(), coral: this.reefView.coralMaterials.map((m) => m.color.getHex()), markers: this.reefView.markerOpacity() }),
         // REQ-006: the Logbook entries opened so far, and a way to free both animals without cutting.
         unlocked: () => [...this.session.unlocked],
