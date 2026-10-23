@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
+import { webglArgs } from "./tests/webgl-args";
 
 // Plays the production build, served from a sub-path like a static host does (REQ-009 AC-1).
 // `npm run test:e2e:dist` builds first, so the folder it serves is always the current code.
@@ -14,7 +15,7 @@ export default defineConfig({
       use: {
         ...devices["Desktop Chrome"],
         viewport: { width: 800, height: 450 },
-        launchOptions: { args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"] },
+        launchOptions: { args: webglArgs },
       },
     },
   ],

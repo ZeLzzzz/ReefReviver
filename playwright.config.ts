@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
+import { webglArgs } from "./tests/webgl-args";
 
 const port = Number(process.env.E2E_PORT ?? 5179);
 
@@ -11,10 +12,9 @@ export default defineConfig({
       name: "chromium",
       use: {
         ...devices["Desktop Chrome"],
-        // Software rendering is slow; a small window keeps the frame rate usable.
+        // A small window keeps the frame rate usable when rendering in software (E2E_SWIFTSHADER).
         viewport: { width: 800, height: 450 },
-        // Headless Chromium has no GPU; SwiftShader renders WebGL 2 in software.
-        launchOptions: { args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"] },
+        launchOptions: { args: webglArgs },
       },
     },
   ],

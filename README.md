@@ -71,7 +71,7 @@ npm run test:e2e   # tes di Chromium sungguhan (Playwright)
 npm run test:e2e:dist   # build, lalu mainkan hasil build dari sub-folder /game/
 ```
 
-Sebelum `test:e2e` pertama kali, pasang Chromium-nya dengan `npx playwright install chromium`. Tes e2e merender WebGL lewat SwiftShader (tanpa GPU), jadi frame rate-nya rendah; tes menunggu ROV bergerak, bukan mengukur waktu.
+Sebelum `test:e2e` pertama kali, pasang Chromium-nya dengan `npx playwright install chromium`. Tes e2e merender WebGL di GPU lewat ANGLE Vulkan. Di komputer tanpa GPU yang bisa dipakai, jalankan dengan `E2E_SWIFTSHADER=1` supaya WebGL dirender CPU lewat SwiftShader; cara ini jauh lebih lambat dan membuat CPU sibuk penuh selama tes. Tes menunggu ROV bergerak, bukan mengukur waktu.
 
 ## Struktur
 
