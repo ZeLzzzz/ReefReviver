@@ -51,6 +51,10 @@ npm run preview    # coba hasil build
 
 Build memakai path relatif, jadi isi `dist/` bisa diunggah ke itch.io (HTML5) atau hosting statis lain, di folder mana pun. Membuka `index.html` langsung dari disk (`file://`) tidak bisa, karena browser memblokir module script di sana. Untuk mencoba build dari sub-folder seperti di hosting: `node scripts/serve-dist.mjs` (melayani `dist/` di `/game/`).
 
+### Hosting di Vercel
+
+Repo ini bisa langsung diimpor di Vercel (Add New → Project → pilih repo GitHub-nya), tanpa mengubah setelan apa pun. `vercel.json` menetapkan install `npm ci`, build `npm run build` (termasuk cek tipe dan batas 50 MB), dan hasilnya di `dist/`. Node.js bawaan Vercel (24.x) sudah cukup. Setiap push ke `main` menjadi deploy produksi, dan push ke branch lain mendapat URL pratinjau sendiri.
+
 ### Model dari artist
 
 Model GLB/glTF diletakkan di `public/assets/` dan didaftarkan di `public/assets/manifest.json` sebagai `{ "id": "rov", "url": "rov.glb" }`. Semua file di daftar itu dimuat sebelum layar judul. Model yang tidak ada di daftar dibangun dari kode. `npm run generate:assets` mengekspor model buatan kode ke `public/assets/models/` dan menulis ulang seluruh `manifest.json`, jadi model artist yang sudah terdaftar perlu didaftarkan lagi setelahnya. Aset yang bukan buatan tim wajib dicatat di `CREDITS.md` beserta lisensinya.
