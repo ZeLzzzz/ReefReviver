@@ -639,6 +639,21 @@ kbd {
   stroke-width: 0.8;
 }
 
+/* REQ-014: the cave's mouths are arches, dark inside; the tunnel between them is a faint dashed line. */
+.mm-mouth {
+  fill: rgba(4, 18, 34, 0.9);
+}
+
+.mm-tunnel {
+  fill: none;
+  stroke: var(--ink);
+  stroke-opacity: 0.28;
+  stroke-width: 2.4;
+  stroke-dasharray: 3 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 /* REQ-016: the dock, a short line from the shore out over the water. */
 .mm-dock {
   stroke: #c9a46e;

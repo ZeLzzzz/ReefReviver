@@ -1,6 +1,7 @@
 import { Vector3 } from "three";
 import { config } from "../config";
 import { floorHeight, floorSlope, insideRockAt } from "./bay";
+import { caveTrashSpots } from "./cave";
 import { squareRadius, wallness } from "./terrain";
 import { stationPosition } from "./station";
 import { pickNearestInCone } from "./vacuum";
@@ -56,13 +57,27 @@ export function trashSpotOk(x: number, z: number): boolean {
 
 /**
  * Lays the trash on the floor in small groups (D-066): always the same layout for the same seed, every item on a
- * good spot (see trashSpotOk) and apart from the others.
+ * good spot (see trashSpotOk) and apart from the others. REQ-014: the first few lie on the cave's tunnel floor
+ * (the cave itself is kept clear of the rest); the dive's seed moves them about in it.
  */
 export function generateTrash(seed: number = trash.seed): TrashItem[] {
   const random = mulberry32(seed);
   const reach = config.bay.wall.radius - config.bay.wall.width - 6;
   const items: TrashItem[] = [];
   const centres: { x: number; z: number }[] = [];
+  const add = (x: number, z: number) => {
+    const home = new Vector3(x, floorHeight(x, z) + trash.restHeight, z);
+    items.push({
+      id: items.length,
+      kind: KINDS[items.length % KINDS.length],
+      position: home.clone(),
+      home,
+      rotation: random() * Math.PI * 2,
+      state: "free",
+      pull: 0,
+    });
+  };
+  for (const spot of caveTrashSpots(random, trash.spacing)) add(spot.x, spot.z);
   let attempts = 0;
   while (items.length < trash.count && attempts++ < 20000) {
     const cx = (random() * 2 - 1) * reach;
@@ -79,16 +94,7 @@ export function generateTrash(seed: number = trash.seed): TrashItem[] {
       const z = cz + Math.sin(angle) * distance;
       if (!trashSpotOk(x, z)) continue;
       if (items.some((other) => Math.hypot(x - other.home.x, z - other.home.z) < trash.spacing)) continue;
-      const home = new Vector3(x, floorHeight(x, z) + trash.restHeight, z);
-      items.push({
-        id: items.length,
-        kind: KINDS[items.length % KINDS.length],
-        position: home.clone(),
-        home,
-        rotation: random() * Math.PI * 2,
-        state: "free",
-        pull: 0,
-      });
+      add(x, z);
       placed += 1;
     }
   }

@@ -2,7 +2,9 @@ import {
   AdditiveBlending,
   ConeGeometry,
   type Color,
+  DirectionalLight,
   type Fog,
+  HemisphereLight,
   Mesh,
   MeshBasicMaterial,
   PerspectiveCamera,
@@ -14,6 +16,8 @@ import { config } from "../config";
 import { LOGBOOK_ENTRIES, type LogbookId } from "../logbook/entries";
 import { constrainToBay, rocks, setFrameColumns } from "./bay";
 import { Bloom } from "./bloom";
+import { caveInfo, caveLamp, caveLevel } from "./cave";
+import { createCaveView } from "./cave-model";
 import { aimDirection, followCamera, keepCameraInWater } from "./follow-camera";
 import type { HudState } from "./hud-state";
 import { Input } from "./input";
@@ -29,7 +33,7 @@ import { SeaLife } from "./sea-life";
 import { createSeaLifeView } from "./sea-life-model";
 import { naturalTargets } from "./nature";
 import { createNatureView } from "./nature-model";
-import { createRovModel } from "./rov-model";
+import { createRovModel, setHeadlight } from "./rov-model";
 import { createRovState, rightVector, steer, stepRov, type RovState } from "./rov";
 import { ashoreSpot, canBoard, createWalker, eyePosition, lookWalker, stepWalker, type AshoreSpot, type Walker } from "./land";
 import { Rescue } from "./rescue";
@@ -89,6 +93,11 @@ export class Game implements GameView {
   private readonly camera = new PerspectiveCamera(config.camera.fov, 1, 0.1, config.camera.far);
   private readonly cameraTarget = new Vector3();
   private readonly rovModel = createRovModel();
+  // REQ-014: the cave's rock and light shaft, how dark the water is around the camera (0..1, eased), and the lamp.
+  private readonly caveView = createCaveView();
+  private caveDark = 0;
+  private lampLit = false;
+  private lampLevel = 0;
   private readonly world: World;
   private readonly input: Input;
   private readonly field = new TrashField();
@@ -145,6 +154,7 @@ export class Game implements GameView {
     this.scene.add(this.rovModel, createStationModel(), buildDockMesh(), this.trashView.group, this.beam, this.rescue.group, this.scanBeam);
     this.trashView.sync(this.field.items);
     this.scene.add(this.reefView.group, this.seedView.group, this.seaLifeView.group, this.natureView.group);
+    this.scene.add(this.caveView.group);
     this.reefView.sync(this.reef);
     this.input = new Input(canvas.ownerDocument);
     this.syncRovModel();
@@ -278,11 +288,26 @@ export class Game implements GameView {
           this.ashore.walker.pitch = pitch;
         },
         ashoreSpot: (x: number, z: number) => ashoreSpot(x, z),
+        // REQ-014: the cave (its mouths, length, roof hole), how dark it is at the camera, and the vehicle's lamp.
+        cave: () => ({
+          mouths: caveInfo.mouths,
+          length: caveInfo.length,
+          path: caveInfo.path,
+          hole: caveInfo.hole,
+          level: caveLevel(this.rov.position.x, this.rov.position.y, this.rov.position.z),
+          cameraLevel: caveLevel(this.camera.position.x, this.camera.position.y, this.camera.position.z),
+          dark: this.caveDark,
+          lampLit: this.lampLit,
+          lamp: this.lampLevel * config.bay.cave.lamp.intensity,
+          shaft: this.caveView.light.intensity,
+          light: this.sceneLight(),
+        }),
         // REQ-005: reach the Bloom quickly and read what it changes. (REQ-010's e2e tests use removeTrash too.)
         // Takes n free trash items out of the field and counts them as removed, like the vacuum, but without tank or score.
-        removeTrash: (n: number) => {
+        // REQ-014: the cave's pieces come first in the list; `fromEnd` takes the others first and leaves them lying.
+        removeTrash: (n: number, fromEnd = false) => {
           let removed = 0;
-          for (const item of this.field.items) {
+          for (const item of fromEnd ? [...this.field.items].reverse() : this.field.items) {
             if (removed >= n) break;
             if (item.state !== "free") continue;
             item.state = "collected";
@@ -378,6 +403,9 @@ export class Game implements GameView {
     this.scanner.reset(); // REQ-006
     this.scanBeam.visible = false;
     this.sucking = false;
+    this.caveDark = 0;
+    this.lampLit = false;
+    this.lampLevel = 0;
     this.input.clear();
     this.mode = "playing";
   }
@@ -420,13 +448,43 @@ export class Game implements GameView {
     // REQ-015: above the water the world shows the sky and daylight instead of the water's fog.
     this.world.setAbove(this.camera.position.y > config.bay.surfaceY);
     if (this.mode !== "paused") {
+      this.stepCave(dt);
       this.world.update(dt, this.camera.position);
-      this.natureView.update(dt, this.camera.position, this.camera.position.y > config.bay.surfaceY);
+      // The surface's light rays stay out of the cave, where only its own shaft lights the dark (REQ-014 AC-2).
+      this.natureView.update(dt, this.camera.position, this.camera.position.y > config.bay.surfaceY || this.caveDark > 0.2);
     }
 
     this.camera.lookAt(this.cameraTarget);
     if (this.mode === "playing") this.publishHud();
     this.renderer.render(this.scene, this.camera);
+  }
+
+  /**
+   * REQ-014: the water darkens as the camera goes in the cave, and lightens as it comes out, eased so there is no flash;
+   * the vehicle's headlamp turns on when the vehicle is in the cave and off when it is out, with no key.
+   */
+  private stepCave(dt: number): void {
+    const { dark, lamp } = config.bay.cave;
+    const { position } = this.camera;
+    const target = caveLevel(position.x, position.y, position.z);
+    this.caveDark = Math.abs(target - this.caveDark) < 0.002 ? target : this.caveDark + (target - this.caveDark) * (1 - Math.exp(-dark.fade * dt));
+    this.world.setCave(this.caveDark);
+    this.lampLit = !this.ashore && caveLamp(this.lampLit, caveLevel(this.rov.position.x, this.rov.position.y, this.rov.position.z));
+    const step = lamp.fade * dt;
+    this.lampLevel = Math.min(this.lampLevel + step, Math.max(this.lampLevel - step, this.lampLit ? 1 : 0));
+    setHeadlight(this.rovModel, this.lampLevel, lamp.intensity);
+    this.caveView.update(performance.now() / 1000);
+  }
+
+  /** The lights' intensities, for the browser tests: the sky, the sun. */
+  private sceneLight(): { hemisphere: number; sun: number } {
+    let hemisphere = 0;
+    let sun = 0;
+    this.scene.traverse((object) => {
+      if (object instanceof HemisphereLight) hemisphere = object.intensity;
+      if (object instanceof DirectionalLight) sun = object.intensity;
+    });
+    return { hemisphere, sun };
   }
 
   /**
@@ -597,8 +655,11 @@ export class Game implements GameView {
   private placeCamera(): void {
     if (!this.ashore) {
       followCamera(this.rov, this.camera.position, this.cameraTarget);
+      // REQ-014: backed against a wall in the cave, the camera can be pulled right into the hull: show it only from outside.
+      this.rovModel.children[0].visible = this.camera.position.distanceTo(this.rov.position) > config.camera.hideVehicleBelow;
       return;
     }
+    this.rovModel.children[0].visible = true;
     const { walker } = this.ashore;
     eyePosition(walker, this.eye);
     this.camera.position.copy(this.eye);

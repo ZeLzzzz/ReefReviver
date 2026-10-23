@@ -27,10 +27,13 @@ import { assets } from "../assets";
 import { config } from "../config";
 import { arches, boulders, floorHeight, floorSlope, rocks, type Arch, type Boulder } from "./bay";
 import { wallness } from "./terrain";
+import { caveLevel } from "./cave";
 import { waterAt } from "./bloom";
 import { compactGroup, hasMesh } from "./model-utils";
 
 const { bay, water, land } = config;
+const caveFog = new Color(config.bay.cave.dark.fogColor);
+const caveSky = new Color(config.bay.cave.dark.sky);
 
 /** Builds a low-poly multi-boulder rock outcrop in a unit radius so (rock.size, rock.height, rock.size) matches collision. */
 export function buildRockMesh(variant: number): Group {
@@ -126,6 +129,8 @@ export function buildTerrainChunks(): Mesh[] {
         const y = floorHeight(x, z);
         position.setY(k, y);
         groundColour(x, y, z, colour);
+        // REQ-014: the tunnel's floor is in shadow.
+        colour.multiplyScalar(1 - 0.45 * caveLevel(x, y + 0.05, z));
         colors[k * 3] = colour.r;
         colors[k * 3 + 1] = colour.g;
         colors[k * 3 + 2] = colour.b;
@@ -313,6 +318,8 @@ export interface World {
   setClarity(clarity: number): void;
   /** REQ-015: true while the camera is above the water: sky, sun and daylight haze instead of the water's fog. */
   setAbove(above: boolean): void;
+  /** REQ-014: 0 in open water, 1 deep in the cave: the light, the fog and the marine snow darken by it, Bloom or not. */
+  setCave(level: number): void;
 }
 
 /** The bay before the Bloom: murky green-grey water with short visibility (REQ-001 AC-3). */
@@ -341,6 +348,7 @@ export function buildWorld(scene: Scene): World {
 
   let clarity = 0;
   let above = false;
+  let cave = 0;
   const apply = () => {
     const look = waterAt(clarity);
     snow.points.visible = !above;
@@ -358,14 +366,17 @@ export function buildWorld(scene: Scene): World {
       surface.opacity = land.seaOpacity;
       return;
     }
-    murk.setHex(look.color);
-    fog.color.setHex(look.color);
-    fog.near = look.fogNear;
-    fog.far = look.fogFar;
-    hemisphere.color.setHex(look.hemiSky);
-    hemisphere.intensity = look.hemiIntensity;
-    sun.intensity = look.sunIntensity;
-    snow.material.opacity = look.snowOpacity;
+    // REQ-014: inside the cave the water goes dark whatever the Bloom's clarity is.
+    const { dark } = config.bay.cave;
+    const light = 1 - cave * (1 - dark.light);
+    murk.setHex(look.color).lerp(caveFog, cave);
+    fog.color.copy(murk);
+    fog.near = look.fogNear + (dark.fogNear - look.fogNear) * cave;
+    fog.far = look.fogFar + (dark.fogFar - look.fogFar) * cave;
+    hemisphere.color.setHex(look.hemiSky).lerp(caveSky, cave);
+    hemisphere.intensity = look.hemiIntensity * light;
+    sun.intensity = look.sunIntensity * light;
+    snow.material.opacity = look.snowOpacity * (1 - cave * (1 - dark.snow));
     surface.color.setHex(look.surfaceColor);
     surface.opacity = 0.5;
   };
@@ -386,6 +397,11 @@ export function buildWorld(scene: Scene): World {
       if (value === above) return;
       above = value;
       apply();
+    },
+    setCave(value) {
+      if (value === cave) return;
+      cave = value;
+      if (!above) apply();
     },
   };
 }

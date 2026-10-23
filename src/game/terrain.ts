@@ -1,4 +1,5 @@
 import { config } from "../config";
+import { caveFloorWeight } from "./cave-shape";
 import { allSpots } from "./layout";
 
 const { bay, station, land } = config;
@@ -117,6 +118,9 @@ export function floorHeight(x: number, z: number): number {
     const k = smoothstep(p.radius, p.radius + p.blend, distance);
     h = p.y + (h - p.y) * k;
   }
+  // REQ-014: the floor along the cave's tunnel is level.
+  const tunnel = caveFloorWeight(x, z);
+  if (tunnel > 0) h += (bay.cave.floorY - h) * tunnel;
   return h;
 }
 

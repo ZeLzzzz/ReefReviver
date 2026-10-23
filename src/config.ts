@@ -70,8 +70,46 @@ export const config = {
       { x: 10, z: -55, yaw: 0.4, radius: 6, tube: 1.5 },
       { x: -50, z: 50, yaw: -0.9, radius: 5, tube: 1.3 },
     ],
-    // Kept free of rocks and trash for the cave (REQ-014).
-    cave: { x: 98, z: -88, clear: 30 },
+    // The cave (REQ-014, D-064, D-074): a tunnel through the rock hill at (x, z), running east-west with a gentle S-bend.
+    // Nothing else is placed within `clear` of (x, z). The tunnel is the gap in a rock massif that stands on the hill:
+    // the massif is an oval mound `halfLength` x `halfWidth` (along x and z), `rise` metres above the tunnel floor at its
+    // crown (flat out to `plateau` of the radius, `lumps` of unevenness), and its roof ends at the two mouths.
+    cave: {
+      x: 98,
+      z: -88,
+      clear: 30,
+      halfLength: 27,
+      halfWidth: 17,
+      plateau: 0.42,
+      rise: 7.2,
+      lumps: 0.35,
+      // The tunnel floor is level at this depth: the hill's floor is flattened to it for `floorHalf` metres each way
+      // along the tunnel (and blended back to the natural floor over `floorBlend` metres), so the vehicle flies
+      // through holding forward only.
+      floorY: -9.4,
+      floorHalf: 18.5,
+      floorBlend: 6,
+      // The tunnel's centre line sways sideways by up to `bend` metres. Its half-width and height are `halfWidth` and
+      // `height`; in the middle chamber (about `chamberHalf` metres each way of the roof hole) they grow by the extras.
+      tunnel: { bend: 1.6, bendPeriod: 36, halfWidth: 3.6, chamberHalfWidth: 2.2, height: 4.2, chamberHeight: 1.0, chamberHalf: 9 },
+      // A mouth is where the rock above the tunnel is at least this thick (m) coming in from outside.
+      mouthRoof: 0.5,
+      // The hole in the roof over the middle of the tunnel: its radius is less than the vehicle's, so only light gets in.
+      hole: { radius: 0.6 },
+      // About 6 of the 60 pieces of trash lie on the tunnel floor: `groups` groups of `groupSize`, within `groupRadius`.
+      trash: { groups: 2, groupSize: 3, groupRadius: 2.2, edgeGap: 4 },
+      // Inside, the light and the water darken: sun and sky light fall to `light` of their level (the sky light turns
+      // `sky`, a deep blue), the fog turns
+      // `fogColor` and closes in to `fogFar`, and the marine snow thins to `snow`. `fade` is how fast (per second).
+      dark: { light: 0.22, sky: 0x3f78b8, fogColor: 0x03121f, fogNear: 1, fogFar: 26, snow: 0.35, fade: 3 },
+      // The light shaft from the hole: a spot light (colour, intensity, reach, half-angle in radians) and the glow.
+      shaft: { color: 0x8fd6ff, intensity: 150, reach: 16, angle: 0.4, glow: 0xdff4ff },
+      // The glow across each mouth, seen from inside: the daylight outside.
+      mouthGlow: 0x7fc8f2,
+      // The vehicle's headlamp at full power, and how fast it fades in or out (per second); it is lit while the
+      // cave level at the vehicle is at least `lampOn`, and stays lit until it falls below `lampOff`.
+      lamp: { intensity: 40, fade: 8, lampOn: 0.5, lampOff: 0.3 },
+    },
   },
   // REQ-015: going ashore on the west shore and walking about on the land (D-079, D-080, D-081, D-084). The player's
   // vehicle is a crewed mini submarine (D-070); in the code it is still called the ROV.
@@ -148,6 +186,8 @@ export const config = {
     // stepping along that line by `step`.
     clearance: 0.4,
     step: 0.25,
+    // REQ-014: with a wall right behind the vehicle the camera is pulled in to it; closer than this the hull is not drawn.
+    hideVehicleBelow: 1.4,
     // Far enough to see the fog-free markers across the whole bay.
     far: 450,
     titleOrbitSpeed: 0.05,
@@ -385,7 +425,7 @@ export const config = {
     cells: 80,
     depthBands: [-11, -15, -19],
     // Icon sizes in map units (the minimap is about 200 px wide at full size, so one unit is about one pixel).
-    icon: { station: 8, site: 8, net: 6.5, trash: 2.6, rov: 12, sub: 7 },
+    icon: { station: 8, site: 8, net: 6.5, trash: 2.6, rov: 12, sub: 7, mouth: 5.5 },
   },
   water: {
     murky: {

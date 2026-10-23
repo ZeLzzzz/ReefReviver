@@ -1,5 +1,6 @@
 import { config } from "../config";
 import { Vector3 } from "three";
+import { caveSolidAt, pushOutOfCave } from "./cave";
 import { allSpots } from "./layout";
 import { floorGradient, floorHeight, floorSlope, squareRadius, wallness } from "./terrain";
 
@@ -370,7 +371,9 @@ export function constrainToBay(p: Vector3, v: Vector3, radius: number = config.r
   for (const frame of frameColumns) pushOutOfCylinder(p, v, frame.x, frame.z, frame.baseY, frame, radius);
 
   keepInDeepEnoughWater(p, v, radius);
+  pushOutOfCave(p, v, radius); // REQ-014: the cave's walls and roof
   pushOutOfFloor(p, v, radius);
+  pushOutOfCave(p, v, radius);
   keepInDeepEnoughWater(p, v, radius);
 
   const ceiling = bay.surfaceY - radius;
@@ -417,11 +420,11 @@ export function insideRockAt(x: number, y: number, z: number, margin = 0): boole
 }
 
 /**
- * True when a sphere of `margin` at (x, y, z) touches the land or the floor, or is inside a rock, a boulder or
- * an arch: what blocks the camera (REQ-011 AC-4) and a line of sight (the cutter, the scanner).
+ * True when a sphere of `margin` at (x, y, z) touches the land or the floor, or is inside a rock, a boulder, an
+ * arch or the cave's rock (REQ-014): what blocks the camera (REQ-011 AC-4) and a line of sight (the cutter, the scanner).
  */
 export function terrainSolidAt(x: number, y: number, z: number, margin = 0): boolean {
-  return y < floorHeight(x, z) + margin || insideRockAt(x, y, z, margin);
+  return y < floorHeight(x, z) + margin || insideRockAt(x, y, z, margin) || caveSolidAt(x, y, z, margin);
 }
 
 /** True when a point is inside the terrain, a rock, a dock post, an installed frame, or above the water (a shot ends there). */

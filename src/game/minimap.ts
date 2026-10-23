@@ -1,5 +1,6 @@
 import { config } from "../config";
 import { arches, boulders, floorHeight, rocks } from "./bay";
+import { caveInfo } from "./cave";
 import type { Net } from "./nets";
 import { frameStatus, patchStatus, type FrameSite, type PatchSite, type SiteStatus } from "./reef-sites";
 import { wallness } from "./terrain";
@@ -85,6 +86,8 @@ export interface MinimapLayout {
   station: MapPoint;
   /** REQ-016 AC-6: the dock, a line from the beach out over the water. */
   dock: { from: MapPoint; to: MapPoint };
+  /** REQ-014 AC-7: the cave's two mouths (west, east) and its tunnel, a faint line from one to the other. */
+  cave: { mouths: [MapPoint, MapPoint]; tunnel: MapPoint[] };
 }
 
 const archFeet = arches.flatMap((arch) =>
@@ -104,6 +107,10 @@ export const minimapLayout: MinimapLayout = {
   ],
   station: mapPoint(station.x, station.z),
   dock: { from: mapPoint(bay.dock.landX, bay.dock.z), to: mapPoint(bay.dock.seaX, bay.dock.z) },
+  cave: {
+    mouths: [mapPoint(caveInfo.mouths[0].x, caveInfo.mouths[0].z), mapPoint(caveInfo.mouths[1].x, caveInfo.mouths[1].z)],
+    tunnel: caveInfo.path.map((point) => mapPoint(point.x, point.z)),
+  },
 };
 
 /** A reef site or a seagrass patch on the map, with its status. */

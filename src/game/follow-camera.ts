@@ -34,6 +34,7 @@ export function keepCameraInWater(p: Vector3, from: Vector3): void {
 }
 
 const aim = new Vector3();
+const level = new Vector3();
 
 /**
  * Third-person camera behind and above the ROV, looking along the aim direction, so the screen
@@ -44,5 +45,12 @@ export function followCamera(state: RovState, outPosition: Vector3, outTarget: V
   outPosition.copy(state.position).addScaledVector(aim, -camera.distance);
   outPosition.y += camera.height;
   keepCameraInWater(outPosition, state.position);
+  // REQ-014: under a low roof (the cave) the raised camera is stopped right behind the vehicle; level with it, it
+  // can stay further back, so the vehicle is seen whole.
+  if (outPosition.distanceTo(state.position) < camera.distance * 0.6) {
+    level.copy(state.position).addScaledVector(aim, -camera.distance);
+    keepCameraInWater(level, state.position);
+    if (level.distanceTo(state.position) > outPosition.distanceTo(state.position)) outPosition.copy(level);
+  }
   outTarget.copy(outPosition).add(aim);
 }

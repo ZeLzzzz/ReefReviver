@@ -128,13 +128,20 @@ export function buildRovMesh(): Group {
   return compactGroup(model);
 }
 
+/** Sets how bright the model's headlight is, 0 (off) to `full` (the lamp at full power). */
+export function setHeadlight(model: Object3D, level: number, full: number): void {
+  const light = model.getObjectByName("headlight");
+  if (light instanceof SpotLight) light.intensity = full * level;
+}
+
 /** The submarine's model with its forward headlight; uses the loaded GLB from `assets` when available (D-022). */
 export function createRovModel(): Group {
   const loaded = assets.model("rov");
   const model = new Group();
   model.add(hasMesh(loaded) ? loaded : buildRovMesh());
-  // Headlight, so the floor ahead is lit in murky water.
-  const light = new SpotLight(0xfff2d6, 40, 30, 0.5, 0.6, 1.5);
+  // Headlight, so the floor ahead is lit. REQ-014: it is off in open water and lit inside the cave (setHeadlight).
+  const light = new SpotLight(0xfff2d6, 0, 30, 0.5, 0.6, 1.5);
+  light.name = "headlight";
   light.position.set(0, 0.25, 0.8);
   const target = new Object3D();
   target.position.set(0, -1.5, 8);

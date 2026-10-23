@@ -32,8 +32,8 @@ export interface NatureView {
   group: Group;
   /** 0 is the murky bay, 1 the clear water after the Bloom (AC-2, AC-3, AC-8). */
   setBloom(clarity: number): void;
-  /** Moves the light rays along with the camera; they are hidden above the water. */
-  update(dt: number, camera: Vector3, above: boolean): void;
+  /** Moves the light rays along with the camera; `hidden` (above the water, in the cave) hides them. */
+  update(dt: number, camera: Vector3, hidden: boolean): void;
   /** For the tests: the colours of the coral and the seagrass, how many blades show, and how bright the rays are. */
   look(): { coral: number[]; seagrass: number; bladesShown: number; rays: number };
 }
@@ -232,10 +232,10 @@ export function createNatureView(): NatureView {
   return {
     group,
     setBloom,
-    update(dt, camera, above) {
+    update(dt, camera, hidden) {
       time += dt;
       const spread = nature.rays.spread;
-      const shown = !above && clarity > 0;
+      const shown = !hidden && clarity > 0;
       // A slow shimmer, never a flash (REQ-005 AC-7).
       const strength = nature.rays.opacity * smoothstep(clarity) * (0.85 + 0.15 * Math.sin(time * 0.6));
       for (const ray of rays) {

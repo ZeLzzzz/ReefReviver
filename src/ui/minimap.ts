@@ -42,7 +42,8 @@ function siteIcon(kind: "frame" | "patch"): SVGGElement {
 
 /**
  * The minimap panel: the bay seen from above, north up, with the ROV arrow, the station (square), reef sites
- * (diamonds), seagrass patches (circles), nets that still trap an animal (X) and, late in the dive, the trash (dots).
+ * (diamonds), seagrass patches (circles), nets that still trap an animal (X), the cave's two mouths (arches) with its tunnel
+ * (a faint line) and, late in the dive, the trash (dots).
  * Drawn as SVG so every icon is an element a test can find; it has one accessible name for the whole map.
  */
 export function createMinimap(lang: Lang): MinimapView {
@@ -59,6 +60,20 @@ export function createMinimap(lang: Lang): MinimapView {
     x2: layout.dock.to.x.toFixed(1),
     y2: layout.dock.to.y.toFixed(1),
   });
+  // REQ-014 AC-7: the cave's tunnel, faint, and its two mouths, each an arch (a dark opening in a rock).
+  const tunnel = svg("polyline", {
+    class: "mm-tunnel",
+    "data-kind": "tunnel",
+    points: layout.cave.tunnel.map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(" "),
+  });
+  const m = icon.mouth;
+  const mouths = layout.cave.mouths.map((mouth, index) =>
+    svg(
+      "g",
+      { class: "mm-icon", "data-kind": "cave", "data-mouth": index === 0 ? "west" : "east", transform: at(mouth) },
+      svg("path", { class: "mm-shape mm-mouth", d: `M${-m} ${m * 0.7} V${-m * 0.1} A${m} ${m} 0 0 1 ${m} ${-m * 0.1} V${m * 0.7} Z` }),
+    ),
+  );
   const station = svg(
     "g",
     { class: "mm-icon", "data-kind": "station", transform: at(layout.station) },
@@ -89,9 +104,11 @@ export function createMinimap(lang: Lang): MinimapView {
     { class: "mm-map", viewBox: `0 0 ${layout.size} ${layout.size}`, role: "img", "aria-label": t(lang, "minimap.label") },
     ...terrain,
     ...rocks,
+    tunnel,
     trashLayer,
     dock,
     station,
+    ...mouths,
     ...frames,
     ...patches,
     netLayer,

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { config } from "../../src/config";
 import { AnimalField } from "../../src/game/animals";
 import { arches, boulders, floorHeight, rocks } from "../../src/game/bay";
+import { inCave } from "../../src/game/cave";
 import { allSpots, chooseLayout, quarterOf, type Layout } from "../../src/game/layout";
 import { buildMinimap, mapPoint } from "../../src/game/minimap";
 import { NetField } from "../../src/game/nets";
@@ -71,6 +72,8 @@ describe("one dive's layout (REQ-012 AC-1, AC-5)", () => {
       const items = generateTrash(chooseLayout(seed).trashSeed);
       expect(items).toHaveLength(trash.count);
       for (const item of items) {
+        // REQ-014: the pieces on the cave's floor are placed by the cave's own rules (cave.test.ts); the rest by these.
+        if (inCave(item.home.x, item.home.y + 1, item.home.z)) continue;
         expect(trashSpotOk(item.home.x, item.home.z)).toBe(true);
         for (const spot of allSpots) expect(Math.hypot(item.home.x - spot.x, item.home.z - spot.z)).toBeGreaterThanOrEqual(trash.clearOfNets);
       }
