@@ -27,6 +27,8 @@ import { framePlanted, patchPlanted, ReefField } from "./reef-sites";
 import { aimedScanTarget, collectScanTargets, Scanner, type ScanHit } from "./scanner";
 import { SeaLife } from "./sea-life";
 import { createSeaLifeView } from "./sea-life-model";
+import { naturalTargets } from "./nature";
+import { createNatureView } from "./nature-model";
 import { createRovModel } from "./rov-model";
 import { createRovState, rightVector, steer, stepRov, type RovState } from "./rov";
 import { ashoreSpot, canBoard, createWalker, eyePosition, lookWalker, stepWalker, type AshoreSpot, type Walker } from "./land";
@@ -110,6 +112,8 @@ export class Game implements GameView {
   private readonly bloom = new Bloom();
   private readonly seaLife = new SeaLife();
   private readonly seaLifeView = createSeaLifeView(this.seaLife);
+  // REQ-013: the natural coral, seagrass meadows, decoration and the light rays.
+  private readonly natureView = createNatureView();
   private bloomShown = 0;
   // REQ-006: the Scanner, its beam and the camera ray it aims along.
   private readonly scanner = new Scanner();
@@ -140,7 +144,7 @@ export class Game implements GameView {
     this.world = buildWorld(this.scene);
     this.scene.add(this.rovModel, createStationModel(), buildDockMesh(), this.trashView.group, this.beam, this.rescue.group, this.scanBeam);
     this.trashView.sync(this.field.items);
-    this.scene.add(this.reefView.group, this.seedView.group, this.seaLifeView.group);
+    this.scene.add(this.reefView.group, this.seedView.group, this.seaLifeView.group, this.natureView.group);
     this.reefView.sync(this.reef);
     this.input = new Input(canvas.ownerDocument);
     this.syncRovModel();
@@ -189,8 +193,9 @@ export class Game implements GameView {
         },
         // REQ-012: the sites move every dive, so tests aim at them from whichever side is clear. Puts the ROV `distance`
         // m from (x, y, z) and `rise` m above it, so the crosshair ray (from the camera as it really is) passes through the
-        // point with nothing in the way. Returns false if no side works.
-        aimAtPoint: (x: number, y: number, z: number, distance = 9, rise = 0) => {
+        // point with nothing in the way up to `clearance` m before it (the size of the thing aimed at). Returns false if no
+        // side works.
+        aimAtPoint: (x: number, y: number, z: number, distance = 9, rise = 0, clearance = 0.6) => {
           const target = new Vector3(x, y, z);
           const camera = new Vector3();
           const ahead = new Vector3();
@@ -218,7 +223,7 @@ export class Game implements GameView {
             if (best === null || bestError > 0.2) continue;
             followCamera({ position: at, velocity: new Vector3(), yaw, pitch: best }, camera, ahead);
             const toTarget = target.clone().sub(camera);
-            if (terrainBlocks(camera, toTarget.clone().normalize(), toTarget.length() - 0.6)) continue;
+            if (terrainBlocks(camera, toTarget.clone().normalize(), toTarget.length() - clearance)) continue;
             this.rov.position.copy(at);
             this.rov.velocity.set(0, 0, 0);
             this.rov.yaw = yaw;
@@ -319,6 +324,9 @@ export class Game implements GameView {
           const fog = this.scene.fog as Fog;
           return { background: (this.scene.background as Color).getHex(), fog: fog.color.getHex(), fogNear: fog.near, fogFar: fog.far };
         },
+        // REQ-013: the natural reef's look (coral colours, seagrass, rays), and where its corals and meadows are.
+        natureLook: () => this.natureView.look(),
+        naturalTargets: () => naturalTargets.map((t) => ({ ...t })),
         reefLook: () => ({ ...this.reefView.look(), coral: this.reefView.coralMaterials.map((m) => m.color.getHex()), markers: this.reefView.markerOpacity() }),
         // REQ-006: the Logbook entries opened so far, and a way to free both animals without cutting.
         unlocked: () => [...this.session.unlocked],
@@ -411,7 +419,10 @@ export class Game implements GameView {
     }
     // REQ-015: above the water the world shows the sky and daylight instead of the water's fog.
     this.world.setAbove(this.camera.position.y > config.bay.surfaceY);
-    if (this.mode !== "paused") this.world.update(dt, this.camera.position);
+    if (this.mode !== "paused") {
+      this.world.update(dt, this.camera.position);
+      this.natureView.update(dt, this.camera.position, this.camera.position.y > config.bay.surfaceY);
+    }
 
     this.camera.lookAt(this.cameraTarget);
     if (this.mode === "playing") this.publishHud();
@@ -468,7 +479,7 @@ export class Game implements GameView {
     this.scanHit = null;
     if (scanning) {
       followCamera(rov, this.scanCamera, this.scanLookAt);
-      const targets = collectScanTargets(this.rescue.animals.animals, this.seaLife.creatures, this.seaLife.scale, this.reef.frames, this.reef.patches);
+      const targets = collectScanTargets(this.rescue.animals.animals, this.seaLife.creatures, this.seaLife.scale, this.reef.frames, this.reef.patches, naturalTargets);
       this.scanHit = aimedScanTarget(this.scanCamera, this.aim, rov.position, targets);
     }
     const event = this.scanner.update(dt, scanning, this.scanHit, session.unlocked);
@@ -509,6 +520,7 @@ export class Game implements GameView {
     this.bloomShown = clarity;
     this.world.setClarity(clarity);
     this.reefView.setBloom(clarity);
+    this.natureView.setBloom(clarity); // REQ-013
   }
 
   /** REQ-005: a new dive starts murky, with pale coral, sprouts and no sea life (the anemones by the new frames). */

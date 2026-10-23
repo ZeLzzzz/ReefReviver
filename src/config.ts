@@ -434,6 +434,21 @@ export const config = {
       extraBlades: 5,
     },
   },
+  // REQ-013: the natural reef that recovers with the Bloom (D-068, D-074, D-086, D-089).
+  nature: {
+    // Coral clusters: one on every boulder's top and on every arch, the rest on hill slopes and valley edges between
+    // minDepth and maxDepth, on floor no steeper than maxSlope, `spacing` apart. Big ones are solid, like rocks.
+    coral: { count: 30, seed: 23, minRadius: 1.1, maxRadius: 2, spacing: 7, minDepth: 8, maxDepth: 20, maxSlope: 0.45 },
+    // Their colour before the Bloom: bleached and dull. After it each cluster takes a colour of bloom.coral.pastel.
+    pale: 0xd6d0c4,
+    // Seagrass meadows on the sand of the valleys and flats: sparse (`sparse` of the blades) and brown before the Bloom,
+    // all of them, taller and green after it. Not plantable; scanning one opens the seagrass entry (D-089).
+    meadows: { count: 11, seed: 37, minRadius: 5, maxRadius: 9, bladesPerSquareMetre: 1.4, sparse: 0.3, brown: 0x8c7b4e, green: 0x4fae5a },
+    // Decoration, passable: barrel sponges, sea fans and algae tufts. No kelp: it lives in cold seas (D-074).
+    decor: { sponges: 36, fans: 26, algae: 80, seed: 41 },
+    // Light rays from the surface after the Bloom (AC-3): this many shafts around the camera, within `spread` metres.
+    rays: { count: 12, spread: 36, opacity: 0.1 },
+  },
   // REQ-005 AC-3: the sea life that returns once the transition ends. Everything swims along a closed loop, an
   // ellipse around a centre: x/z are metres from the bay's centre, speed is radians per second along the loop.
   seaLife: {

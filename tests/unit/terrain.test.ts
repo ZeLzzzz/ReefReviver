@@ -206,7 +206,8 @@ describe("limits (REQ-011 AC-3)", () => {
         if (s.position.y < lower.baseY + lower.height) expect(Math.hypot(s.position.x - boulder.x, s.position.z - boulder.z)).toBeGreaterThanOrEqual(lower.radius + rov.radius - 1e-6);
       });
       const top = upper.baseY + upper.height;
-      const above = rovAt(boulder.x, top + 3, boulder.z);
+      // Beside the coral that grows on the top (REQ-013), near the top's edge.
+      const above = rovAt(boulder.x + upper.radius - 0.3, top + 3, boulder.z);
       fly(above, { rise: -1 }, 4);
       expect(above.position.y).toBeCloseTo(top + rov.radius, 3);
     }

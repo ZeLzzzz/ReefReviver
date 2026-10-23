@@ -1,7 +1,7 @@
 import { config } from "../config";
 import { Vector3 } from "three";
 import { allSpots } from "./layout";
-import { floorGradient, floorHeight, squareRadius, wallness } from "./terrain";
+import { floorGradient, floorHeight, floorSlope, squareRadius, wallness } from "./terrain";
 
 export { floorHeight, floorSlope } from "./terrain";
 
@@ -130,6 +130,56 @@ function generateRocks(): Rock[] {
 }
 
 export const rocks: readonly Rock[] = generateRocks();
+
+/**
+ * REQ-013: a natural coral cluster, pale before the Bloom and bright after it. It stands on the floor (or a boulder's
+ * top, or an arch) at (x, y, z), `radius` wide and `height` tall; it is solid like a rock, an ellipsoid of those sizes.
+ */
+export interface Coral {
+  x: number;
+  y: number;
+  z: number;
+  radius: number;
+  height: number;
+  /** Picks its shapes and its colour after the Bloom. */
+  seed: number;
+}
+
+function generateCorals(): Coral[] {
+  const { coral } = config.nature;
+  const random = mulberry32(coral.seed);
+  const corals: Coral[] = [];
+  const add = (x: number, y: number, z: number, radius: number) => corals.push({ x, y, z, radius, height: radius * 0.75, seed: corals.length });
+  // On every boulder's flat top and every arch's crown (referensi 4: coral on the rocks).
+  for (const boulder of boulders) {
+    const upper = boulder.tiers[boulder.tiers.length - 1];
+    add(boulder.x, upper.baseY + upper.height, boulder.z, Math.min(upper.radius * 0.6, coral.maxRadius));
+  }
+  for (const arch of arches) add(arch.x, arch.y + arch.radius + arch.tube * 0.6, arch.z, coral.minRadius);
+  // The rest on hill slopes and valley edges.
+  const reach = bay.wall.radius - bay.wall.width - 8;
+  let attempts = 0;
+  while (corals.length < coral.count && attempts++ < 20000) {
+    const x = (random() * 2 - 1) * reach;
+    const z = (random() * 2 - 1) * reach;
+    const radius = coral.minRadius + random() * (coral.maxRadius - coral.minRadius);
+    const floor = floorHeight(x, z);
+    if (squareRadius(x, z) > reach || wallness(x, z) > 0) continue;
+    if (floor > bay.surfaceY - coral.minDepth || floor < bay.surfaceY - coral.maxDepth) continue;
+    if (floorSlope(x, z) > coral.maxSlope) continue;
+    if (keptClear(x, z, radius)) continue;
+    if (rocks.some((rock) => Math.hypot(x - rock.x, z - rock.z) < rock.size + radius + 2)) continue;
+    if (corals.some((other) => Math.hypot(x - other.x, z - other.z) < coral.spacing)) continue;
+    add(x, lowestFloor(x, z, radius * 0.6), z, radius);
+  }
+  return corals;
+}
+
+export const corals: readonly Coral[] = generateCorals();
+
+function pushOutOfCoral(p: Vector3, v: Vector3, coral: Coral, radius: number): void {
+  pushOutOfRock(p, v, { x: coral.x, y: coral.y, z: coral.z, size: coral.radius, height: coral.height, rotation: 0 }, radius);
+}
 
 function pushOutOfRock(p: Vector3, v: Vector3, rock: Rock, radius: number): void {
   // Treat the rock as an ellipsoid grown by the ROV's radius.
@@ -314,6 +364,8 @@ export function constrainToBay(p: Vector3, v: Vector3, radius: number = config.r
   for (const rock of rocks) pushOutOfRock(p, v, rock, radius);
   for (const boulder of boulders) for (const tier of boulder.tiers) pushOutOfCylinder(p, v, boulder.x, boulder.z, tier.baseY, tier, radius);
   for (const arch of arches) pushOutOfArch(p, v, arch, radius);
+  // After the boulders and arches: some coral stands on their tops, and being pushed onto a top must not end inside it.
+  for (const coral of corals) pushOutOfCoral(p, v, coral, radius);
   for (const post of posts) pushOutOfCylinder(p, v, post.x, post.z, post.baseY, post, radius);
   for (const frame of frameColumns) pushOutOfCylinder(p, v, frame.x, frame.z, frame.baseY, frame, radius);
 
@@ -338,8 +390,16 @@ function insideCylinder(x: number, y: number, z: number, cx: number, cz: number,
 
 const probe = new Vector3();
 
-/** True when a sphere of `margin` at (x, y, z) is inside a rock, a boulder or an arch. */
+/** True when a sphere of `margin` at (x, y, z) is inside a rock, a coral cluster, a boulder or an arch. */
 export function insideRockAt(x: number, y: number, z: number, margin = 0): boolean {
+  for (const coral of corals) {
+    const rx = coral.radius + margin;
+    const ry = coral.height + margin;
+    const dx = (x - coral.x) / rx;
+    const dy = (y - coral.y) / ry;
+    const dz = (z - coral.z) / rx;
+    if (dx * dx + dy * dy + dz * dz < 1) return true;
+  }
   for (const rock of rocks) {
     const rx = rock.size + margin;
     const ry = rock.height + margin;

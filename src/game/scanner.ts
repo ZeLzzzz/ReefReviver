@@ -4,6 +4,7 @@ import type { LogbookId } from "../logbook/entries";
 import type { Animal } from "./animals";
 import { raySphere, terrainBlocks, type Sphere } from "./cutter";
 import { framePlanted, patchPlanted, type FrameSite, type PatchSite } from "./reef-sites";
+import type { NaturalTarget } from "./nature";
 import type { SeaCreature } from "./sea-life";
 
 const { scanner } = config;
@@ -27,7 +28,8 @@ export type ScanEvent = { kind: "scanned"; entry: LogbookId } | { kind: "known" 
 /**
  * Everything that can be scanned now. The freed or trapped turtle and reef shark, the sea life that has a Logbook
  * entry (`seaScale` is how far it has grown in, so a creature that is still appearing is a smaller target), and the
- * planted coral frames and seagrass patches. The yellowtail has no entry and is left out (D-038).
+ * planted coral frames and seagrass patches, and the natural coral and seagrass meadows (REQ-013). The yellowtail
+ * has no entry and is left out (D-038).
  */
 export function collectScanTargets(
   animals: readonly Animal[],
@@ -35,6 +37,7 @@ export function collectScanTargets(
   seaScale: number,
   frames: readonly FrameSite[],
   patches: readonly PatchSite[],
+  natural: readonly NaturalTarget[] = [],
 ): ScanTarget[] {
   const targets: ScanTarget[] = [];
   for (const animal of animals) {
@@ -54,6 +57,8 @@ export function collectScanTargets(
   for (const patch of patches) {
     if (patchPlanted(patch)) targets.push({ x: patch.x, y: patch.y + scanner.seagrassHeight, z: patch.z, r: scanner.radius.seagrass, entry: "seagrass", trapped: false });
   }
+  // REQ-013: the natural coral clusters and seagrass meadows open the coral and seagrass entries too (D-074, D-089).
+  for (const target of natural) targets.push({ ...target, trapped: false });
   return targets;
 }
 
