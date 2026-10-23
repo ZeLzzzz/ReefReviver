@@ -377,6 +377,8 @@ export class Game implements GameView {
         },
         // REQ-013: the natural reef's look (coral colours, seagrass, rays), and where its corals and meadows are.
         natureLook: () => this.natureView.look(),
+        // REQ-020: how many draw calls and triangles the last frame took.
+        renderInfo: () => ({ calls: this.renderer.info.render.calls, triangles: this.renderer.info.render.triangles }),
         naturalTargets: () => naturalTargets.map((t) => ({ ...t })),
         // REQ-018: the grass on the land: how many blades, their average colour, and the wind's clock.
         grass: () => this.world.grass.look(),

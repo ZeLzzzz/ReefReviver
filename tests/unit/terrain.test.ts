@@ -2,7 +2,7 @@ import { Vector3 } from "three";
 import { describe, expect, it } from "vitest";
 import { config } from "../../src/config";
 import { allSpots } from "../../src/game/layout";
-import { arches, boulders, constrainToBay, floorHeight, insideRockAt, rocks, terrainSolidAt } from "../../src/game/bay";
+import { arches, boulders, constrainToBay, corals, floorHeight, insideRockAt, rocks, terrainSolidAt } from "../../src/game/bay";
 import { followCamera, keepCameraInWater } from "../../src/game/follow-camera";
 import { createRovState, forwardVector, stepRov, type MoveInput, type RovState } from "../../src/game/rov";
 import { stationPosition } from "../../src/game/station";
@@ -206,10 +206,12 @@ describe("limits (REQ-011 AC-3)", () => {
         if (s.position.y < lower.baseY + lower.height) expect(Math.hypot(s.position.x - boulder.x, s.position.z - boulder.z)).toBeGreaterThanOrEqual(lower.radius + rov.radius - 1e-6);
       });
       const top = upper.baseY + upper.height;
-      // Beside the coral that grows on the top (REQ-013), near the top's edge.
+      // REQ-020: a boulder with a reef on its top is topped by the coral, so the vehicle settles on that; a bare one, on the rock.
+      const reefOnTop = corals.some((c) => Math.hypot(c.x - boulder.x, c.z - boulder.z) < lower.radius && c.y > lower.baseY + lower.height - 0.5);
       const above = rovAt(boulder.x + upper.radius - 0.3, top + 3, boulder.z);
       fly(above, { rise: -1 }, 4);
-      expect(above.position.y).toBeCloseTo(top + rov.radius, 3);
+      if (reefOnTop) expect(above.position.y).toBeGreaterThan(top - 2.5);
+      else expect(above.position.y).toBeCloseTo(top + rov.radius, 3);
     }
   });
 

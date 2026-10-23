@@ -39,7 +39,7 @@ test.describe("Indonesian", () => {
     test.setTimeout(120_000);
     await startDive(page);
     const targets = (await reef(page, (h) => h.naturalTargets())) as Target[];
-    expect(targets.filter((t) => t.entry === "coral")).toHaveLength(config.nature.coral.count);
+    expect(targets.filter((t) => t.entry === "coral").length).toBeGreaterThan(50);
     const meadowCount = targets.filter((t) => t.entry === "seagrass").length;
     expect(meadowCount).toBeGreaterThanOrEqual(10);
     expect(meadowCount).toBeLessThanOrEqual(12);

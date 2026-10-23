@@ -532,9 +532,27 @@ export const config = {
   },
   // REQ-013: the natural reef that recovers with the Bloom (D-068, D-074, D-086, D-089).
   nature: {
-    // Coral clusters: one on every boulder's top and on every arch, the rest on hill slopes and valley edges between
-    // minDepth and maxDepth, on floor no steeper than maxSlope, `spacing` apart. Big ones are solid, like rocks.
-    coral: { count: 30, seed: 23, minRadius: 1.1, maxRadius: 2, spacing: 7, minDepth: 8, maxDepth: 20, maxSlope: 0.45 },
+    // REQ-020: coral grows as colonies packed into a reef belt and patch reefs on the shallow hard ground (D-098, D-100 to
+    // D-102). A colony is `minSize` to `maxSize` m (small ones are the most; `sizeSkew` > 1 makes them so) of one of four
+    // shapes (branching, table, brain, finger; shares in `shapes`); neighbours sit no closer than `crowd` of their widths.
+    // The belt lies along the edge of the shallow west shelf where the floor is `minDepth` to `maxDepth` m deep (the
+    // seagrass is shallower), in stretches `gapPeriod` m long with sand between; it keeps `startClear` m from the start
+    // (`attempts` tries). `patches` reefs grow on the arches' crowns, on boulder tops and on hill tops, `minWidth` to
+    // `maxWidth` m wide. `porites` big heads stand as landmarks, `onBelt` of them on the belt (two ahead of the start, one on each side), `spacing` m apart. Each reef
+    // is solid as blobs hugging its colonies, one per `cell` m square.
+    coral: {
+      seed: 23,
+      minSize: 0.3,
+      maxSize: 1.5,
+      sizeSkew: 2.2,
+      crowd: 0.8,
+      shapes: [0.3, 0.25, 0.25, 0.2],
+      belt: { minDepth: 7, maxDepth: 12.5, peakDepth: 10.6, spread: 2, cover: 1, startClear: 8.1, attempts: 80000, gapPeriod: 60 },
+      patches: { count: 10, arches: 2, boulders: 4, minWidth: 6, maxWidth: 18 },
+      porites: { count: 5, onBelt: 3, minRadius: 1.2, maxRadius: 2, spacing: 30 },
+      cell: 3.5,
+      maxSlope: 0.5,
+    },
     // Their colour before the Bloom: bleached and dull. After it each cluster takes a colour of bloom.coral.pastel.
     pale: 0xd6d0c4,
     // REQ-019 (D-098, D-102): seagrass meadows on the shallow sand between the west beach and the reef, `count` of them,

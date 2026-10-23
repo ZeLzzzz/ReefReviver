@@ -1,8 +1,9 @@
 import { config } from "../config";
 import { Vector3 } from "three";
 import { caveSolidAt, pushOutOfCave } from "./cave";
+import { generateReefs, type Colony, type Reef } from "./coral-reef";
 import { allSpots } from "./layout";
-import { floorGradient, floorHeight, floorSlope, squareRadius, wallness } from "./terrain";
+import { floorGradient, floorHeight, squareRadius, wallness } from "./terrain";
 
 export { floorHeight, floorSlope } from "./terrain";
 
@@ -95,16 +96,20 @@ function makeRock(x: number, z: number, size: number, rotation: number): Rock {
   return { x, y: lowestFloor(x, z, size * 0.7) + size * 0.2, z, size, height: size * 0.6, rotation };
 }
 
-/** Places that must stay free of rocks: where the ROV starts, the station, the dock, the cave and every site. */
-function keptClear(x: number, z: number, size: number): boolean {
+/**
+ * Places that must stay free of rocks: where the ROV starts (`startClear` m around it), the station, the dock, the cave
+ * and every site, and the boulders and arches unless `ignoreRocks` says the thing grows on them (REQ-020).
+ */
+function keptClear(x: number, z: number, size: number, { startClear = 10, ignoreRocks = false } = {}): boolean {
   const { start } = config.rov;
   const near = (px: number, pz: number, distance: number) => Math.hypot(x - px, z - pz) < distance + size;
-  if (near(start.x, start.z, 10)) return true;
+  if (near(start.x, start.z, startClear)) return true;
   if (near(station.x, station.z, station.padRadius + station.padBlend + 3)) return true;
   if (near(bay.dock.x, bay.dock.z, bay.dock.clear)) return true;
   if (near(bay.cave.x, bay.cave.z, bay.cave.clear)) return true;
   const siteClear = bay.padRadius + bay.padBlend + 2;
   for (const site of allSpots) if (near(site.x, site.z, siteClear)) return true;
+  if (ignoreRocks) return false;
   for (const boulder of bay.boulders) if (near(boulder.x, boulder.z, boulder.radius + 3)) return true;
   for (const arch of bay.arches) if (near(arch.x, arch.z, arch.radius + arch.tube + 3)) return true;
   return false;
@@ -133,8 +138,8 @@ function generateRocks(): Rock[] {
 export const rocks: readonly Rock[] = generateRocks();
 
 /**
- * REQ-013: a natural coral cluster, pale before the Bloom and bright after it. It stands on the floor (or a boulder's
- * top, or an arch) at (x, y, z), `radius` wide and `height` tall; it is solid like a rock, an ellipsoid of those sizes.
+ * REQ-020: a solid piece of the natural coral. A reef (the belt or a patch reef) is solid as flattened half-ellipsoids that
+ * hug its colonies, and each big Porites head as one: `radius` wide and `height` tall, its base at (x, y, z).
  */
 export interface Coral {
   x: number;
@@ -142,44 +147,35 @@ export interface Coral {
   z: number;
   radius: number;
   height: number;
-  /** Picks its shapes and its colour after the Bloom. */
+  /** Its index in `corals`. */
   seed: number;
 }
 
-function generateCorals(): Coral[] {
-  const { coral } = config.nature;
-  const random = mulberry32(coral.seed);
-  const corals: Coral[] = [];
-  const add = (x: number, y: number, z: number, radius: number) => corals.push({ x, y, z, radius, height: radius * 0.75, seed: corals.length });
-  // On every boulder's flat top and every arch's crown (referensi 4: coral on the rocks).
-  for (const boulder of boulders) {
-    const upper = boulder.tiers[boulder.tiers.length - 1];
-    add(boulder.x, upper.baseY + upper.height, boulder.z, Math.min(upper.radius * 0.6, coral.maxRadius));
-  }
-  for (const arch of arches) add(arch.x, arch.y + arch.radius + arch.tube * 0.6, arch.z, coral.minRadius);
-  // The rest on hill slopes and valley edges.
-  const reach = bay.wall.radius - bay.wall.width - 8;
-  let attempts = 0;
-  while (corals.length < coral.count && attempts++ < 20000) {
-    const x = (random() * 2 - 1) * reach;
-    const z = (random() * 2 - 1) * reach;
-    const radius = coral.minRadius + random() * (coral.maxRadius - coral.minRadius);
-    const floor = floorHeight(x, z);
-    if (squareRadius(x, z) > reach || wallness(x, z) > 0) continue;
-    if (floor > bay.surfaceY - coral.minDepth || floor < bay.surfaceY - coral.maxDepth) continue;
-    if (floorSlope(x, z) > coral.maxSlope) continue;
-    if (keptClear(x, z, radius)) continue;
-    if (rocks.some((rock) => Math.hypot(x - rock.x, z - rock.z) < rock.size + radius + 2)) continue;
-    if (corals.some((other) => Math.hypot(x - other.x, z - other.z) < coral.spacing)) continue;
-    add(x, lowestFloor(x, z, radius * 0.6), z, radius);
-  }
-  return corals;
+const reefSet = generateReefs({ random: mulberry32(config.nature.coral.seed), boulders, arches, rocks, keptClear, lowestFloor });
+
+export const corals: readonly Coral[] = reefSet.corals;
+/** REQ-020: every coral colony (what is drawn) and the reefs they grow in. */
+export const colonies: readonly Colony[] = reefSet.colonies;
+export const reefs: readonly Reef[] = reefSet.reefs;
+
+/** Pushes a sphere out of a coral blob. Only the half above its base is solid (the rest is the floor or the rock it stands on), grown by `radius`. */
+function pushOutOfCoral(p: Vector3, v: Vector3, coral: Coral, radius: number): boolean {
+  if (p.y < coral.y - radius || p.y > coral.y + coral.height + radius) return false;
+  const reach = coral.radius + radius;
+  if (Math.abs(p.x - coral.x) >= reach || Math.abs(p.z - coral.z) >= reach) return false;
+  const x = p.x;
+  const y = p.y;
+  const z = p.z;
+  pushOutOfRock(p, v, { x: coral.x, y: coral.y, z: coral.z, size: coral.radius, height: coral.height, rotation: 0 }, radius);
+  return p.x !== x || p.y !== y || p.z !== z;
 }
 
-export const corals: readonly Coral[] = generateCorals();
-
-function pushOutOfCoral(p: Vector3, v: Vector3, coral: Coral, radius: number): void {
-  pushOutOfRock(p, v, { x: coral.x, y: coral.y, z: coral.z, size: coral.radius, height: coral.height, rotation: 0 }, radius);
+/** Pushes a sphere out of every coral blob. The blobs of a reef overlap, so a push out of one can end inside the next: go round again. */
+function pushOutOfCorals(p: Vector3, v: Vector3, radius: number): void {
+  for (let pass = 0, moved = true; pass < 6 && moved; pass++) {
+    moved = false;
+    for (const coral of corals) if (pushOutOfCoral(p, v, coral, radius)) moved = true;
+  }
 }
 
 function pushOutOfRock(p: Vector3, v: Vector3, rock: Rock, radius: number): void {
@@ -366,14 +362,21 @@ export function constrainToBay(p: Vector3, v: Vector3, radius: number = config.r
   for (const boulder of boulders) for (const tier of boulder.tiers) pushOutOfCylinder(p, v, boulder.x, boulder.z, tier.baseY, tier, radius);
   for (const arch of arches) pushOutOfArch(p, v, arch, radius);
   // After the boulders and arches: some coral stands on their tops, and being pushed onto a top must not end inside it.
-  for (const coral of corals) pushOutOfCoral(p, v, coral, radius);
+  // The blobs of a reef overlap, so a push out of one can end inside the next: go round again.
+  pushOutOfCorals(p, v, radius);
   for (const post of posts) pushOutOfCylinder(p, v, post.x, post.z, post.baseY, post, radius);
   for (const frame of frameColumns) pushOutOfCylinder(p, v, frame.x, frame.z, frame.baseY, frame, radius);
 
   keepInDeepEnoughWater(p, v, radius);
   pushOutOfCave(p, v, radius); // REQ-014: the cave's walls and roof
   pushOutOfFloor(p, v, radius);
+  pushOutOfCorals(p, v, radius);
+  pushOutOfFloor(p, v, radius);
   pushOutOfCave(p, v, radius);
+  // REQ-020: the push off a reef or the floor can end inside a rock beside the reef, or a hair inside the rock it stands on.
+  for (const rock of rocks) pushOutOfRock(p, v, rock, radius);
+  for (const boulder of boulders) for (const tier of boulder.tiers) pushOutOfCylinder(p, v, boulder.x, boulder.z, tier.baseY, tier, radius);
+  for (const arch of arches) pushOutOfArch(p, v, arch, radius);
   keepInDeepEnoughWater(p, v, radius);
 
   const ceiling = bay.surfaceY - radius;
@@ -393,9 +396,11 @@ function insideCylinder(x: number, y: number, z: number, cx: number, cz: number,
 
 const probe = new Vector3();
 
-/** True when a sphere of `margin` at (x, y, z) is inside a rock, a coral cluster, a boulder or an arch. */
+/** True when a sphere of `margin` at (x, y, z) is inside a rock, coral, a boulder or an arch. */
 export function insideRockAt(x: number, y: number, z: number, margin = 0): boolean {
   for (const coral of corals) {
+    // Only the half above its base is solid, with `margin` to spare below.
+    if (y < coral.y - margin) continue;
     const rx = coral.radius + margin;
     const ry = coral.height + margin;
     const dx = (x - coral.x) / rx;

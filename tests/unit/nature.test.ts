@@ -1,7 +1,7 @@
 import { Color, Vector3 } from "three";
 import { describe, expect, it } from "vitest";
 import { config } from "../../src/config";
-import { arches, boulders, constrainToBay, corals, floorHeight, isSolidAt } from "../../src/game/bay";
+import { constrainToBay, corals, floorHeight, isSolidAt } from "../../src/game/bay";
 import { allSpots } from "../../src/game/layout";
 import { decor, meadows, naturalTargets } from "../../src/game/nature";
 import { createNatureView } from "../../src/game/nature-model";
@@ -13,14 +13,13 @@ import { wallness } from "../../src/game/terrain";
 const { nature, bloom, bay, reef } = config;
 
 describe("natural coral (REQ-013 AC-1, AC-2)", () => {
-  it("has about 30 clusters: on every boulder's top and every arch, the rest on slopes and valley edges", () => {
-    expect(corals).toHaveLength(nature.coral.count);
-    for (const boulder of boulders) expect(corals.some((c) => Math.hypot(c.x - boulder.x, c.z - boulder.z) < 0.5)).toBe(true);
-    for (const arch of arches) expect(corals.some((c) => Math.hypot(c.x - arch.x, c.z - arch.z) < 0.5)).toBe(true);
-    const onFloor = corals.filter((c) => c.y - floorHeight(c.x, c.z) < 1);
-    expect(onFloor.length).toBeGreaterThan(10);
-    for (const c of onFloor) {
-      expect(floorHeight(c.x, c.z)).toBeLessThanOrEqual(bay.surfaceY - nature.coral.minDepth + 0.5);
+  it("grows as colonies on the hard ground, solid as blobs that stand clear of every spot a site or a net can be on (REQ-020 replaces the 30 scattered clusters)", () => {
+    expect(corals.length).toBeGreaterThan(50);
+    for (const c of corals) {
+      expect(c.radius).toBeGreaterThan(0.5);
+      expect(c.height).toBeGreaterThan(0.4);
+      // On the belt, a hill top, a boulder or an arch; never in the deep sand valleys.
+      if (c.y - floorHeight(c.x, c.z) < 1) expect(floorHeight(c.x, c.z)).toBeLessThanOrEqual(bay.surfaceY - nature.coral.belt.minDepth + 0.5);
       for (const spot of allSpots) expect(Math.hypot(c.x - spot.x, c.z - spot.z)).toBeGreaterThan(bay.padRadius);
     }
   });
@@ -111,9 +110,11 @@ describe("scanning the natural reef (REQ-013 AC-5, AC-8)", () => {
 
   it("opens the coral entry from a natural cluster, then says it is already recorded", () => {
     const coral = naturalTargets.find((t) => t.entry === "coral")!;
-    const eye = new Vector3(coral.x - 5, coral.y + 1, coral.z);
+    // From above and a little to the side: the reef is dense, so a low eye could be inside it. Every natural coral is a
+    // target, as in the game, so the ray meets the nearest one, outside the reef's other blobs.
+    const eye = new Vector3(coral.x - 3, coral.y + 4, coral.z);
     const aim = new Vector3(coral.x, coral.y, coral.z).sub(eye).normalize();
-    const hit = aimedScanTarget(eye, aim, eye, [{ ...coral, trapped: false }])!;
+    const hit = aimedScanTarget(eye, aim, eye, naturalTargets.map((t) => ({ ...t, trapped: false })))!;
     expect(hit).toMatchObject({ entry: "coral", trapped: false });
     const scanner = new Scanner();
     const unlocked = new Set<string>();

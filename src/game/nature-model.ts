@@ -8,24 +8,22 @@ import {
   DoubleSide,
   Float32BufferAttribute,
   Group,
-  IcosahedronGeometry,
   Matrix4,
   Mesh,
   MeshBasicMaterial,
   MeshStandardMaterial,
-  Object3D,
   Quaternion,
   Vector3,
   type Material,
 } from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { config } from "../config";
-import { corals, floorHeight, type Coral } from "./bay";
 import { smoothstep } from "./bloom";
+import { createCoralView } from "./coral-model";
 import { decor, meadows, type Decor } from "./nature";
 import { createSeagrassView } from "./seagrass-model";
 
-const { nature, bloom } = config;
+const { nature } = config;
 
 /** What the natural reef shows (REQ-013): pale coral, sparse brown seagrass and no light rays until the Bloom. */
 export interface NatureView {
@@ -55,47 +53,6 @@ const quaternion = new Quaternion();
 const up = new Vector3(0, 1, 0);
 const tmp = new Vector3();
 const scale = new Vector3();
-
-/** One coral cluster's pieces, each with the index of its colour: branching, brain, table and finger coral. */
-function coralPieces(coral: Coral, out: BufferGeometry[][]): void {
-  const pieces = 3 + Math.floor(hash(coral.seed) * 4);
-  // A cluster on a boulder or an arch stands on that flat top; one on the floor follows the floor under each piece.
-  const raised = coral.y - floorHeight(coral.x, coral.z) > 1;
-  for (let i = 0; i < pieces; i++) {
-    const r = hash(coral.seed * 13 + i);
-    const angle = (i / pieces) * Math.PI * 2 + r * 2;
-    const distance = i === 0 ? 0 : coral.radius * (0.35 + 0.35 * hash(coral.seed * 7 + i));
-    const x = coral.x + Math.cos(angle) * distance;
-    const z = coral.z + Math.sin(angle) * distance;
-    const base = raised ? coral.y : floorHeight(x, z) - 0.05;
-    const size = coral.radius * (0.5 + 0.4 * hash(coral.seed * 3 + i));
-    const colour = (coral.seed + i) % bloom.coral.pastel.length;
-    const kind = Math.floor(hash(coral.seed * 5 + i * 11) * 4);
-    const yaw = hash(coral.seed + i * 17) * Math.PI * 2;
-    const add = (geometry: BufferGeometry, dx: number, dy: number, dz: number, sx: number, sy: number, sz: number, tiltX = 0, tiltZ = 0) => {
-      quaternion.setFromAxisAngle(up, yaw).multiply(new Quaternion().setFromEuler(new Object3D().rotation.set(tiltX, 0, tiltZ)));
-      tmp.set(dx, dy, dz).applyAxisAngle(up, yaw);
-      matrix.compose(new Vector3(x + tmp.x, base + tmp.y, z + tmp.z), quaternion, scale.set(sx, sy, sz));
-      out[colour].push(placed(geometry, matrix));
-    };
-    if (kind === 0) {
-      // Branching coral: a fan of thin branches.
-      const branch = new CylinderGeometry(0.05, 0.09, 1, 5).translate(0, 0.5, 0);
-      for (let b = 0; b < 5; b++) add(branch, (b - 2) * 0.12 * size, 0, 0, size, size * (0.8 + 0.3 * hash(b + coral.seed)), size, 0, (b - 2) * 0.28);
-    } else if (kind === 1) {
-      // Brain coral: a low, rounded boulder.
-      add(new IcosahedronGeometry(0.55, 0), 0, 0.15 * size, 0, size, size * 0.6, size);
-    } else if (kind === 2) {
-      // Table coral: a flat plate on a short stalk.
-      add(new CylinderGeometry(0.1, 0.14, 0.5, 5).translate(0, 0.25, 0), 0, 0, 0, size, size, size);
-      add(new CylinderGeometry(0.65, 0.3, 0.12, 7), 0, 0.55 * size, 0, size, size, size);
-    } else {
-      // Finger coral: a few upright tubes.
-      const tube = new CylinderGeometry(0.08, 0.1, 0.8, 5).translate(0, 0.4, 0);
-      for (let b = 0; b < 4; b++) add(tube, Math.cos(b * 1.6) * 0.2 * size, 0, Math.sin(b * 1.6) * 0.2 * size, size, size * (0.7 + 0.4 * hash(b * 3 + coral.seed)), size);
-    }
-  }
-}
 
 /** One decoration's pieces, each with the index of its material. */
 function decorPieces(item: Decor, out: BufferGeometry[][], firstMaterial: { sponge: number; fan: number; algae: number }): void {
@@ -147,16 +104,10 @@ function rayGeometry(): CylinderGeometry {
 export function createNatureView(): NatureView {
   const group = new Group();
   group.name = "nature";
-  const pale = new Color(nature.pale);
 
-  // Coral: one merged mesh per colour, so the whole reef is a handful of draw calls.
-  const coralMaterials = bloom.coral.pastel.map(() => new MeshStandardMaterial({ color: nature.pale, flatShading: true, roughness: 0.85 }));
-  const coralParts: BufferGeometry[][] = coralMaterials.map(() => []);
-  for (const coral of corals) coralPieces(coral, coralParts);
-  coralParts.forEach((parts, i) => {
-    const mesh = mergedMesh(parts, coralMaterials[i], `coral-${i}`);
-    if (mesh) group.add(mesh);
-  });
+  // Coral (REQ-020): colonies as instanced meshes, in their own module.
+  const coralView = createCoralView();
+  group.add(coralView.group);
 
   // Decoration: sponges (3 colours), sea fans (2) and algae (2).
   const decorColours = [0xb05ac8, 0xe08a3c, 0xd9c84a, 0xc8455a, 0x8e5fd6, 0x5e8a3a, 0x7a7a3a];
@@ -193,11 +144,7 @@ export function createNatureView(): NatureView {
   const setBloom = (value: number) => {
     clarity = value;
     const c = smoothstep(value);
-    coralMaterials.forEach((material, i) => {
-      const pastel = new Color(bloom.coral.pastel[i]);
-      material.color.copy(pale).lerp(pastel, c);
-      material.emissive.copy(pastel).multiplyScalar(bloom.coral.glow * c);
-    });
+    coralView.setBloom(value);
     decorMaterials.forEach((material, i) => {
       if (i < 5) material.color.copy(dull).lerp(new Color(decorColours[i]), c);
     });
@@ -230,7 +177,7 @@ export function createNatureView(): NatureView {
     },
     look() {
       const { seagrass: leaf, bladesShown, blades, sand, sandOpacity } = seagrass.look();
-      return { coral: coralMaterials.map((m) => m.color.getHex()), seagrass: leaf, bladesShown, blades, sand, sandOpacity, rays: rayStrength };
+      return { coral: coralView.materials.map((m) => m.color.getHex()), seagrass: leaf, bladesShown, blades, sand, sandOpacity, rays: rayStrength };
     },
   };
 }
