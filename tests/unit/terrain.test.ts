@@ -291,8 +291,8 @@ describe("goals on the new map (REQ-011 AC-5)", () => {
     expect(quarters.size).toBe(4);
   });
 
-  it("puts every piece where the ROV can reach it: in deep enough water, on gentle floor, out of the rocks", () => {
-    for (const item of items) {
+  it("puts every piece where the ROV can reach it: in deep enough water, on gentle floor, out of the rocks (the beach's 8 aside: REQ-017)", () => {
+    for (const item of items.filter((i) => !i.onBeach)) {
       const { x, z } = item.home;
       expect(floorHeight(x, z)).toBeLessThan(bay.surfaceY - trash.minDepth);
       expect(insideRockAt(x, item.home.y, z, 0.5)).toBe(false);

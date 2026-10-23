@@ -45,6 +45,8 @@ export interface LandHud {
   canGoAshore: boolean;
   /** On foot, close enough to the submarine that E gets back in. */
   canBoard: boolean;
+  /** REQ-017: on foot with the crosshair on trash within reach, so E picks it up (before depositing or boarding). */
+  canPickUp?: boolean;
   /** 0 (clear) to 1 (dark): the short fade while getting out or in. */
   fade: number;
 }

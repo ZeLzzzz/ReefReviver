@@ -73,7 +73,8 @@ describe("one dive's layout (REQ-012 AC-1, AC-5)", () => {
       expect(items).toHaveLength(trash.count);
       for (const item of items) {
         // REQ-014: the pieces on the cave's floor are placed by the cave's own rules (cave.test.ts); the rest by these.
-        if (inCave(item.home.x, item.home.y + 1, item.home.z)) continue;
+        // REQ-017: the 8 on the beach follow the beach's rules (beach-trash.test.ts).
+        if (inCave(item.home.x, item.home.y + 1, item.home.z) || item.onBeach) continue;
         expect(trashSpotOk(item.home.x, item.home.z)).toBe(true);
         for (const spot of allSpots) expect(Math.hypot(item.home.x - spot.x, item.home.z - spot.z)).toBeGreaterThanOrEqual(trash.clearOfNets);
       }

@@ -64,7 +64,7 @@
   "controls.vacuum.keys": "2",
   "controls.vacuum.action": "Pilih Vacuum",
   "controls.interact.keys": "E",
-  "controls.interact.action": "Setor sampah, pasang rangka, naik ke darat, atau masuk kapal selam mini",
+  "controls.interact.action": "Setor sampah, pasang rangka, naik ke darat, memungut sampah di pantai, atau masuk kapal selam mini",
   "logbook.turtle.name": "Penyu hijau",
   "logbook.turtle.facts": "Penyu hijau makan lamun dan alga. Jaring nelayan yang hanyut bisa menjeratnya, dan penyu bisa menelan plastik. Pada 2025 status IUCN-nya membaik dari Genting (EN) menjadi Risiko Rendah (LC), tetapi jumlahnya masih jauh di bawah masa lalu.",
   "logbook.turtle.sdg": "Target 14.1 meminta pencemaran laut dicegah dan dikurangi secara berarti, termasuk sampah laut.",
@@ -146,5 +146,6 @@
   "end.explore": "Lanjut menjelajah",
   "end.lockFailed": "Kursor belum terkunci ke game. Klik tombolnya lagi.",
   "land.ashorePrompt": "Tekan E untuk naik ke darat",
-  "land.boardPrompt": "Tekan E untuk masuk kapal selam mini"
+  "land.boardPrompt": "Tekan E untuk masuk kapal selam mini",
+  "land.pickupPrompt": "Tekan E untuk memungut sampah"
 }

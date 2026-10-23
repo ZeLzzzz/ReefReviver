@@ -245,7 +245,7 @@ describe("pause (REQ-001 AC-5)", () => {
       "2 = Pilih Vacuum",
       "3 = Pilih Seed launcher",
       "4 = Pilih Scanner",
-      "E = Setor sampah, pasang rangka, naik ke darat, atau masuk kapal selam mini",
+      "E = Setor sampah, pasang rangka, naik ke darat, memungut sampah di pantai, atau masuk kapal selam mini",
       "L = Buka atau tutup Marine Logbook",
       "Esc = Jeda",
     ]);

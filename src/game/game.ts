@@ -35,14 +35,14 @@ import { naturalTargets } from "./nature";
 import { createNatureView } from "./nature-model";
 import { createRovModel, setHeadlight } from "./rov-model";
 import { createRovState, rightVector, steer, stepRov, type RovState } from "./rov";
-import { ashoreSpot, canBoard, createWalker, eyePosition, lookWalker, stepWalker, type AshoreSpot, type Walker } from "./land";
+import { ashoreSpot, canBoard, createWalker, eyePosition, lookWalker, standable, stepWalker, type AshoreSpot, type Walker } from "./land";
 import { Rescue } from "./rescue";
 import { findAimPoint, SeedLauncher } from "./seed-launcher";
 import { Session, type SessionSummary } from "./session";
 import { counterPosition, distanceToStation, inStationZone, stationPosition } from "./station";
 import { buildDockMesh, createStationModel, STATION_MARKER_HEIGHT } from "./station-model";
 import { toolForKey } from "./tools";
-import { TrashField } from "./trash";
+import { TrashField, aimedBeachItem, type TrashItem } from "./trash";
 import { createTrashView } from "./trash-model";
 import { buildWorld, type World } from "./world";
 
@@ -172,6 +172,32 @@ export class Game implements GameView {
         hud: () => this.lastHud,
         // Free trash only: where it lies, for tests that fly to it.
         trash: () => this.field.items.filter((i) => i.state === "free").map((i) => i.position.toArray()),
+        // REQ-017: the free items on the beach (they are in trash() too, but aimAtTrash and the vacuum leave them out), and
+        // a way to stand `distance` m from the `index`th of them, looking at it.
+        beachTrash: () => this.field.items.filter((i) => i.state === "free" && i.onBeach).map((i) => i.position.toArray()),
+        beachTotal: () => this.field.items.filter((i) => i.onBeach).length,
+        beachStates: () => this.field.items.filter((i) => i.onBeach).map((i) => i.state),
+        aimAtBeachTrash: (distance = 2, index = 0) => {
+          if (!this.ashore) return null;
+          const { walker } = this.ashore;
+          const free = this.field.items.filter((i) => i.state === "free" && i.onBeach);
+          const item = free[index];
+          if (!item) return null;
+          // From the sea side or from the side, whichever is standable, with the crosshair on the item.
+          for (let k = 0; k < 16; k++) {
+            const yaw = -Math.PI / 2 + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * (Math.PI / 8);
+            const x = item.position.x - Math.sin(yaw) * distance;
+            const z = item.position.z - Math.cos(yaw) * distance;
+            if (!standable(x, z)) continue;
+            walker.position.set(x, 0, z);
+            stepWalker(walker, { forward: 0, strafe: 0, rise: 0 }, 0);
+            walker.yaw = yaw;
+            const eye = eyePosition(walker);
+            walker.pitch = Math.atan2(item.position.y - eye.y, distance);
+            return item.position.toArray();
+          }
+          return null;
+        },
         trashTotal: () => this.field.total,
         rocks: () => rocks.map((r) => [r.x, r.y, r.z, r.size]),
         station: () => [stationPosition.x, stationPosition.y, stationPosition.z],
@@ -245,7 +271,7 @@ export class Game implements GameView {
         // The trash lies in groups (D-066): puts the ROV `distance` m from the nearest free item that can be approached
         // with no other item in or near the vacuum's cone, aimed straight at it. Returns the item's position, or null.
         aimAtTrash: (distance = 3) => {
-          const free = this.field.items.filter((i) => i.state === "free");
+          const free = this.field.items.filter((i) => i.state === "free" && !i.onBeach);
           free.sort((a, b) => a.position.distanceTo(this.rov.position) - b.position.distanceTo(this.rov.position));
           const from = new Vector3();
           const aim = new Vector3();
@@ -497,8 +523,12 @@ export class Game implements GameView {
     for (const code of this.input.takePressed()) {
       if (this.transition) continue;
       if (this.ashore) {
-        // REQ-016: at the shed's counter E deposits the tank; next to the submarine it gets back in.
-        if (code === "KeyE" && inStationZone(this.ashore.walker.position)) session.deposit();
+        // REQ-017 AC-2, AC-5: aiming at trash in reach, E picks it up before anything else; with a full tank it stays.
+        // REQ-016: otherwise at the shed's counter E deposits the tank; next to the submarine it gets back in.
+        const aimed = code === "KeyE" ? this.aimedBeachTrash() : null;
+        if (aimed) {
+          if (session.collect()) this.field.lift(aimed);
+        } else if (code === "KeyE" && inStationZone(this.ashore.walker.position)) session.deposit();
         else if (code === "KeyE" && canBoard(this.ashore.walker, this.ashore.sub)) this.startTransition("sub", null);
         continue;
       }
@@ -525,6 +555,13 @@ export class Game implements GameView {
       this.beam.lookAt(rov.position.x + this.aim.x, rov.position.y + this.aim.y, rov.position.z + this.aim.z);
       (this.beam.material as MeshBasicMaterial).opacity = 0.07 + 0.03 * Math.sin(performance.now() / 60);
     }
+  }
+
+  /** REQ-017: the beach trash the player on foot aims at with the crosshair, within reach; null aboard or when none. */
+  private aimedBeachTrash(): TrashItem | null {
+    if (!this.ashore) return null;
+    const { walker } = this.ashore;
+    return aimedBeachItem(walker.position, eyePosition(walker, this.eye), aimDirection(walker.yaw, walker.pitch, this.lookAhead), this.field.items);
   }
 
   /**
@@ -727,6 +764,7 @@ export class Game implements GameView {
         onLand: this.ashore !== null,
         canGoAshore: !this.ashore && !this.transition && ashoreSpot(this.rov.position.x, this.rov.position.z) !== null,
         canBoard: this.ashore !== null && !this.transition && canBoard(this.ashore.walker, this.ashore.sub),
+        canPickUp: !this.transition && this.aimedBeachTrash() !== null,
         fade: this.transition ? 1 - Math.abs((2 * this.transition.time) / config.land.fadeSeconds - 1) : 0,
       },
       // REQ-010; on the land the arrow is the player, and the parked submarine has its own mark (REQ-015 AC-6).

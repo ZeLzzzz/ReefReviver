@@ -42,8 +42,8 @@ describe("trash layout (D-012)", () => {
     expect(generateTrash().map((i) => i.home.toArray())).toEqual(items.map((i) => i.home.toArray()));
   });
 
-  it("lies on the floor under water, apart from each other", () => {
-    for (const item of items) {
+  it("lies on the floor under water, apart from each other (the beach's 8 aside: REQ-017)", () => {
+    for (const item of items.filter((i) => !i.onBeach)) {
       expect(floorHeight(item.home.x, item.home.z)).toBeLessThan(config.bay.surfaceY - trash.minDepth);
       expect(item.home.y).toBeCloseTo(floorHeight(item.home.x, item.home.z) + trash.restHeight);
     }

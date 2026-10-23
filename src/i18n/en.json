@@ -64,7 +64,7 @@
   "controls.vacuum.keys": "2",
   "controls.vacuum.action": "Select Vacuum",
   "controls.interact.keys": "E",
-  "controls.interact.action": "Deposit trash, install a frame, go ashore, or board the mini submarine",
+  "controls.interact.action": "Deposit trash, install a frame, go ashore, pick up trash on the beach, or board the mini submarine",
   "logbook.turtle.name": "Green turtle",
   "logbook.turtle.facts": "Green turtles eat seagrass and algae. Lost fishing nets can trap them, and they can swallow plastic. In 2025 their IUCN status improved from Endangered (EN) to Least Concern (LC), but their numbers are still far below past levels.",
   "logbook.turtle.sdg": "Target 14.1 calls for preventing and significantly reducing marine pollution, including marine debris.",
@@ -146,5 +146,6 @@
   "end.explore": "Keep exploring",
   "end.lockFailed": "The game couldn't capture the mouse. Click the button again.",
   "land.ashorePrompt": "Press E to go ashore",
-  "land.boardPrompt": "Press E to board the mini submarine"
+  "land.boardPrompt": "Press E to board the mini submarine",
+  "land.pickupPrompt": "Press E to pick up the trash"
 }

@@ -212,6 +212,29 @@ export const config = {
     // REQ-003: kept clear of the ghost nets by this much, and of the reef sites and seagrass patches.
     clearOfNets: 4,
     clearOfSites: 5,
+    // REQ-017 (D-095, D-097): `count` of the items lie on the sand of the west beach instead, in `groups` (min to max)
+    // groups of about the same size within `groupRadius`, from `minInland` to `maxInland` metres inland of the waterline
+    // and at most `halfLength` m north or south of the beach's centre (z = 0). Groups stay `groupSpacing` apart and
+    // items `spacing`. Kept `clearOfShed` from the shed's walls and the counter's zone, `clearOfDock` from the dock's
+    // deck, `clearOfObstacles` from palms, rocks and bins. The player picks one up from `reach` m (on the ground), when
+    // the crosshair passes within `aimRadius` of it; it lifts `liftHeight` m and shrinks away in `liftSeconds`.
+    beach: {
+      count: 8,
+      groups: [3, 4],
+      groupRadius: 1.8,
+      groupSpacing: 25,
+      spacing: 1.5,
+      minInland: 1,
+      maxInland: 7,
+      halfLength: 85,
+      clearOfShed: 1.5,
+      clearOfDock: 1.5,
+      clearOfObstacles: 1,
+      reach: 3,
+      aimRadius: 0.5,
+      liftSeconds: 0.3,
+      liftHeight: 0.9,
+    },
   },
   vacuum: {
     // Trash within this distance of the ROV and this angle around the aim direction (crosshair) can be sucked.

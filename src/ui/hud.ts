@@ -190,17 +190,20 @@ export function createHud(lang: Lang): HudView {
 
       setHidden(fullMessage, !state.tankFull);
       setText(fullMessage, state.tankFull ? t(lang, "hud.tankFull") : "");
-      // Depositing wins when both apply; the frame prompt shows near an empty reef site (REQ-004); near the beach E
-      // goes ashore, and on the land next to the submarine it gets back in (REQ-015).
-      const promptKey = state.land?.canBoard
-        ? "land.boardPrompt"
-        : state.inStationZone
-          ? "hud.depositPrompt"
-          : state.reef?.canInstall
-            ? "reef.installPrompt"
-            : state.land?.canGoAshore
-              ? "land.ashorePrompt"
-              : null;
+      // REQ-017: with the crosshair on beach trash in reach, picking it up wins over everything else. Depositing wins
+      // when both apply; the frame prompt shows near an empty reef site (REQ-004); near the beach E goes ashore, and on
+      // the land next to the submarine it gets back in (REQ-015).
+      const promptKey = state.land?.canPickUp
+        ? "land.pickupPrompt"
+        : state.land?.canBoard
+          ? "land.boardPrompt"
+          : state.inStationZone
+            ? "hud.depositPrompt"
+            : state.reef?.canInstall
+              ? "reef.installPrompt"
+              : state.land?.canGoAshore
+                ? "land.ashorePrompt"
+                : null;
       setHidden(prompt, !promptKey);
       setText(prompt, promptKey ? t(lang, promptKey) : "");
       setHidden(notice, !state.notice);

@@ -163,7 +163,7 @@ test.describe("Indonesian", () => {
     const rows = await page.locator(".controls dt").evaluateAll((els) => els.map((el) => `${el.textContent} = ${el.nextElementSibling?.textContent}`));
     expect(rows).toContain("Klik kiri = Pakai alat (tahan)");
     expect(rows).toContain("2 = Pilih Vacuum");
-    expect(rows).toContain("E = Setor sampah, pasang rangka, naik ke darat, atau masuk kapal selam mini");
+    expect(rows).toContain("E = Setor sampah, pasang rangka, naik ke darat, memungut sampah di pantai, atau masuk kapal selam mini");
   });
 });
 
