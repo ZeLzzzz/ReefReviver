@@ -99,7 +99,13 @@ test.describe("Indonesian", () => {
     expect(s.frames).toHaveLength(3);
     expect(s.patches).toHaveLength(2);
     const [stationX] = await reef(page, (h) => h.station());
-    for (const site of [...s.frames, ...s.patches]) expect(site.x).toBeGreaterThan(stationX + 40);
+    for (const site of s.frames) expect(site.x).toBeGreaterThan(stationX + 40);
+    // REQ-019 (D-099): the seagrass patches lie on the shallow sand in front of the west beach, 2 to 5 m deep.
+    for (const site of s.patches) {
+      expect(site.x).toBeGreaterThan(stationX + 10);
+      expect(site.y).toBeLessThan(-2);
+      expect(site.y).toBeGreaterThan(-5);
+    }
     expect(s.frames.every((f) => !f.installed && f.fragments === 0)).toBe(true);
     expect(s.patches.every((p) => p.seeds === 0)).toBe(true);
     // The Phase 2 list is not there before the first deposit.

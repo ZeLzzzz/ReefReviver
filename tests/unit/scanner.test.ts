@@ -153,9 +153,25 @@ describe("scan targets", () => {
     w.reef.frames[1].fragments = config.reef.fragmentsPerFrame - 1;
     w.reef.patches[0].seeds = config.reef.seedsPerPatch;
     const found = targetsOf(w).filter((t) => t.entry === "coral" || t.entry === "seagrass");
-    expect(found.map((t) => t.entry)).toEqual(["seagrass"]);
+    // REQ-019: a planted patch is a sphere around its sprouts and the ground under them.
+    expect(found.map((t) => t.entry)).toEqual(["seagrass", "seagrass"]);
+    expect(found.map((t) => Boolean(t.flat))).toEqual([false, true]);
     w.reef.frames[1].fragments = config.reef.fragmentsPerFrame;
     expect(targetsOf(w).filter((t) => t.entry === "coral")).toHaveLength(1);
+  });
+
+  it("scans a planted patch in the shallows from straight above it, where the camera is inside its sphere (REQ-019)", () => {
+    const w = world();
+    const patch = w.reef.patches[0];
+    patch.seeds = config.reef.seedsPerPatch;
+    // The sub low over the patch, its camera 1 m above the sprouts: inside the patch's sphere.
+    const eye = new Vector3(patch.x, patch.y + scanner.seagrassHeight + 1, patch.z);
+    const rov = new Vector3(patch.x, patch.y + 2, patch.z - 2);
+    const hitAbove = aimedScanTarget(eye, new Vector3(0, -1, 0), rov, targetsOf(w));
+    expect(hitAbove?.entry).toBe("seagrass");
+    // Without the ground target, the sphere alone is not hit from there.
+    const spheres = targetsOf(w).filter((t) => !t.flat && t.entry === "seagrass");
+    expect(aimedScanTarget(eye, new Vector3(0, -1, 0), rov, spheres)).toBeNull();
   });
 
   it("has no sea life as a target until it has appeared, and a smaller one while it grows in", () => {

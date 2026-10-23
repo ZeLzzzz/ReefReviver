@@ -391,7 +391,8 @@ export const config = {
     frames: 3,
     patches: 2,
     // REQ-012: each dive picks them from these spots (D-063, D-074), spread over the bay, clear of the shore, the rocks
-    // and the trash; every spot has a level pad. The seagrass spots lie on the sand of the valleys.
+    // and the trash; every spot has a level pad. REQ-019 (D-099): the seagrass spots lie on the shallow sand off the west
+    // beach, 4.3 m deep, among the natural meadows (the reef belt starts at 7 m, so they keep clear of it).
     frameSpots: [
       { x: -5, z: 5 },
       { x: 70, z: -10 },
@@ -403,11 +404,11 @@ export const config = {
       { x: -25, z: 100 },
     ],
     patchSpots: [
-      { x: -30, z: -25 },
-      { x: 30, z: 100 },
-      { x: 55, z: 20 },
-      { x: -40, z: 70 },
-      { x: 40, z: -100 },
+      { x: -128, z: -77.6 },
+      { x: -128.1, z: -45.3 },
+      { x: -124.1, z: -8.5 },
+      { x: -118.1, z: 32.5 },
+      { x: -124.4, z: 67 },
     ],
     // AC-5: the spots picked for one dive cover at least this many quarters of the bay (out of 4).
     spreadQuarters: 3,
@@ -452,6 +453,10 @@ export const config = {
     // The sphere of a planted frame or seagrass patch is centred this far above the floor.
     coralHeight: 1,
     seagrassHeight: 0.9,
+    // REQ-019 AC-6: a natural seagrass meadow is scanned where the ray comes down to `meadowHeight` above the floor (about
+    // the leaves' height) within `meadowReach` times the meadow's radius of its centre, so it works from directly above.
+    meadowHeight: 0.3,
+    meadowReach: 0.8,
   },
   // REQ-008: the end screen shows this many game seconds after the 7th entry, once its notice (2.5 s) has been read.
   end: {
@@ -532,9 +537,35 @@ export const config = {
     coral: { count: 30, seed: 23, minRadius: 1.1, maxRadius: 2, spacing: 7, minDepth: 8, maxDepth: 20, maxSlope: 0.45 },
     // Their colour before the Bloom: bleached and dull. After it each cluster takes a colour of bloom.coral.pastel.
     pale: 0xd6d0c4,
-    // Seagrass meadows on the sand of the valleys and flats: sparse (`sparse` of the blades) and brown before the Bloom,
-    // all of them, taller and green after it. Not plantable; scanning one opens the seagrass entry (D-089).
-    meadows: { count: 11, seed: 37, minRadius: 5, maxRadius: 9, bladesPerSquareMetre: 1.4, sparse: 0.3, brown: 0x8c7b4e, green: 0x4fae5a },
+    // REQ-019 (D-098, D-102): seagrass meadows on the shallow sand between the west beach and the reef, `count` of them,
+    // 2 x radius (minRadius..maxRadius) across, strung along the open shore with their centres `centreDepth` metres deep.
+    // Blades grow only between `minDepth` and `maxDepth` (thinning toward both ends) and not within `dockClear` of the
+    // dock, nor `spotClear` of a planting spot: a patch stays bare sand until it is planted. A shoot is a tuft of 3-5
+    // flat, blunt ribbon leaves (`leaf`, metres; `lean` is the most they tilt); where the water is shallower than
+    // `enhalus.depth` some shoots are Enhalus clumps of wide, tall leaves. Under each meadow lies a sand tint of
+    // `sand`. Sparse (`sparse` of the blades) and brown before the Bloom, all of them, taller and green after it. The
+    // leaves sway in the current: the tip moves up to `sway.amplitude` of the leaf's length with a period of `sway.period`
+    // seconds, a wave `sway.waveLength` long travelling along `sway.current`. Not plantable; scanning one opens the
+    // seagrass entry (D-089).
+    meadows: {
+      count: 10,
+      seed: 37,
+      minRadius: 4,
+      maxRadius: 8.5,
+      centreDepth: { min: 3.2, max: 5.2 },
+      minDepth: 1,
+      maxDepth: 7,
+      dockClear: 9,
+      spotClear: 6,
+      shootsPerSquareMetre: 15,
+      leaf: { minHeight: 0.2, maxHeight: 0.35, width: 0.055, minLeaves: 4, maxLeaves: 6, lean: 0.55 },
+      enhalus: { depth: 2.8, chance: 0.25, leaves: 5, minHeight: 0.6, maxHeight: 1, width: 0.11, lean: 0.35 },
+      sparse: 0.3,
+      brown: 0x8c7b4e,
+      green: 0x4fae5a,
+      sand: { brown: 0x5a5638, green: 0x45653a, opacityBefore: 0.6, opacityAfter: 0.85 },
+      sway: { amplitude: 0.35, period: 4.5, waveLength: 12, current: { x: 1, z: 0.35 } },
+    },
     // Decoration, passable: barrel sponges, sea fans and algae tufts. No kelp: it lives in cold seas (D-074).
     decor: { sponges: 36, fans: 26, algae: 80, seed: 41 },
     // Light rays from the surface after the Bloom (AC-3): this many shafts around the camera, within `spread` metres.

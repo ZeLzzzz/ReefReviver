@@ -26,9 +26,17 @@ describe("the candidate spots (REQ-012 AC-1, AC-3)", () => {
   it("are all good places: deep enough, level, out in the bay, clear of the rocks, the cave, the start and each other", () => {
     for (const spot of allSpots) {
       const h = floorHeight(spot.x, spot.z);
-      expect(h).toBeLessThan(bay.surfaceY - 6);
+      // REQ-019 (D-099): the seagrass spots lie on the shallow sand off the west beach, 2 to 5 m deep.
+      if (reef.patchSpots.some((p) => p.x === spot.x && p.z === spot.z)) {
+        expect(h).toBeLessThan(bay.surfaceY - 2);
+        expect(h).toBeGreaterThan(bay.surfaceY - 5);
+        expect(inland(spot.x, spot.z)).toBeLessThan(-2);
+        expect(inland(spot.x, spot.z)).toBeGreaterThan(-14);
+      } else {
+        expect(h).toBeLessThan(bay.surfaceY - 6);
+        expect(inland(spot.x, spot.z)).toBeLessThan(-50);
+      }
       expect(wallness(spot.x, spot.z)).toBe(0);
-      expect(inland(spot.x, spot.z)).toBeLessThan(-50);
       for (const [dx, dz] of [[2, 0], [-2, 0], [0, 2], [0, -2]]) expect(Math.abs(floorHeight(spot.x + dx, spot.z + dz) - h)).toBeLessThan(0.05);
       for (const rock of rocks) expect(Math.hypot(spot.x - rock.x, spot.z - rock.z)).toBeGreaterThan(rock.size + 4);
       for (const boulder of boulders) expect(Math.hypot(spot.x - boulder.x, spot.z - boulder.z)).toBeGreaterThan(boulder.tiers[0].radius + 4);

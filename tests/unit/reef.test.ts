@@ -31,14 +31,20 @@ describe("sites (REQ-004 AC-1 placement)", () => {
   const field = new ReefField();
   const all = [...field.frames, ...field.patches];
 
-  it("has three reef sites and two seagrass patches out in the bay, away from the shore and the rock wall (REQ-011)", () => {
+  it("has three reef sites out in the bay and two seagrass patches on the shallow sand off the west beach, away from the rock wall (REQ-011, REQ-019)", () => {
     expect(field.frames).toHaveLength(3);
     expect(field.patches).toHaveLength(2);
-    for (const site of all) {
+    for (const site of field.frames) {
       expect(site.x).toBeGreaterThan(config.station.x + 40);
       expect(site.y).toBeLessThan(config.bay.surfaceY - 6);
-      expect(wallness(site.x, site.z)).toBe(0);
     }
+    // REQ-019 AC-4 (D-099): 2 to 5 m deep, in front of the beach.
+    for (const site of field.patches) {
+      expect(site.y).toBeLessThan(config.bay.surfaceY - 2);
+      expect(site.y).toBeGreaterThan(config.bay.surfaceY - 5);
+      expect(site.x).toBeLessThan(config.rov.start.x - 20);
+    }
+    for (const site of all) expect(wallness(site.x, site.z)).toBe(0);
   });
 
   it("keeps clear of the station, the start, the rocks, the trash and each other", () => {
@@ -458,8 +464,11 @@ describe("site markers show through the murk (REQ-004 AC-1)", () => {
       });
       expect(fogFree.length).toBeGreaterThan(0);
       const top = Math.max(...fogFree.map((m) => new Box3().setFromObject(m).max.y));
-      // Visible beyond the murky fog distance: the marker stands at least 5 m above the floor.
-      expect(top).toBeGreaterThan(sites[i].y + 5);
+      // Visible beyond the murky fog distance: a reef site's marker stands at least 5 m above the floor. A seagrass patch
+      // lies on the shallow sand (REQ-019: 2 to 5 m deep), so its marker rises to just under the surface instead.
+      const isPatch = i >= field.frames.length;
+      expect(top).toBeGreaterThan(isPatch ? sites[i].y + 1.5 : sites[i].y + 5);
+      expect(top).toBeLessThan(config.bay.surfaceY);
     });
   });
 });

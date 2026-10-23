@@ -17,6 +17,7 @@ type Hook = {
   unlocked(): string[];
   unlockEntries(ids: string[]): void;
   newDive(): void;
+  aimAtPoint(x: number, y: number, z: number, distance?: number, rise?: number, clearance?: number): boolean;
 };
 
 const reef = <T>(page: Page, fn: (hook: Hook, arg: any) => T, arg?: unknown) =>
@@ -278,7 +279,11 @@ test.describe("Indonesian", () => {
     await scan(page, "dolphin");
     await track(page, "(() => { const f = h.reefSites().frames[0]; return [f.x, f.y + 1, f.z, 4, 0.8]; })()");
     await scan(page, "coral");
-    await track(page, "(() => { const p = h.reefSites().patches[0]; return [p.x, p.y + 0.9, p.z, 4, 0.8]; })()");
+    // REQ-019: the patches lie on shallow sand, where the camera is held under the surface and the tracking above, which
+    // assumes it floats free, would aim short. Aim from a spot where the real camera sees the sprouts, and hold on.
+    await stopTracking(page);
+    const patch = ((await reef(page, (h) => h.reefSites())) as { patches: { x: number; y: number; z: number }[] }).patches[0];
+    expect(await reef(page, (h, p) => h.aimAtPoint(p.x, p.y + 0.9, p.z, 6, 1.2, 1), patch)).toBe(true);
     await page.mouse.down();
     await expect.poll(() => scanProgress(page), { timeout: 30_000 }).toBeGreaterThan(0);
     await page.screenshot({ path: "test-results/req-006-scanning.png" });

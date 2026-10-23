@@ -9,7 +9,6 @@ import {
   Float32BufferAttribute,
   Group,
   IcosahedronGeometry,
-  InstancedMesh,
   Matrix4,
   Mesh,
   MeshBasicMaterial,
@@ -24,6 +23,7 @@ import { config } from "../config";
 import { corals, floorHeight, type Coral } from "./bay";
 import { smoothstep } from "./bloom";
 import { decor, meadows, type Decor } from "./nature";
+import { createSeagrassView } from "./seagrass-model";
 
 const { nature, bloom } = config;
 
@@ -34,8 +34,8 @@ export interface NatureView {
   setBloom(clarity: number): void;
   /** Moves the light rays along with the camera; `hidden` (above the water, in the cave) hides them. */
   update(dt: number, camera: Vector3, hidden: boolean): void;
-  /** For the tests: the colours of the coral and the seagrass, how many blades show, and how bright the rays are. */
-  look(): { coral: number[]; seagrass: number; bladesShown: number; rays: number };
+  /** For the tests: the colours of the coral and the seagrass, how many blades show and exist, the sand tint under the meadows, and how bright the rays are. */
+  look(): { coral: number[]; seagrass: number; bladesShown: number; blades: number; sand: number; sandOpacity: number; rays: number };
 }
 
 function hash(n: number): number {
@@ -169,32 +169,9 @@ export function createNatureView(): NatureView {
     if (mesh) group.add(mesh);
   });
 
-  // Seagrass meadows: every blade an instance of one mesh.
-  const blades = meadows.flatMap((meadow) => meadow.blades);
-  const bladeGeometry = new ConeGeometry(0.05, 1, 3).translate(0, 0.5, 0).scale(1.8, 1, 0.4);
-  const seagrassMaterial = new MeshStandardMaterial({ color: nature.meadows.brown, flatShading: true, roughness: 0.9, side: DoubleSide });
-  const meadowMesh = new InstancedMesh(bladeGeometry, seagrassMaterial, Math.max(1, blades.length));
-  meadowMesh.name = "meadows";
-  // Instances spread over the whole bay; the mesh's own bounding sphere would cull them wrongly.
-  meadowMesh.frustumCulled = false;
-  group.add(meadowMesh);
-  let bladesShown = 0;
-  const bladeQuaternion = new Quaternion();
-  const bladeEuler = new Object3D();
-  const placeBlades = (clarity: number) => {
-    const show = nature.meadows.sparse + (1 - nature.meadows.sparse) * clarity;
-    const grow = 0.45 + 0.55 * clarity;
-    bladesShown = 0;
-    blades.forEach((blade, i) => {
-      const visible = blade.order < show;
-      if (visible) bladesShown++;
-      bladeEuler.rotation.set(blade.lean, blade.yaw, 0, "YXZ");
-      bladeQuaternion.setFromEuler(bladeEuler.rotation);
-      matrix.compose(tmp.set(blade.x, blade.y, blade.z), bladeQuaternion, scale.set(1, visible ? blade.height * grow : 0, 1));
-      meadowMesh.setMatrixAt(i, matrix);
-    });
-    meadowMesh.instanceMatrix.needsUpdate = true;
-  };
+  // Seagrass meadows (REQ-019): the leaves and the sand tint under them, in their own module.
+  const seagrass = createSeagrassView(meadows);
+  group.add(seagrass.group);
 
   // Light rays from the surface after the Bloom, kept around the camera. Each has its own material, so a ray close to
   // the camera can fade out instead of filling the screen.
@@ -224,8 +201,7 @@ export function createNatureView(): NatureView {
     decorMaterials.forEach((material, i) => {
       if (i < 5) material.color.copy(dull).lerp(new Color(decorColours[i]), c);
     });
-    seagrassMaterial.color.set(nature.meadows.brown).lerp(new Color(nature.meadows.green), c);
-    placeBlades(c);
+    seagrass.setBloom(value);
   };
   setBloom(0);
 
@@ -234,6 +210,7 @@ export function createNatureView(): NatureView {
     setBloom,
     update(dt, camera, hidden) {
       time += dt;
+      seagrass.update(dt);
       const spread = nature.rays.spread;
       const shown = !hidden && clarity > 0;
       // A slow shimmer, never a flash (REQ-005 AC-7).
@@ -252,7 +229,8 @@ export function createNatureView(): NatureView {
       rayStrength = shown ? strength : 0;
     },
     look() {
-      return { coral: coralMaterials.map((m) => m.color.getHex()), seagrass: seagrassMaterial.color.getHex(), bladesShown, rays: rayStrength };
+      const { seagrass: leaf, bladesShown, blades, sand, sandOpacity } = seagrass.look();
+      return { coral: coralMaterials.map((m) => m.color.getHex()), seagrass: leaf, bladesShown, blades, sand, sandOpacity, rays: rayStrength };
     },
   };
 }

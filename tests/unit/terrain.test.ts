@@ -311,8 +311,9 @@ describe("goals on the new map (REQ-011 AC-5)", () => {
     }
   });
 
-  it("spreads the reef sites, patches and nets over the bay, away from the shore", () => {
+  it("spreads the reef sites and nets over the bay, away from the shore (the seagrass patches lie on the shallow sand: REQ-019)", () => {
     for (const site of allSpots) {
+      if (config.reef.patchSpots.some((p) => p.x === site.x && p.z === site.z)) continue;
       expect(inland(site.x, site.z)).toBeLessThan(-50);
     }
   });

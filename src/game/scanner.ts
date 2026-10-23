@@ -2,6 +2,7 @@ import { Vector3 } from "three";
 import { config } from "../config";
 import type { LogbookId } from "../logbook/entries";
 import type { Animal } from "./animals";
+import { floorHeight } from "./bay";
 import { raySphere, terrainBlocks, type Sphere } from "./cutter";
 import { framePlanted, patchPlanted, type FrameSite, type PatchSite } from "./reef-sites";
 import type { NaturalTarget } from "./nature";
@@ -13,6 +14,12 @@ const { scanner } = config;
 export interface ScanTarget extends Sphere {
   entry: LogbookId;
   trapped: boolean;
+  /**
+   * REQ-019 AC-6: a patch of ground of radius `r` around (x, z), not a sphere: the ray meets it where it comes down to
+   * `scanner.meadowHeight` above the floor, so it is hit from directly above, from inside a sphere's reach, and
+   * on a sloping shelf alike. `y` is only where the crosshair is aimed at it.
+   */
+  flat?: boolean;
 }
 
 export interface ScanHit {
@@ -24,6 +31,54 @@ export interface ScanHit {
 
 /** What one frame of scanning produced: an entry opened (AC-1), a repeat (AC-6) or a trapped animal (AC-7). */
 export type ScanEvent = { kind: "scanned"; entry: LogbookId } | { kind: "known" } | { kind: "trapped" };
+
+const GROUND_STEP = 0.2;
+const GROUND_REACH = 40;
+
+/** Where the unit ray `dir` from `origin` first comes down to the leaves' height over the ground of a `flat` target, or null. */
+function groundDistance(origin: Vector3, dir: Vector3, target: ScanTarget): number | null {
+  // The stretch of the ray (by t) that lies over the disc: where its path on the ground is inside the circle.
+  const ox = origin.x - target.x;
+  const oz = origin.z - target.z;
+  const a = dir.x * dir.x + dir.z * dir.z;
+  let from = 0;
+  let to = GROUND_REACH;
+  if (a < 1e-9) {
+    if (ox * ox + oz * oz > target.r * target.r) return null;
+  } else {
+    const b = ox * dir.x + oz * dir.z;
+    const c = ox * ox + oz * oz - target.r * target.r;
+    const discriminant = b * b - a * c;
+    if (discriminant < 0) return null;
+    const root = Math.sqrt(discriminant);
+    from = Math.max(0, (-b - root) / a);
+    to = Math.min(GROUND_REACH, (-b + root) / a);
+  }
+  const above = (t: number) => origin.y + dir.y * t - floorHeight(origin.x + dir.x * t, origin.z + dir.z * t) - scanner.meadowHeight;
+  if (above(from) <= 0) return from;
+  let last = from;
+  for (let t = from + GROUND_STEP; t < to + GROUND_STEP; t += GROUND_STEP) {
+    const now = Math.min(t, to);
+    if (above(now) <= 0) {
+      // Narrow the step down to the crossing.
+      let low = last;
+      let high = now;
+      for (let i = 0; i < 8; i++) {
+        const mid = (low + high) / 2;
+        if (above(mid) <= 0) high = mid;
+        else low = mid;
+      }
+      return high;
+    }
+    last = now;
+  }
+  return null;
+}
+
+/** How far along the unit ray `dir` from `origin` the target is first met, or null. */
+function hitDistance(origin: Vector3, dir: Vector3, target: ScanTarget): number | null {
+  return target.flat ? groundDistance(origin, dir, target) : raySphere(origin, dir, target);
+}
 
 /**
  * Everything that can be scanned now. The freed or trapped turtle and reef shark, the sea life that has a Logbook
@@ -55,7 +110,10 @@ export function collectScanTargets(
     if (framePlanted(frame)) targets.push({ x: frame.x, y: frame.y + scanner.coralHeight, z: frame.z, r: scanner.radius.coral, entry: "coral", trapped: false });
   }
   for (const patch of patches) {
-    if (patchPlanted(patch)) targets.push({ x: patch.x, y: patch.y + scanner.seagrassHeight, z: patch.z, r: scanner.radius.seagrass, entry: "seagrass", trapped: false });
+    if (!patchPlanted(patch)) continue;
+    targets.push({ x: patch.x, y: patch.y + scanner.seagrassHeight, z: patch.z, r: scanner.radius.seagrass, entry: "seagrass", trapped: false });
+    // REQ-019: the patches lie in shallow water, where a camera over one is inside the sphere: its ground is a target too.
+    targets.push({ x: patch.x, y: patch.y + scanner.meadowHeight, z: patch.z, r: config.reef.patchRadius, entry: "seagrass", trapped: false, flat: true });
   }
   // REQ-013: the natural coral clusters and seagrass meadows open the coral and seagrass entries too (D-074, D-089).
   for (const target of natural) targets.push({ ...target, trapped: false });
@@ -70,7 +128,7 @@ export function aimedScanTarget(origin: Vector3, dir: Vector3, rov: Vector3, tar
   let best: ScanTarget | null = null;
   let distance = Infinity;
   for (const target of targets) {
-    const t = raySphere(origin, dir, target);
+    const t = hitDistance(origin, dir, target);
     if (t !== null && t < distance) {
       best = target;
       distance = t;

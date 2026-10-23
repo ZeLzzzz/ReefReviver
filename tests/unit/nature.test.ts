@@ -8,7 +8,7 @@ import { createNatureView } from "../../src/game/nature-model";
 import { ReefField } from "../../src/game/reef-sites";
 import { aimedScanTarget, collectScanTargets, Scanner } from "../../src/game/scanner";
 import { SeedLauncher } from "../../src/game/seed-launcher";
-import { squareRadius } from "../../src/game/terrain";
+import { wallness } from "../../src/game/terrain";
 
 const { nature, bloom, bay, reef } = config;
 
@@ -129,15 +129,17 @@ describe("scanning the natural reef (REQ-013 AC-5, AC-8)", () => {
 });
 
 describe("natural seagrass meadows (REQ-013 AC-8)", () => {
-  it("are 10 to 12 meadows on the sand of the valleys and flats, away from every planting spot", () => {
-    expect(meadows.length).toBeGreaterThanOrEqual(10);
+  it("are 8 to 12 meadows on the shallow sand off the west beach (REQ-019 AC-1), never on a planting spot", () => {
+    expect(meadows.length).toBeGreaterThanOrEqual(8);
     expect(meadows.length).toBeLessThanOrEqual(12);
     for (const meadow of meadows) {
-      expect(meadow.y).toBeLessThan(bay.surfaceY - 11);
-      expect(squareRadius(meadow.x, meadow.z)).toBeLessThan(bay.wall.radius - bay.wall.width);
+      expect(meadow.y).toBeGreaterThan(bay.surfaceY - 7);
+      expect(wallness(meadow.x, meadow.z)).toBe(0);
       expect(meadow.blades.length).toBeGreaterThan(50);
-      for (const spot of [...reef.patchSpots, ...reef.frameSpots]) expect(Math.hypot(meadow.x - spot.x, meadow.z - spot.z)).toBeGreaterThan(meadow.radius + bay.padRadius);
-      for (const blade of meadow.blades) expect(Math.hypot(blade.x - meadow.x, blade.z - meadow.z)).toBeLessThanOrEqual(meadow.radius + 1e-6);
+      const spots = [...reef.patchSpots, ...reef.frameSpots];
+      expect(meadow.blades.every((blade) => spots.every((spot) => Math.hypot(blade.x - spot.x, blade.z - spot.z) > bay.padRadius))).toBe(true);
+      // A meadow reaches a little past its radius at the ragged edge, never further than 1.3 times.
+      for (const blade of meadow.blades) expect(Math.hypot(blade.x - meadow.x, blade.z - meadow.z)).toBeLessThanOrEqual(meadow.radius * 1.3 + 1e-6);
     }
   });
 
