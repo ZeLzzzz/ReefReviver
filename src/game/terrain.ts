@@ -1,6 +1,6 @@
 import { config } from "../config";
 
-const { bay, station, reef, nets } = config;
+const { bay, station, reef, nets, land } = config;
 const { shore, wall } = bay;
 
 const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value));
@@ -38,9 +38,12 @@ export function inland(x: number, z: number): number {
   return shore.waterlineX + shore.wiggle * Math.sin(z * 0.031 + 0.6) + 2 * Math.sin(z * 0.07) - x;
 }
 
-/** The shore's own profile: the shelf rising to the waterline, then the land above it. */
+/** The shore's own profile: the shelf rising to the waterline, then the land above it, closed by a cliff at the west (REQ-015). */
 function shoreHeight(s: number, x: number, z: number): number {
-  if (s >= 0) return Math.min(shore.landHeight, s * shore.landRise) + 0.4 * Math.sin(x * 0.13) * Math.sin(z * 0.11) * Math.min(1, s / 6);
+  if (s >= 0) {
+    const cliff = land.cliffHeight * smoothstep(land.cliffX, land.cliffX - land.cliffWidth, x + Math.sin(z * 0.09) * 1.5);
+    return Math.min(shore.landHeight, s * shore.landRise) + 0.4 * Math.sin(x * 0.13) * Math.sin(z * 0.11) * Math.min(1, s / 6) + cliff;
+  }
   const t = Math.min(1, -s / shore.shelfWidth);
   return shore.shelfDepth * t * (2 - t);
 }
@@ -61,7 +64,8 @@ function wallRadius(x: number, z: number): number {
 export function wallness(x: number, z: number): number {
   const r = wallRadius(x, z);
   const rising = smoothstep(r - wall.width, r, squareRadius(x, z));
-  const openShore = (1 - smoothstep(shore.openHalf - 25, shore.openHalf, Math.abs(z))) * smoothstep(-20, -60, x);
+  // The wall rises steeply where the open shore ends, so the beach is closed by a cliff, not a ramp (REQ-015 AC-3).
+  const openShore = (1 - smoothstep(shore.openHalf - 6, shore.openHalf, Math.abs(z))) * smoothstep(-20, -60, x);
   return rising * (1 - openShore);
 }
 

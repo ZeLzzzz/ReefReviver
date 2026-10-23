@@ -68,6 +68,14 @@ export function createMinimap(lang: Lang): MinimapView {
     svg("polygon", { class: "mm-rov", points: `0,${-r} ${r * 0.7},${r * 0.75} 0,${r * 0.35} ${-r * 0.7},${r * 0.75}` }),
   );
 
+  // REQ-015 AC-6: the submarine left floating while the player walks on the land: a hull shape, not an arrow.
+  const sub = svg(
+    "g",
+    { class: "mm-icon", "data-kind": "sub" },
+    svg("path", { class: "mm-shape mm-sub", d: `M0 ${-icon.sub} C${icon.sub * 0.6} ${-icon.sub * 0.6} ${icon.sub * 0.6} ${icon.sub * 0.6} 0 ${icon.sub} C${-icon.sub * 0.6} ${icon.sub * 0.6} ${-icon.sub * 0.6} ${-icon.sub * 0.6} 0 ${-icon.sub}Z` }),
+  );
+  sub.style.display = "none";
+
   const map = svg(
     "svg",
     { class: "mm-map", viewBox: `0 0 ${layout.size} ${layout.size}`, role: "img", "aria-label": t(lang, "minimap.label") },
@@ -78,6 +86,7 @@ export function createMinimap(lang: Lang): MinimapView {
     ...frames,
     ...patches,
     netLayer,
+    sub,
     rov,
   );
   const north = h("span", { class: "mm-north", "aria-hidden": "true" }, t(lang, "minimap.north"));
@@ -111,6 +120,9 @@ export function createMinimap(lang: Lang): MinimapView {
     element,
     update(state) {
       setAttr(rov, "transform", `${at(state.rov)} rotate(${state.rov.heading.toFixed(1)})`);
+      const showSub = state.sub ? "" : "none";
+      if (sub.style.display !== showSub) sub.style.display = showSub;
+      if (state.sub) setAttr(sub, "transform", `${at(state.sub)} rotate(${state.sub.heading.toFixed(1)})`);
       setStatuses(frames, state.frames);
       setStatuses(patches, state.patches);
       setNets(state.nets);

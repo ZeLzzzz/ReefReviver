@@ -27,6 +27,7 @@ import { SeaLife } from "./sea-life";
 import { createSeaLifeView } from "./sea-life-model";
 import { createRovModel } from "./rov-model";
 import { createRovState, rightVector, steer, stepRov, type RovState } from "./rov";
+import { ashoreSpot, canBoard, createWalker, eyePosition, lookWalker, stepWalker, type AshoreSpot, type Walker } from "./land";
 import { Rescue } from "./rescue";
 import { findAimPoint, SeedLauncher } from "./seed-launcher";
 import { Session, type SessionSummary } from "./session";
@@ -114,6 +115,12 @@ export class Game implements GameView {
   private lastHud: HudState | null = null;
   private sucking = false;
   private rov: RovState = createRovState();
+  // REQ-015: on foot on the land, with the submarine floating where it was left (D-080); null while aboard.
+  private ashore: { walker: Walker; sub: Vector3 } | null = null;
+  // The fade while getting out or in: the switch happens at its darkest point, halfway (D-084).
+  private transition: { time: number; switched: boolean; to: "land" | "sub"; spot: AshoreSpot | null } | null = null;
+  private readonly eye = new Vector3();
+  private readonly lookAhead = new Vector3();
   private mode: Mode = "title";
   private titleTime = 0;
   private lastFrame: number | null = null;
@@ -200,6 +207,21 @@ export class Game implements GameView {
           }
           return null;
         },
+        // REQ-015: on foot or aboard, where the player and the submarine are, and where the camera is.
+        onLand: () => this.ashore !== null,
+        walker: () => (this.ashore ? { position: this.ashore.walker.position.toArray(), yaw: this.ashore.walker.yaw } : null),
+        subPosition: () => (this.ashore ? this.ashore.sub : this.rov.position).toArray(),
+        cameraPosition: () => this.camera.position.toArray(),
+        inTransition: () => this.transition !== null,
+        // Turns (and moves) the player on foot, like placeRov for the submarine.
+        placeWalker: (x: number, z: number, yaw: number, pitch: number) => {
+          if (!this.ashore) return;
+          this.ashore.walker.position.set(x, 0, z);
+          stepWalker(this.ashore.walker, { forward: 0, strafe: 0, rise: 0 }, 0);
+          this.ashore.walker.yaw = yaw;
+          this.ashore.walker.pitch = pitch;
+        },
+        ashoreSpot: (x: number, z: number) => ashoreSpot(x, z),
         // REQ-005: reach the Bloom quickly and read what it changes. (REQ-010's e2e tests use removeTrash too.)
         // Takes n free trash items out of the field and counts them as removed, like the vacuum, but without tank or score.
         removeTrash: (n: number) => {
@@ -280,6 +302,9 @@ export class Game implements GameView {
 
   play(): void {
     this.rov = createRovState();
+    // REQ-015 AC-8: a new dive always starts aboard, at the start.
+    this.ashore = null;
+    this.transition = null;
     this.session = new Session(this.field.total);
     this.field.reset();
     this.trashView.sync(this.field.items);
@@ -311,16 +336,25 @@ export class Game implements GameView {
 
     if (this.mode === "playing") {
       const [dx, dy] = this.input.takeMouse();
-      steer(this.rov, dx, dy);
-      stepRov(this.rov, this.input.move(), dt);
+      if (this.transition) this.stepTransition(dt);
+      else if (this.ashore) {
+        // REQ-015: walking on the land.
+        lookWalker(this.ashore.walker, dx, dy);
+        stepWalker(this.ashore.walker, this.input.move(), dt);
+      } else {
+        steer(this.rov, dx, dy);
+        stepRov(this.rov, this.input.move(), dt);
+      }
       this.stepTools(dt);
       this.stepBloom(dt); // REQ-005
       this.stepEnd(dt, real); // REQ-008
       this.syncRovModel();
-      followCamera(this.rov, this.camera.position, this.cameraTarget);
+      this.placeCamera();
     } else if (this.mode === "title") {
       this.orbitTitleCamera(dt);
     }
+    // REQ-015: above the water the world shows the sky and daylight instead of the water's fog.
+    this.world.setAbove(this.camera.position.y > config.bay.surfaceY);
     if (this.mode !== "paused") this.world.update(dt, this.camera.position);
 
     this.camera.lookAt(this.cameraTarget);
@@ -328,24 +362,33 @@ export class Game implements GameView {
     this.renderer.render(this.scene, this.camera);
   }
 
-  /** The vacuum, the tool keys and E, for one simulated frame. */
+  /**
+   * The vacuum, the tool keys and E, for one simulated frame. On the land and while getting in or out the tools do
+   * nothing, and E only boards the submarine (REQ-015 AC-2, AC-4).
+   */
   private stepTools(dt: number): void {
     const { session, rov } = this;
+    const aboard = !this.ashore && !this.transition;
     for (const code of this.input.takePressed()) {
+      if (this.transition) continue;
+      if (this.ashore) {
+        if (code === "KeyE" && canBoard(this.ashore.walker, this.ashore.sub)) this.startTransition("sub", null);
+        continue;
+      }
       session.select(toolForKey(code));
-      if (code === "KeyE" && inStationZone(rov.position)) session.deposit();
-      else if (code === "KeyE") this.installFrame();
+      if (code === "KeyE") this.interact();
     }
 
     aimDirection(rov.yaw, rov.pitch, this.aim);
-    const held = this.input.primaryHeld() && session.tool === "vacuum";
+    const primary = aboard && this.input.primaryHeld();
+    const held = primary && session.tool === "vacuum";
     const room = session.tankSpace - this.field.pulling;
     this.sucking = held && room > 0;
     for (const _item of this.field.update(dt, rov.position, this.aim, held, room)) session.collect();
     // REQ-003: the cutter, the nets and the animals.
-    this.rescue.step(dt, rov, this.aim, this.input.primaryHeld() && session.tool === "cutter", this.field.items, session);
-    this.stepSeedLauncher(dt);
-    this.stepScanner(dt);
+    this.rescue.step(dt, rov, this.aim, primary && session.tool === "cutter", this.field.items, session);
+    this.stepSeedLauncher(dt, primary);
+    this.stepScanner(dt, primary);
     session.tick(dt);
     this.trashView.sync(this.field.items);
 
@@ -361,9 +404,9 @@ export class Game implements GameView {
    * REQ-006: while the Scanner is selected and the button is held, the ray from the camera along the aim must hit a
    * scannable target; held on it for `scanner.seconds` it opens the Logbook entry (AC-1, AC-5, AC-6, AC-7).
    */
-  private stepScanner(dt: number): void {
+  private stepScanner(dt: number, primary: boolean): void {
     const { session, rov } = this;
-    const scanning = this.input.primaryHeld() && session.tool === "scanner";
+    const scanning = primary && session.tool === "scanner";
     this.scanHit = null;
     if (scanning) {
       followCamera(rov, this.scanCamera, this.scanLookAt);
@@ -427,6 +470,71 @@ export class Game implements GameView {
     this.seedView.sync(this.seeds.shots);
   }
 
+  /** E aboard: deposits in the station zone, installs a frame near an empty reef site, or goes ashore near the beach. */
+  private interact(): void {
+    const { position } = this.rov;
+    if (inStationZone(position)) {
+      this.session.deposit();
+      return;
+    }
+    if (this.reef.emptySiteNear(position.x, position.z) >= 0) {
+      this.installFrame();
+      return;
+    }
+    // REQ-015 AC-1: near the west shore, E takes the player ashore; anywhere else it does nothing (AC-8).
+    const spot = ashoreSpot(position.x, position.z);
+    if (spot) this.startTransition("land", spot);
+  }
+
+  /** REQ-015: starts the short fade for getting out (`spot` is where) or back in. */
+  private startTransition(to: "land" | "sub", spot: AshoreSpot | null): void {
+    this.transition = { time: 0, switched: false, to, spot };
+    this.sucking = false;
+    this.beam.visible = false;
+  }
+
+  /** Advances the fade; at its darkest point the player is moved ashore or back aboard. */
+  private stepTransition(dt: number): void {
+    const transition = this.transition!;
+    transition.time += dt;
+    if (!transition.switched && transition.time >= config.land.fadeSeconds / 2) {
+      transition.switched = true;
+      if (transition.to === "land") this.goAshore(transition.spot!);
+      else this.boardSub();
+    }
+    if (transition.time >= config.land.fadeSeconds) this.transition = null;
+  }
+
+  /** Leaves the submarine floating alongside the beach and stands the player on it, facing inland (D-079, D-080). */
+  private goAshore(spot: AshoreSpot): void {
+    const sub = new Vector3(spot.park.x, config.bay.surfaceY - config.land.floatDepth, spot.park.z);
+    this.ashore = { walker: createWalker(spot.landing.x, spot.landing.z, spot.landing.yaw), sub };
+    this.rov.position.copy(sub);
+    this.rov.velocity.set(0, 0, 0);
+    this.rov.pitch = 0;
+  }
+
+  /** Back in the submarine where it floats, just under the surface, ready to dive (REQ-015 AC-4). */
+  private boardSub(): void {
+    const { sub } = this.ashore!;
+    this.ashore = null;
+    this.rov.position.set(sub.x, config.bay.surfaceY - config.rov.radius, sub.z);
+    this.rov.velocity.set(0, 0, 0);
+    constrainToBay(this.rov.position, this.rov.velocity);
+  }
+
+  /** First person on the land, third person behind the submarine otherwise (D-029, D-079). */
+  private placeCamera(): void {
+    if (!this.ashore) {
+      followCamera(this.rov, this.camera.position, this.cameraTarget);
+      return;
+    }
+    const { walker } = this.ashore;
+    eyePosition(walker, this.eye);
+    this.camera.position.copy(this.eye);
+    this.cameraTarget.copy(this.eye).add(aimDirection(walker.yaw, walker.pitch, this.lookAhead));
+  }
+
   /** E near an empty reef site: pays 5 materials and installs a frame (AC-2), or says materials are short (AC-3). */
   private installFrame(): void {
     const site = this.reef.emptySiteNear(this.rov.position.x, this.rov.position.z);
@@ -437,7 +545,7 @@ export class Game implements GameView {
   }
 
   /** The seed launcher: shots fly to the crosshair's target; coral and seeds land on frames and patches (AC-4 to AC-6). */
-  private stepSeedLauncher(dt: number): void {
+  private stepSeedLauncher(dt: number, primary: boolean): void {
     const { session, rov, seeds } = this;
     let changed = false;
     for (const result of seeds.update(dt, this.reef)) {
@@ -445,7 +553,7 @@ export class Game implements GameView {
       else if (result.kind === "seed") session.seedPlanted(result.planted);
       changed ||= result.kind !== "miss";
     }
-    if (this.input.primaryHeld() && session.tool === "seedLauncher" && seeds.ready) {
+    if (primary && session.tool === "seedLauncher" && seeds.ready) {
       // The crosshair is the camera's ray along the aim; the shot leaves the ROV and flies to the point that ray hits.
       followCamera(rov, this.seedCamera, this.seedCameraTarget);
       findAimPoint(this.seedCamera, this.aim, this.reef, this.seedTarget);
@@ -470,7 +578,7 @@ export class Game implements GameView {
       cleanliness: session.cleanliness,
       objectives: session.objectives,
       notice: session.currentNotice,
-      inStationZone: inStationZone(this.rov.position),
+      inStationZone: !this.ashore && inStationZone(this.rov.position),
       stationDistance: Math.round(distanceToStation(this.rov.position)),
       marker: placeMarker(this.viewPoint, tanHalfFov, window.innerWidth, window.innerHeight, config.hud.markerMargin, config.hud.markerBottomMargin),
       sucking: this.sucking,
@@ -479,13 +587,23 @@ export class Game implements GameView {
       unlocked: LOGBOOK_ENTRIES.filter((entry) => session.unlocked.has(entry.id)).map((entry) => entry.id),
       reef: {
         phase2: session.phase2Objectives,
-        canInstall: !inStationZone(this.rov.position) && this.reef.emptySiteNear(this.rov.position.x, this.rov.position.z) >= 0,
+        canInstall: !this.ashore && !inStationZone(this.rov.position) && this.reef.emptySiteNear(this.rov.position.x, this.rov.position.z) >= 0,
       },
       // REQ-005: the Phase 3 list, empty until the Bloom is over.
       phase3: session.phase3Objectives,
-      // REQ-010
+      // REQ-015: on foot or aboard, the prompts to get out or in, and the fade.
+      land: {
+        onLand: this.ashore !== null,
+        canGoAshore: !this.ashore && !this.transition && ashoreSpot(this.rov.position.x, this.rov.position.z) !== null,
+        canBoard: this.ashore !== null && !this.transition && canBoard(this.ashore.walker, this.ashore.sub),
+        fade: this.transition ? 1 - Math.abs((2 * this.transition.time) / config.land.fadeSeconds - 1) : 0,
+      },
+      // REQ-010; on the land the arrow is the player, and the parked submarine has its own mark (REQ-015 AC-6).
       minimap: buildMinimap({
-        rov: { x: this.rov.position.x, z: this.rov.position.z, yaw: this.rov.yaw },
+        rov: this.ashore
+          ? { x: this.ashore.walker.position.x, z: this.ashore.walker.position.z, yaw: this.ashore.walker.yaw }
+          : { x: this.rov.position.x, z: this.rov.position.z, yaw: this.rov.yaw },
+        sub: this.ashore ? { x: this.ashore.sub.x, z: this.ashore.sub.z, yaw: this.rov.yaw } : null,
         frames: this.reef.frames,
         patches: this.reef.patches,
         nets: this.rescue.nets.nets,
@@ -510,6 +628,12 @@ export class Game implements GameView {
   private syncRovModel(): void {
     const { position, velocity, yaw } = this.rov;
     this.rovModel.position.copy(position);
+    if (this.ashore) {
+      // Parked: floating on the surface, bobbing gently (D-080).
+      this.rovModel.position.y += 0.05 * Math.sin(performance.now() / 700);
+      this.rovModel.rotation.set(0, yaw, 0.02 * Math.sin(performance.now() / 900), "YXZ");
+      return;
+    }
     // Lean into the motion: nose up when rising, bank toward a sideways move.
     const sideways = velocity.dot(rightVector(yaw));
     this.rovModel.rotation.set(-velocity.y * 0.06, yaw, sideways * 0.05, "YXZ");

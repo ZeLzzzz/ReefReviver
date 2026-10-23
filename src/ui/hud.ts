@@ -84,6 +84,7 @@ export function createHud(lang: Lang): HudView {
 
   const toolName = h("strong", { class: "tool-name" });
   const toolHint = h("span", { class: "tool-hint" });
+  const toolPanel = h("section", { class: "hud-panel hud-tool" }, h("span", { class: "tool-label" }, t(lang, "hud.tool")), toolName, toolHint);
 
   const fullMessage = h("p", { class: "message message-full", role: "status" });
   const prompt = h("p", { class: "message message-prompt" });
@@ -105,6 +106,9 @@ export function createHud(lang: Lang): HudView {
   );
   cutProgress.hidden = true;
 
+  // REQ-015: the screen fades out and back in while the player gets out of the submarine or back in (no flash).
+  const fade = h("div", { class: "hud-fade", "aria-hidden": "true" });
+
   // REQ-010: the minimap in the top-right corner, with the stats panel under it.
   const minimap = createMinimap(lang);
   minimap.element.hidden = true;
@@ -117,15 +121,10 @@ export function createHud(lang: Lang): HudView {
     h("section", { class: "hud-panel hud-goals", "aria-label": t(lang, "objectives.title") }, h("h2", {}, t(lang, "objectives.title")), goalList, phase2List, phase3List),
     minimap.element,
     h("section", { class: "hud-panel hud-stats" }, tank.row, meter, materials.row, score.row, cleanliness.row),
-    h(
-      "section",
-      { class: "hud-panel hud-tool" },
-      h("span", { class: "tool-label" }, t(lang, "hud.tool")),
-      toolName,
-      toolHint,
-    ),
+    toolPanel,
     h("div", { class: "hud-messages" }, fullMessage, notice, prompt),
     marker,
+    fade,
   );
 
   let markerWidth = 0;
@@ -162,6 +161,11 @@ export function createHud(lang: Lang): HudView {
       setText(score.value, String(state.score));
       setText(cleanliness.value, `${state.cleanliness}%`);
 
+      // REQ-015 AC-2: on the land there are no tools, so their panel is hidden.
+      const onLand = state.land?.onLand ?? false;
+      element.classList.toggle("on-land", onLand);
+      setHidden(toolPanel, onLand);
+      fade.style.opacity = (state.land?.fade ?? 0).toFixed(3);
       setText(toolName, `${TOOL_SLOT[state.tool]} ${t(lang, `tools.${state.tool}`)}`);
       setText(toolHint, t(lang, `tools.${state.tool}.hint`));
       element.classList.toggle("sucking", state.sucking);
@@ -183,8 +187,17 @@ export function createHud(lang: Lang): HudView {
 
       setHidden(fullMessage, !state.tankFull);
       setText(fullMessage, state.tankFull ? t(lang, "hud.tankFull") : "");
-      // Depositing wins when both apply; the frame prompt shows near an empty reef site (REQ-004).
-      const promptKey = state.inStationZone ? "hud.depositPrompt" : state.reef?.canInstall ? "reef.installPrompt" : null;
+      // Depositing wins when both apply; the frame prompt shows near an empty reef site (REQ-004); near the beach E
+      // goes ashore, and on the land next to the submarine it gets back in (REQ-015).
+      const promptKey = state.land?.canBoard
+        ? "land.boardPrompt"
+        : state.inStationZone
+          ? "hud.depositPrompt"
+          : state.reef?.canInstall
+            ? "reef.installPrompt"
+            : state.land?.canGoAshore
+              ? "land.ashorePrompt"
+              : null;
       setHidden(prompt, !promptKey);
       setText(prompt, promptKey ? t(lang, promptKey) : "");
       setHidden(notice, !state.notice);

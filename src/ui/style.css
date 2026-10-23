@@ -549,7 +549,8 @@ kbd {
   padding: 5px;
 }
 
-.hud-minimap[hidden] {
+.hud-minimap[hidden],
+.hud-tool[hidden] {
   display: none;
 }
 
@@ -636,6 +637,12 @@ kbd {
   fill: var(--ink-soft);
   stroke: rgba(0, 0, 0, 0.55);
   stroke-width: 0.8;
+}
+
+.mm-sub {
+  fill: var(--accent);
+  stroke: var(--accent-ink);
+  stroke-width: 1.2;
 }
 
 .mm-rov {
@@ -892,4 +899,13 @@ kbd {
   .end-stats > div {
     padding: 3px 0;
   }
+}
+
+/* REQ-015: the short fade while getting out of the submarine or back in; dark blue, never a white flash. */
+.hud-fade {
+  position: fixed;
+  inset: 0;
+  background: #0b1c26;
+  opacity: 0;
+  pointer-events: none;
 }

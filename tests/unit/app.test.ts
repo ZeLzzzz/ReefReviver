@@ -236,16 +236,16 @@ describe("pause (REQ-001 AC-5)", () => {
     await clickButton(ui, "Kontrol");
     const rows = [...ui.querySelectorAll("dt")].map((dt) => `${dt.textContent} = ${dt.nextElementSibling?.textContent}`);
     expect(rows).toEqual([
-      "W A S D = Maju, mundur, geser ke samping",
+      "W A S D = Maju, mundur, geser ke samping; di darat: berjalan",
       "Spasi = Naik",
       "Shift = Turun",
-      "Mouse = Mengarahkan ROV",
+      "Mouse = Mengarahkan kapal selam mini; di darat: menengok",
       "Klik kiri = Pakai alat (tahan)",
       "1 = Pilih Cutter",
       "2 = Pilih Vacuum",
       "3 = Pilih Seed launcher",
       "4 = Pilih Scanner",
-      "E = Setor sampah atau pasang rangka",
+      "E = Setor sampah, pasang rangka, naik ke darat, atau masuk kapal selam mini",
       "L = Buka atau tutup Marine Logbook",
       "Esc = Jeda",
     ]);

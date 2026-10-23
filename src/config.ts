@@ -72,6 +72,56 @@ export const config = {
     // Kept free of rocks and trash for the cave (REQ-014).
     cave: { x: 98, z: -88, clear: 30 },
   },
+  // REQ-015: going ashore on the west shore and walking about on the land (D-079, D-080, D-081, D-084). The player's
+  // vehicle is a crewed mini submarine (D-070); in the code it is still called the ROV.
+  land: {
+    // "Tekan E untuk naik ke darat" shows within this many metres of the waterline, on the open beach only.
+    ashoreRange: 10,
+    // The submarine is left floating alongside the beach where the water is this deep; the player stands this far
+    // inland from the waterline (further if that spot is not walkable).
+    parkDepth: 2.3,
+    landingInland: 3,
+    // Walking: speed, eye height, how deep the player can wade, the steepest rise per metre they can climb, and the
+    // body's radius against trees and rocks.
+    walkSpeed: 4,
+    eyeHeight: 1.6,
+    wadeDepth: 0.5,
+    maxSlope: 0.9,
+    radius: 0.35,
+    minPitch: -1.3,
+    maxPitch: 1.2,
+    // "Tekan E untuk masuk kapal selam" shows within this distance of the submarine, on the ground plane.
+    boardRange: 3.5,
+    // The screen fades out and in over this time when the player gets in or out.
+    fadeSeconds: 0.4,
+    // How high the parked submarine floats: its centre this far under the surface.
+    floatDepth: 0.3,
+    // The land ends in a cliff at the west, rising from cliffX over cliffWidth by cliffHeight.
+    cliffX: -150,
+    cliffWidth: 8,
+    cliffHeight: 12,
+    // Coconut palms (height in metres, lean toward the sea in radians) and rocks on the land (D-081).
+    palms: [
+      { x: -141, z: -72, height: 7, lean: 0.2 },
+      { x: -144, z: -50, height: 8, lean: 0.12 },
+      { x: -139, z: -33, height: 6.5, lean: 0.25 },
+      { x: -146, z: -18, height: 7.5, lean: 0.1 },
+      { x: -143, z: 38, height: 7, lean: 0.18 },
+      { x: -140, z: 55, height: 6, lean: 0.28 },
+      { x: -146, z: 70, height: 8, lean: 0.1 },
+    ],
+    rocks: [
+      { x: -140, z: -60, radius: 1.2 },
+      { x: -147, z: -38, radius: 1.6 },
+      { x: -142, z: 46, radius: 1 },
+      { x: -145, z: 62, radius: 1.4 },
+    ],
+    // Above the water: the sky, the light haze over the bay, and the sea seen from above.
+    sky: 0x9fd6f2,
+    hazeNear: 80,
+    hazeFar: 420,
+    seaOpacity: 0.88,
+  },
   rov: {
     radius: 0.8,
     maxSpeed: 6,
@@ -310,7 +360,7 @@ export const config = {
     cells: 80,
     depthBands: [-11, -15, -19],
     // Icon sizes in map units (the minimap is about 200 px wide at full size, so one unit is about one pixel).
-    icon: { station: 8, site: 8, net: 6.5, trash: 2.6, rov: 12 },
+    icon: { station: 8, site: 8, net: 6.5, trash: 2.6, rov: 12, sub: 7 },
   },
   water: {
     murky: {

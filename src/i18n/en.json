@@ -13,13 +13,13 @@
   "pause.back": "Back",
   "pause.lockFailed": "The game couldn't capture the mouse. Click Resume again.",
   "controls.move.keys": "W A S D",
-  "controls.move.action": "Move forward, back, and sideways",
+  "controls.move.action": "Move forward, back, and sideways; on land: walk",
   "controls.rise.keys": "Space",
   "controls.rise.action": "Rise",
   "controls.dive.keys": "Shift",
   "controls.dive.action": "Dive",
   "controls.look.keys": "Mouse",
-  "controls.look.action": "Steer the ROV",
+  "controls.look.action": "Steer the mini submarine; on land: look around",
   "controls.pause.keys": "Esc",
   "controls.pause.action": "Pause",
   "unsupported.title": "Play on a computer",
@@ -64,7 +64,7 @@
   "controls.vacuum.keys": "2",
   "controls.vacuum.action": "Select Vacuum",
   "controls.interact.keys": "E",
-  "controls.interact.action": "Deposit trash or install a frame",
+  "controls.interact.action": "Deposit trash, install a frame, go ashore, or board the mini submarine",
   "logbook.turtle.name": "Green turtle",
   "logbook.turtle.facts": "Green turtles eat seagrass and algae. Lost fishing nets can trap them, and they can swallow plastic. In 2025 their IUCN status improved from Endangered (EN) to Least Concern (LC), but their numbers are still far below past levels.",
   "logbook.turtle.sdg": "Target 14.1 calls for preventing and significantly reducing marine pollution, including marine debris.",
@@ -144,5 +144,7 @@
   "end.score": "Score",
   "end.replay": "Play again",
   "end.explore": "Keep exploring",
-  "end.lockFailed": "The game couldn't capture the mouse. Click the button again."
+  "end.lockFailed": "The game couldn't capture the mouse. Click the button again.",
+  "land.ashorePrompt": "Press E to go ashore",
+  "land.boardPrompt": "Press E to board the mini submarine"
 }

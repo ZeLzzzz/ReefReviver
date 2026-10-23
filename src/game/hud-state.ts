@@ -34,6 +34,19 @@ export interface HudState {
   unlocked?: readonly LogbookId[];
   /** REQ-010: what the minimap draws. Optional so a state without a map still renders. */
   minimap?: MinimapState;
+  /** REQ-015: on foot or aboard, and the prompts to get out or back in. Optional so an older state still renders. */
+  land?: LandHud;
+}
+
+export interface LandHud {
+  /** The player is on foot on the land: no tools, and E boards the submarine. */
+  onLand: boolean;
+  /** Aboard, close enough to the west shore that E goes ashore. */
+  canGoAshore: boolean;
+  /** On foot, close enough to the submarine that E gets back in. */
+  canBoard: boolean;
+  /** 0 (clear) to 1 (dark): the short fade while getting out or in. */
+  fade: number;
 }
 
 export interface ReefHud {

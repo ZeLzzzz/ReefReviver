@@ -14,8 +14,9 @@ import { assets } from "../assets";
 import { compactGroup, hasMesh } from "./model-utils";
 
 /**
- * Low-poly scientific ROV mesh facing +Z (D-022, D-029). Built so the rear thrusters, top buoyancy hull,
- * dorsal tunnel, landing skids, viewport dome and tool bay read clearly from the third-person camera.
+ * Low-poly mini submarine facing +Z (D-022, D-029, D-070). Built so the rear thrusters, top buoyancy hull, the
+ * glass cockpit with its pilot (D-082), landing skids, viewport dome and tool bay read clearly from the third-person
+ * camera. In the code it is still called the ROV.
  */
 export function buildRovMesh(): Group {
   const hull = new MeshStandardMaterial({ color: 0xf2b134, flatShading: true, roughness: 0.55 });
@@ -51,9 +52,20 @@ export function buildRovMesh(): Group {
     add(new Mesh(new BoxGeometry(0.05, 0.14, 0.06), frame), side * 0.2, 0.39, -0.32);
   }
 
-  // Rear umbilical strain-relief boot and telemetry beacon.
-  add(new Mesh(new ConeGeometry(0.1, 0.28, 6), frame), 0, 0.18, -0.76, -Math.PI / 2, 0, 0);
+  // Rear telemetry beacon. (A crewed submarine has no tether, so there is no umbilical boot.)
   add(new Mesh(new SphereGeometry(0.07, 6, 5), strobe), 0, 0.42, -0.52);
+
+  // D-082: the glass cockpit dome on top of the hull, with the pilot's head and shoulders inside, so it reads as crewed.
+  const pilot = new Mesh(new SphereGeometry(0.11, 8, 6), new MeshStandardMaterial({ color: 0x2b3440, flatShading: true, roughness: 0.7 }));
+  pilot.name = "pilot";
+  add(pilot, 0, 0.66, 0.16);
+  const shoulders = new Mesh(new SphereGeometry(0.16, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2), new MeshStandardMaterial({ color: 0xe06d1a, flatShading: true, roughness: 0.7 }));
+  shoulders.name = "pilot-suit";
+  add(shoulders, 0, 0.5, 0.16);
+  const glass = new MeshStandardMaterial({ color: 0xbfe8f5, transparent: true, opacity: 0.38, roughness: 0.08, metalness: 0.2, depthWrite: false });
+  const dome = new Mesh(new SphereGeometry(0.34, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), glass);
+  dome.name = "cockpit-dome";
+  add(dome, 0, 0.5, 0.16);
 
   // Lower equipment chassis tray.
   add(new Mesh(new BoxGeometry(1.12, 0.08, 1.48), frame), 0, -0.16, 0);
@@ -116,7 +128,7 @@ export function buildRovMesh(): Group {
   return compactGroup(model);
 }
 
-/** ROV model with forward headlight; uses the loaded GLB from `assets` when available (D-022). */
+/** The submarine's model with its forward headlight; uses the loaded GLB from `assets` when available (D-022). */
 export function createRovModel(): Group {
   const loaded = assets.model("rov");
   const model = new Group();

@@ -115,6 +115,8 @@ export interface MapMark extends MapPoint {
 /** What changes: the ROV, how far each site is, which nets still trap an animal and which trash is shown. */
 export interface MinimapState {
   rov: MapPoint & { heading: number };
+  /** REQ-015: the submarine floating where it was left, while the player is on the land; null aboard. */
+  sub: (MapPoint & { heading: number }) | null;
   frames: SiteStatus[];
   patches: SiteStatus[];
   /** Only the nets that have not been cut (AC-3). */
@@ -124,7 +126,10 @@ export interface MinimapState {
 }
 
 export interface MinimapInput {
+  /** The submarine, or the player on foot while on the land. */
   rov: { x: number; z: number; yaw: number };
+  /** REQ-015: the parked submarine while the player is on the land. */
+  sub?: { x: number; z: number; yaw: number } | null;
   frames: readonly FrameSite[];
   patches: readonly PatchSite[];
   nets: readonly Net[];
@@ -138,7 +143,7 @@ export function trashVisible(cleanliness: number): boolean {
   return cleanliness >= minimap.trashFromCleanliness;
 }
 
-export function buildMinimap({ rov, frames, patches, nets, trash, cleanliness }: MinimapInput): MinimapState {
+export function buildMinimap({ rov, sub = null, frames, patches, nets, trash, cleanliness }: MinimapInput): MinimapState {
   const marks: MapMark[] = [];
   if (trashVisible(cleanliness)) {
     // Only items lying on the floor: one being pulled in is already gone from the map.
@@ -146,6 +151,7 @@ export function buildMinimap({ rov, frames, patches, nets, trash, cleanliness }:
   }
   return {
     rov: { ...mapPoint(rov.x, rov.z), heading: headingDegrees(rov.yaw) },
+    sub: sub ? { ...mapPoint(sub.x, sub.z), heading: headingDegrees(sub.yaw) } : null,
     frames: frames.map(frameStatus),
     patches: patches.map(patchStatus),
     nets: nets.filter((net) => !net.cut).map((net) => ({ id: net.id, ...mapPoint(net.center.x, net.center.z) })),

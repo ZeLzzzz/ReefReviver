@@ -1,7 +1,9 @@
 import {
   BufferAttribute,
   BufferGeometry,
+  CircleGeometry,
   Color,
+  ConeGeometry,
   CylinderGeometry,
   DirectionalLight,
   DodecahedronGeometry,
@@ -28,7 +30,7 @@ import { wallness } from "./terrain";
 import { waterAt } from "./bloom";
 import { compactGroup, hasMesh } from "./model-utils";
 
-const { bay, water } = config;
+const { bay, water, land } = config;
 
 /** Builds a low-poly multi-boulder rock outcrop in a unit radius so (rock.size, rock.height, rock.size) matches collision. */
 export function buildRockMesh(variant: number): Group {
@@ -78,7 +80,7 @@ const algae = new Color(0x6f7d48);
 const rockLight = new Color(0x8a826f);
 const rockDark = new Color(0x5b5548);
 const beach = new Color(0xd8c690);
-const land = new Color(0x9c8e60);
+const dryLand = new Color(0x9c8e60);
 
 function smoothstep(edge0: number, edge1: number, x: number): number {
   const t = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)));
@@ -93,7 +95,8 @@ function groundColour(x: number, y: number, z: number, out: Color): Color {
   const slope = floorSlope(x, z);
   const ripple = 0.5 + 0.5 * Math.sin(x * 0.35 + z * 0.25) * Math.cos(z * 0.4 - x * 0.15);
   const strata = 0.5 + 0.5 * Math.sin(y * 1.4 + Math.sin(x * 0.11 + z * 0.07) * 2);
-  if (y > 0.2 && wallness(x, z) < 0.3) return out.copy(beach).lerp(land, smoothstep(1, 3, y));
+  // On the land, rock shows on the cliff that closes it at the west (REQ-015).
+  if (y > 0.2 && wallness(x, z) < 0.3) return out.copy(beach).lerp(dryLand, smoothstep(1, 3, y)).lerp(tmpRock.copy(rockDark).lerp(rockLight, strata), smoothstep(0.6, 1.2, slope));
   out.copy(sandDeep).lerp(sandLight, smoothstep(-24, -10, y)).lerp(sandLight, ripple * 0.25);
   out.lerp(algae, smoothstep(-12.5, -9.5, y) * (1 - smoothstep(0.2, 0.45, slope)) * 0.85);
   const rocky = Math.max(smoothstep(0.55, 1.1, slope), wallness(x, z));
@@ -222,7 +225,7 @@ function addSurface(scene: Scene): MeshBasicMaterial {
 }
 
 /** Drifting particles ("marine snow") around the camera, so the murky water reads as water. */
-function addMarineSnow(scene: Scene): { update: (dt: number, around: Vector3) => void; material: PointsMaterial } {
+function addMarineSnow(scene: Scene): { update: (dt: number, around: Vector3) => void; material: PointsMaterial; points: Points } {
   const half = 15;
   const positions = new Float32Array(water.snowCount * 3);
   for (let i = 0; i < positions.length; i++) positions[i] = (Math.random() * 2 - 1) * half;
@@ -243,7 +246,64 @@ function addMarineSnow(scene: Scene): { update: (dt: number, around: Vector3) =>
     }
     geometry.attributes.position.needsUpdate = true;
   };
-  return { update, material };
+  return { update, material, points };
+}
+
+/** A coconut palm on the land (D-081): a trunk curving toward the sea, a crown of fronds and a few coconuts. */
+export function buildPalmMesh(height: number, lean: number, seed: number): Group {
+  const bark = new MeshStandardMaterial({ color: 0x8a6b4a, flatShading: true, roughness: 0.95 });
+  const leaf = new MeshStandardMaterial({ color: 0x4f8a3c, flatShading: true, roughness: 0.9, side: DoubleSide });
+  const nut = new MeshStandardMaterial({ color: 0x6b4a2a, flatShading: true, roughness: 0.8 });
+  const palm = new Group();
+  palm.name = "palm";
+  const segments = 5;
+  const length = height / segments;
+  // The trunk bends a little more with each segment, leaning toward +X (the sea, once turned into place).
+  let x = 0;
+  let y = 0;
+  let angle = 0;
+  for (let i = 0; i < segments; i++) {
+    angle += lean / segments * (1 + i * 0.35);
+    const piece = new Mesh(new CylinderGeometry(0.17 - i * 0.012, 0.22 - i * 0.012, length * 1.04, 6), bark);
+    piece.position.set(x + (Math.sin(angle) * length) / 2, y + (Math.cos(angle) * length) / 2, 0);
+    piece.rotation.z = -angle;
+    palm.add(piece);
+    x += Math.sin(angle) * length;
+    y += Math.cos(angle) * length;
+  }
+  for (let i = 0; i < 7; i++) {
+    const around = (i / 7) * Math.PI * 2 + seed;
+    const frond = new Mesh(new ConeGeometry(0.42, 3.2, 3), leaf);
+    frond.geometry.translate(0, 1.6, 0);
+    frond.scale.set(1, 1, 0.18);
+    frond.position.set(x, y, 0);
+    frond.rotation.set(0, around, 1.15 + 0.15 * Math.sin(seed + i * 1.7), "YXZ");
+    palm.add(frond);
+  }
+  for (let i = 0; i < 3; i++) {
+    const coconut = new Mesh(new IcosahedronGeometry(0.16, 0), nut);
+    coconut.position.set(x + Math.cos(i * 2.1 + seed) * 0.22, y - 0.25, Math.sin(i * 2.1 + seed) * 0.22);
+    palm.add(coconut);
+  }
+  return palm;
+}
+
+/** The palms and the rocks on the land (REQ-015). */
+function addLand(scene: Scene): void {
+  config.land.palms.forEach((spec, index) => {
+    const palm = buildPalmMesh(spec.height, spec.lean, index * 1.37);
+    palm.position.set(spec.x, floorHeight(spec.x, spec.z) - 0.1, spec.z);
+    // The trunk was built leaning toward +X; turn it a little either way, still facing the sea in the east.
+    palm.rotation.y = 0.5 * Math.sin(index * 2.3);
+    scene.add(palm);
+  });
+  config.land.rocks.forEach((spec, index) => {
+    const rock = buildRockMesh(index);
+    rock.position.set(spec.x, floorHeight(spec.x, spec.z) + spec.radius * 0.15, spec.z);
+    rock.scale.set(spec.radius, spec.radius * 0.7, spec.radius);
+    rock.rotation.y = index * 1.9;
+    scene.add(rock);
+  });
 }
 
 export interface World {
@@ -251,6 +311,8 @@ export interface World {
   update(dt: number, around: Vector3): void;
   /** REQ-005: 0 is the murky bay, 1 is the clear water after the Bloom; water, fog, light and snow blend by it. */
   setClarity(clarity: number): void;
+  /** REQ-015: true while the camera is above the water: sky, sun and daylight haze instead of the water's fog. */
+  setAbove(above: boolean): void;
 }
 
 /** The bay before the Bloom: murky green-grey water with short visibility (REQ-001 AC-3). */
@@ -267,23 +329,63 @@ export function buildWorld(scene: Scene): World {
 
   addTerrain(scene);
   addRocks(scene);
+  addLand(scene);
   const surface = addSurface(scene);
   const snow = addMarineSnow(scene);
   const fog = scene.fog as Fog;
+  // REQ-015: the sun's disk, seen from the land; kept far away along the light's direction.
+  const sunDisk = new Mesh(new CircleGeometry(14, 24), new MeshBasicMaterial({ color: 0xfff3c4, fog: false }));
+  sunDisk.visible = false;
+  scene.add(sunDisk);
+  const sunDirection = sun.position.clone().normalize();
+
+  let clarity = 0;
+  let above = false;
+  const apply = () => {
+    const look = waterAt(clarity);
+    snow.points.visible = !above;
+    sunDisk.visible = above;
+    if (above) {
+      // Daylight over the bay: a sky-coloured haze, and the sea seen from above in the water's own colour.
+      murk.setHex(land.sky);
+      fog.color.setHex(land.sky);
+      fog.near = land.hazeNear;
+      fog.far = land.hazeFar;
+      hemisphere.color.setHex(0xe6f6ff);
+      hemisphere.intensity = 2.1;
+      sun.intensity = 2.4;
+      surface.color.setHex(look.color);
+      surface.opacity = land.seaOpacity;
+      return;
+    }
+    murk.setHex(look.color);
+    fog.color.setHex(look.color);
+    fog.near = look.fogNear;
+    fog.far = look.fogFar;
+    hemisphere.color.setHex(look.hemiSky);
+    hemisphere.intensity = look.hemiIntensity;
+    sun.intensity = look.sunIntensity;
+    snow.material.opacity = look.snowOpacity;
+    surface.color.setHex(look.surfaceColor);
+    surface.opacity = 0.5;
+  };
 
   return {
-    update: snow.update,
-    setClarity(clarity) {
-      const look = waterAt(clarity);
-      murk.setHex(look.color);
-      fog.color.setHex(look.color);
-      fog.near = look.fogNear;
-      fog.far = look.fogFar;
-      hemisphere.color.setHex(look.hemiSky);
-      hemisphere.intensity = look.hemiIntensity;
-      sun.intensity = look.sunIntensity;
-      snow.material.opacity = look.snowOpacity;
-      surface.color.setHex(look.surfaceColor);
+    update(dt, around) {
+      snow.update(dt, around);
+      if (above) {
+        sunDisk.position.copy(around).addScaledVector(sunDirection, 380);
+        sunDisk.lookAt(around);
+      }
+    },
+    setClarity(value) {
+      clarity = value;
+      apply();
+    },
+    setAbove(value) {
+      if (value === above) return;
+      above = value;
+      apply();
     },
   };
 }
