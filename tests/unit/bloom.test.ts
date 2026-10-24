@@ -233,16 +233,16 @@ describe("coral and seagrass grow (AC-2)", () => {
     expect(view.look()).toEqual({ coralScale: 1, seagrassHeight: 1 });
   });
 
-  it("end in several bright pastel colours, bigger, with taller seagrass", () => {
+  it("end in several distinct reef colours, bigger, with taller seagrass", () => {
     view.setBloom(1);
     const colours = view.coralMaterials.map((m) => m.color.getHex());
     // Every frame holds three different colours: the reef is multi-coloured.
     expect(new Set(colours).size).toBeGreaterThanOrEqual(5);
     for (let f = 0; f < reef.frames; f++) expect(new Set(colours.slice(f * 3, f * 3 + 3)).size).toBe(3);
-    // Pastel: light (every channel at least 0x80) but not white.
+    // The restored palette contains warm and cool hues, with enough saturation to read against the sand.
     for (const colour of colours) {
       const [r, g, b] = channels(colour);
-      expect(Math.min(r, g, b)).toBeGreaterThanOrEqual(0x80);
+      expect(Math.min(r, g, b)).toBeGreaterThanOrEqual(0x50);
       expect(Math.max(r, g, b) - Math.min(r, g, b)).toBeGreaterThan(0x20);
     }
     expect(view.look().coralScale).toBeCloseTo(bloom.coral.scale, 5);

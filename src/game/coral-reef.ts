@@ -1,6 +1,7 @@
 import { config } from "../config";
 import type { Arch, Boulder, Coral, Rock } from "./bay";
 import { floorHeight, floorSlope, squareRadius, wallness } from "./terrain";
+import { boulderSurfaceHeight } from "./boulder-shape";
 
 const { bay } = config;
 const spec = config.nature.coral;
@@ -129,7 +130,7 @@ export function generateReefs(ctx: ReefContext): ReefSet {
   /** Neighbouring colonies share a colour more than chance would give (a patch of one colour). */
   const colourAt = (x: number, z: number) => {
     const n = 0.5 + 0.25 * Math.sin(x * 0.21 + 1) + 0.25 * Math.sin(z * 0.17 - x * 0.09 + 2);
-    return Math.floor((n * 0.7 + random() * 0.3) * 6) % 6;
+    return [4, 1, 3, 2, 0, 5][Math.floor((n * 0.88 + random() * 0.12) * 6) % 6];
   };
   const nearRock = (x: number, z: number, width: number) => rocks.some((rock) => Math.hypot(x - rock.x, z - rock.z) < rock.size + width * 0.5);
   const nearHead = (x: number, z: number, width: number) => heads.some((head) => Math.hypot(x - head.x, z - head.z) < head.radius + width * 0.5 + 0.1);
@@ -212,7 +213,7 @@ export function generateReefs(ctx: ReefContext): ReefSet {
   let boulderPatches = 0;
   for (const boulder of shuffled(boulders)) {
     if (boulderPatches >= spec.patches.boulders) break;
-    const radius = boulder.tiers[0].radius;
+    const radius = boulder.radius;
     if (ctx.keptClear(boulder.x, boulder.z, radius, { ignoreRocks: true })) continue;
     patches.push({ host: "boulder", x: boulder.x, z: boulder.z, width: radius * 2, boulder });
     boulderPatches++;
@@ -237,10 +238,9 @@ export function generateReefs(ctx: ReefContext): ReefSet {
   let patchHeads = spec.porites.count - headSites.length;
   patches.forEach((patch, i) => {
     if (patch.host === "arch" || patchHeads <= 0) return;
-    const limit = patch.boulder ? patch.boulder.tiers[1].radius * 0.5 : patch.width * 0.2;
+    const limit = patch.boulder ? patch.boulder.radius * 0.31 : patch.width * 0.2;
     const radius = Math.min(spec.porites.minRadius + random() * (spec.porites.maxRadius - spec.porites.minRadius), limit);
-    const upper = patch.boulder?.tiers[1];
-    const base = upper ? upper.baseY + upper.height - 0.15 : floorUnder(patch.x, patch.z, radius);
+    const base = patch.boulder ? boulderSurfaceHeight(patch.boulder, patch.x, patch.z)! - 0.15 : floorUnder(patch.x, patch.z, radius);
     headSites.push({ x: patch.x, z: patch.z, radius, reef: beltReef + 1 + i, base });
     patchHeads--;
   });
@@ -258,7 +258,8 @@ export function generateReefs(ctx: ReefContext): ReefSet {
     const depth = depthAt(x, z);
     const want = beltStretch(x, z) * beltDepthWeight(depth) * spec.belt.cover;
     if (want <= 0 || random() > want) continue;
-    const size = sizeOf();
+    // Establish a few broad crowns before smaller colonies fill the remaining gaps.
+    const size = attempt < spec.belt.attempts * 0.12 ? 1.4 + random() * (spec.maxSize - 1.4) : sizeOf();
     if (!inBelt(x, z, size)) continue;
     tryColony(x, floorHeight(x, z) - 0.05, z, size, beltReef);
   }
@@ -287,20 +288,17 @@ export function generateReefs(ctx: ReefContext): ReefSet {
       }
       return;
     }
-    // A hill top: an irregular ellipse, packed in the middle and loose at the edge. A boulder: its two flat tops.
-    const radius = patch.boulder ? patch.boulder.tiers[0].radius : patch.width * 0.5;
+    // Colonies follow the visible sloping rock surface, including its shoulders, instead of sitting on flat tiers.
+    const radius = patch.boulder ? patch.boulder.radius : patch.width * 0.5;
     const rotation = random() * Math.PI;
     const stretch = patch.boulder ? 1 : 0.6 + 0.4 * random();
     const wobble = [random() * Math.PI * 2, random() * Math.PI * 2];
     const groundAt = (x: number, z: number): number | null => {
       if (!patch.boulder) return floorHeight(x, z) - 0.05;
-      const [lower, upper] = patch.boulder.tiers;
-      const d = Math.hypot(x - patch.boulder.x, z - patch.boulder.z);
-      if (d < upper.radius - 0.35) return upper.baseY + upper.height - 0.1;
-      if (d > upper.radius + 0.45 && d < lower.radius - 0.35) return lower.baseY + lower.height - 0.1;
-      return null;
+      const top = boulderSurfaceHeight(patch.boulder, x, z);
+      return top !== null && top > floorHeight(x, z) + 0.15 ? top - 0.1 : null;
     };
-    const attempts = Math.ceil(Math.PI * radius * radius * stretch * 9);
+    const attempts = Math.ceil(Math.PI * radius * radius * stretch * 14);
     for (let attempt = 0; attempt < attempts; attempt++) {
       const angle = random() * Math.PI * 2;
       const r = Math.sqrt(random());

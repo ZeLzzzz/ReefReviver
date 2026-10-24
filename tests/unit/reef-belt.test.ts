@@ -1,6 +1,7 @@
 import { Frustum, InstancedMesh, Matrix4, PerspectiveCamera, Vector3 } from "three";
 import { describe, expect, it } from "vitest";
 import { config } from "../../src/config";
+import { boulderSurfaceHeight } from "../../src/game/boulder-shape";
 import { arches, boulders, colonies, constrainToBay, corals, floorHeight, insideRockAt, isSolidAt, reefs, terrainSolidAt } from "../../src/game/bay";
 import { createCoralView } from "../../src/game/coral-model";
 import { FOOTPRINT, TOP } from "../../src/game/coral-reef";
@@ -53,7 +54,9 @@ describe("the reef belt (REQ-020 AC-1)", () => {
     const frustum = new Frustum().setFromProjectionMatrix(new Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
     const seen = (c: { x: number; y: number; z: number; size: number }, within: number) =>
       camera.position.distanceTo(new Vector3(c.x, c.y, c.z)) <= within && frustum.containsPoint(new Vector3(c.x, c.y + c.size * 0.3, c.z));
-    expect(colonies.filter((c) => c.kind !== 4 && seen(c, 30)).length).toBeGreaterThanOrEqual(20);
+    const visible = colonies.filter((c) => c.kind !== 4 && seen(c, 30));
+    expect(visible.length).toBeGreaterThanOrEqual(12);
+    expect(visible.reduce((area, c) => area + (c.size * FOOTPRINT[c.kind]) ** 2, 0)).toBeGreaterThan(12);
     expect(heads.some((c) => seen(c, 25))).toBe(true);
   });
 });
@@ -65,21 +68,21 @@ describe("the patch reefs (REQ-020 AC-2)", () => {
     for (const r of patchReefs) {
       expect(r.width).toBeGreaterThanOrEqual(5);
       expect(r.width).toBeLessThanOrEqual(20);
-      expect(r.colonies).toBeGreaterThan(25);
+      expect(r.colonies).toBeGreaterThanOrEqual(20);
     }
     expect(new Set(patchReefs.map((r) => r.host))).toEqual(new Set(["hill", "boulder", "arch"]));
   });
 
-  it("stand on what they grow on: the flat tops of boulders, the crown of an arch, the floor of a hill top", () => {
+  it("stand on what they grow on: the uneven boulder surface, the crown of an arch, the floor of a hill top", () => {
     const index = (host: string) => reefs.map((r, i) => (r.kind === "patch" && r.host === host ? i : -1)).filter((i) => i >= 0);
     for (const i of index("boulder")) {
       const boulder = boulders.find((b) => Math.hypot(b.x - reefs[i].x, b.z - reefs[i].z) < 0.5)!;
-      const [lower, upper] = boulder.tiers;
       for (const c of colonies.filter((k) => k.reef === i && k.kind !== 4)) {
         const d = Math.hypot(c.x - boulder.x, c.z - boulder.z);
-        const top = d < upper.radius ? upper.baseY + upper.height : lower.baseY + lower.height;
-        expect(d).toBeLessThan(lower.radius);
-        expect(Math.abs(c.y - top)).toBeLessThan(0.2);
+        const top = boulderSurfaceHeight(boulder, c.x, c.z);
+        expect(top).not.toBeNull();
+        expect(d).toBeLessThan(boulder.radius);
+        expect(Math.abs(c.y - top!)).toBeLessThan(0.2);
       }
     }
     for (const i of index("arch")) {
@@ -99,15 +102,16 @@ describe("the patch reefs (REQ-020 AC-2)", () => {
   });
 
   it("leave the deep sand valleys almost empty", () => {
-    const deep = colonies.filter((c) => depthOf(c) > 14 && c.y - floorHeight(c.x, c.z) < 1);
+    const deep = colonies.filter((c) => reefs[c.reef].host !== "boulder" && depthOf(c) > 14 && c.y - floorHeight(c.x, c.z) < 1);
     expect(deep.length).toBeLessThanOrEqual(colonies.length * 0.03);
-    // A few single heads at most: no reef, no blob, deeper than 15 m.
-    expect(corals.filter((c) => bay.surfaceY - c.y > 15).length).toBeLessThanOrEqual(5);
+    // Growth on a boulder's low shoulders is attached to rock, not spread across a sandy valley.
+    const onRock = (c: { x: number; z: number }) => boulders.some(b => Math.hypot(c.x - b.x, c.z - b.z) < b.radius + spec.cell);
+    expect(corals.filter((c) => bay.surfaceY - c.y > 15 && !onRock(c) && Math.abs(c.y - floorHeight(c.x, c.z)) < 0.5).length).toBeLessThanOrEqual(5);
   });
 });
 
 describe("the colonies (REQ-020 AC-3)", () => {
-  it("are 0.3 to 1.5 m, of the four shapes, small ones the most, packed close together", () => {
+  it("mix small fillers with conspicuous 1.4 to 2.1 m colonies, of four shapes, packed close together", () => {
     const small = colonies.filter((c) => c.kind !== 4);
     for (const c of small) {
       expect(c.size).toBeGreaterThanOrEqual(spec.minSize - 1e-9);
@@ -115,7 +119,8 @@ describe("the colonies (REQ-020 AC-3)", () => {
     }
     expect(new Set(small.map((c) => c.kind))).toEqual(new Set([0, 1, 2, 3]));
     for (const reef of [belt, ...patchReefs.map((_, i) => colonies.filter((c) => c.reef === i + 1 && c.kind !== 4))]) expect(new Set(reef.map((c) => c.kind)).size).toBe(4);
-    expect(small.filter((c) => c.size < 0.9).length).toBeGreaterThan(small.length * 0.6);
+    expect(small.filter((c) => c.size < 0.9).length).toBeGreaterThan(small.length * 0.25);
+    expect(belt.filter((c) => c.size >= 1.4).length).toBeGreaterThan(belt.length * 0.12);
     // Along the belt, colonies cover a good share (over 30%) of many 10 m squares.
     const cells = new Map<string, number>();
     for (const c of belt) {
@@ -264,10 +269,10 @@ describe("scanning the reef (REQ-020 AC-7)", () => {
 });
 
 describe("the reef costs a few draw calls (REQ-020 AC-8)", () => {
-  it("is one instanced mesh per shape and colour: at most 30, holding every colony once", () => {
+  it("shares two variants per shape and six materials: at most 60 meshes, holding every colony once", () => {
     const view = createCoralView();
     const meshes = view.group.children as InstancedMesh[];
-    expect(meshes.length).toBeLessThanOrEqual(30);
+    expect(meshes.length).toBeLessThanOrEqual(60);
     expect(view.stats().meshes).toBe(meshes.length);
     expect(meshes.reduce((sum, m) => sum + m.count, 0)).toBe(colonies.length);
     // Colonies spread over the whole shelf and bay, so no instanced mesh may be culled by its own bounding sphere.

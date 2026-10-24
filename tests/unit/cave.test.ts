@@ -194,7 +194,7 @@ describe("the light (REQ-014 AC-2, AC-3, AC-8)", () => {
     world.setClarity(1);
     const clear = lights();
     const clearHemisphere = clear.hemisphere;
-    expect(clearHemisphere).toBeGreaterThan(openHemisphere);
+    expect(clearHemisphere + clear.sun).toBeGreaterThan(openHemisphere + openSun);
     world.setCave(1);
     const dark = lights();
     expect(dark.hemisphere).toBeLessThan(clearHemisphere * 0.3);

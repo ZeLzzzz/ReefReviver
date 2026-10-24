@@ -153,35 +153,29 @@ function hash(x: number, y: number, z: number): number {
   return (h - Math.floor(h)) * 2 - 1;
 }
 
-/** One tier of a boulder: a rough upright cylinder of unit radius and height, flat on top, never wider than 1. */
-function buildTierGeometry(seed: number): CylinderGeometry {
-  const geometry = new CylinderGeometry(0.97, 1, 1, 9, 2);
-  const position = geometry.attributes.position;
-  for (let i = 0; i < position.count; i++) {
-    const x = position.getX(i);
-    const y = position.getY(i);
-    const z = position.getZ(i);
-    const radial = Math.hypot(x, z);
-    if (radial < 1e-6) continue;
-    const k = 0.93 + 0.07 * (0.5 + 0.5 * hash(x + seed, y, z));
-    position.setXYZ(i, x * k, y < 0.49 ? y + 0.06 * hash(z, x + seed, y) : y, z * k);
-  }
-  geometry.computeVertexNormals();
-  return geometry;
-}
-
-/** A flat-topped boulder in tiers, matching its collision cylinders (REQ-011 AC-1, AC-3). */
+/** One broken rock outcrop, drawn from the same faces the submarine and coral placement use. */
 export function buildBoulderMesh(boulder: Boulder, seed: number): Group {
   const group = new Group();
   group.name = "boulder";
-  boulder.tiers.forEach((tier, index) => {
-    const material = new MeshStandardMaterial({ color: index === 0 ? 0x766f60 : 0x8a8372, flatShading: true, roughness: 0.95 });
-    const mesh = new Mesh(buildTierGeometry(seed * 3 + index), material);
-    mesh.scale.set(tier.radius, tier.height, tier.radius);
-    mesh.position.set(boulder.x, tier.baseY + tier.height / 2, boulder.z);
-    mesh.rotation.y = seed * 1.3 + index;
-    group.add(mesh);
+  const geometry = new BufferGeometry();
+  geometry.setAttribute("position", new Float32BufferAttribute(boulder.vertices.flatMap((p) => [p.x, p.y, p.z]), 3));
+  geometry.setIndex([...boulder.indices]);
+  const colors: number[] = [];
+  const dark = new Color(0x494e49);
+  const stone = new Color(0x92948a);
+  const film = new Color(0x7e8b69);
+  const colour = new Color();
+  boulder.vertices.forEach((p) => {
+    const level = (p.y - boulder.baseY) / (boulder.topY - boulder.baseY);
+    colour.copy(dark).lerp(stone, 0.2 + level * 0.7);
+    colour.lerp(film, Math.max(0, level - 0.45) * 0.4);
+    colour.multiplyScalar(0.9 + 0.1 * hash(p.x + seed, p.y, p.z));
+    colors.push(colour.r, colour.g, colour.b);
   });
+  geometry.setAttribute("color", new Float32BufferAttribute(colors, 3));
+  geometry.computeVertexNormals();
+  geometry.computeBoundingSphere();
+  group.add(new Mesh(geometry, new MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.95 })));
   return group;
 }
 

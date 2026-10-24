@@ -1,11 +1,12 @@
 import {
   AdditiveBlending,
-  CylinderGeometry,
+  DataTexture,
   DoubleSide,
-  Float32BufferAttribute,
   Group,
+  LinearFilter,
   Mesh,
   MeshBasicMaterial,
+  PlaneGeometry,
   Vector3,
 } from "three";
 import { config } from "../config";
@@ -37,18 +38,39 @@ function hash(n: number): number {
   return h - Math.floor(h);
 }
 
-/** A shaft of light from the surface: brightest at the top, fading to nothing toward the floor (additive). */
-function rayGeometry(): CylinderGeometry {
-  const geometry = new CylinderGeometry(0.7, 1.8, 24, 8, 4, true);
-  geometry.translate(0, -12, 0);
+/** A broad, soft ribbon of scattered light, with no visible cylindrical walls or hard lower edge. */
+function rayGeometry(): PlaneGeometry {
+  const geometry = new PlaneGeometry(5.6, 24, 1, 4);
   const position = geometry.attributes.position;
-  const colours = new Float32Array(position.count * 3);
   for (let i = 0; i < position.count; i++) {
-    const k = Math.max(0, 1 + position.getY(i) / 24);
-    colours.set([k, k, k * 0.95], i * 3);
+    const height = (position.getY(i) + 12) / 24;
+    position.setX(i, position.getX(i) * (1 - 0.65 * height));
   }
-  geometry.setAttribute("color", new Float32BufferAttribute(colours, 3));
+  geometry.translate(0, -12, 0);
   return geometry;
+}
+
+/** A small procedural opacity mask shared by all rays; its sides and both ends fade completely. */
+function rayTexture(): DataTexture {
+  const width = 32;
+  const height = 64;
+  const pixels = new Uint8Array(width * height * 4);
+  for (let y = 0; y < height; y++) {
+    const v = y / (height - 1);
+    const vertical = smoothstep(v / 0.3) * smoothstep((1 - v) / 0.12) * (0.25 + 0.75 * v);
+    for (let x = 0; x < width; x++) {
+      const u = x / (width - 1);
+      const softEdge = Math.pow(Math.sin(Math.PI * u), 2.5);
+      const streak = 0.7 + 0.3 * Math.sin(u * 19 + v * 3);
+      const offset = (y * width + x) * 4;
+      pixels.set([225, 244, 255, Math.round(255 * softEdge * vertical * streak)], offset);
+    }
+  }
+  const texture = new DataTexture(pixels, width, height);
+  texture.magFilter = LinearFilter;
+  texture.minFilter = LinearFilter;
+  texture.needsUpdate = true;
+  return texture;
 }
 
 /** REQ-013: the natural coral, the seagrass meadows, the sponges, sea fans and algae, and the light rays. */
@@ -71,8 +93,9 @@ export function createNatureView(): NatureView {
   // Light rays from the surface after the Bloom, kept around the camera. Each has its own material, so a ray close to
   // the camera can fade out instead of filling the screen.
   const geometry = rayGeometry();
+  const texture = rayTexture();
   const rays = Array.from({ length: nature.rays.count }, (_, i) => {
-    const material = new MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0, blending: AdditiveBlending, depthWrite: false, side: DoubleSide });
+    const material = new MeshBasicMaterial({ map: texture, transparent: true, opacity: 0, blending: AdditiveBlending, depthWrite: false, side: DoubleSide });
     const ray = new Mesh(geometry, material);
     ray.name = "light-ray";
     ray.rotation.set(0.18, 0, 0.12);
@@ -110,6 +133,8 @@ export function createNatureView(): NatureView {
         const { x, z } = ray.userData.offset as { x: number; z: number };
         const wrap = (value: number, centre: number) => centre - spread + ((((value - centre + spread) % (spread * 2)) + spread * 2) % (spread * 2));
         ray.position.set(wrap(x, camera.x), config.bay.surfaceY, wrap(z, camera.z));
+        // Turn only around the vertical axis; the shaft keeps its slope and stays broad from every viewing direction.
+        ray.rotation.y = Math.atan2(camera.x - ray.position.x, camera.z - ray.position.z);
         // Faded out within a few metres of the camera, so a ray never covers the view.
         const near = smoothstep((Math.hypot(ray.position.x - camera.x, ray.position.z - camera.z) - 5) / 10);
         (ray.material as MeshBasicMaterial).opacity = strength * near;

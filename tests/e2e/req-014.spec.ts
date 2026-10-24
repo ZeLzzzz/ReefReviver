@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { config } from "../../src/config";
 
 type Vec = [number, number, number];
 type Point = { x: number; y: number; z: number };
@@ -277,7 +278,9 @@ test.describe("Indonesian", () => {
     const clear = await cave(page);
     expect(clear.dark).toBe(0);
     expect(clear.lampLit).toBe(false);
-    expect(clear.light.hemisphere).toBeGreaterThan(1.9);
+    // The clear-water light of the Bloom (D-103 tuned it: a softer sky, a stronger sun).
+    expect(clear.light.hemisphere).toBeCloseTo(config.bloom.clear.hemiIntensity, 1);
+    expect(clear.light.sun).toBeCloseTo(config.bloom.clear.sunIntensity, 1);
     expect((await reef(page, (h) => h.water())).fogFar).toBe(90);
     await reef(page, (h, a) => h.placeRov(a.x, a.y, a.z, Math.PI / 2, 0), { x: mouths[0].x - 8, y: mouths[0].y, z: mouths[0].z });
     await page.waitForTimeout(800);

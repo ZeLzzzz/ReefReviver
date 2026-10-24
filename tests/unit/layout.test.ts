@@ -39,7 +39,7 @@ describe("the candidate spots (REQ-012 AC-1, AC-3)", () => {
       expect(wallness(spot.x, spot.z)).toBe(0);
       for (const [dx, dz] of [[2, 0], [-2, 0], [0, 2], [0, -2]]) expect(Math.abs(floorHeight(spot.x + dx, spot.z + dz) - h)).toBeLessThan(0.05);
       for (const rock of rocks) expect(Math.hypot(spot.x - rock.x, spot.z - rock.z)).toBeGreaterThan(rock.size + 4);
-      for (const boulder of boulders) expect(Math.hypot(spot.x - boulder.x, spot.z - boulder.z)).toBeGreaterThan(boulder.tiers[0].radius + 4);
+      for (const boulder of boulders) expect(Math.hypot(spot.x - boulder.x, spot.z - boulder.z)).toBeGreaterThan(boulder.radius + 4);
       for (const arch of arches) expect(Math.hypot(spot.x - arch.x, spot.z - arch.z)).toBeGreaterThan(arch.radius + arch.tube + 4);
       expect(Math.hypot(spot.x - bay.cave.x, spot.z - bay.cave.z)).toBeGreaterThan(bay.cave.clear);
       expect(Math.hypot(spot.x - rov.start.x, spot.z - rov.start.z)).toBeGreaterThan(20);

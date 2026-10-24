@@ -1,7 +1,7 @@
 import { Vector3 } from "three";
 import { describe, expect, it } from "vitest";
 import { config } from "../../src/config";
-import { floorHeight, rocks } from "../../src/game/bay";
+import { floorHeight, rocks, terrainSolidAt } from "../../src/game/bay";
 import { AnimalField } from "../../src/game/animals";
 import { ReefField } from "../../src/game/reef-sites";
 import { SeaLife } from "../../src/game/sea-life";
@@ -237,11 +237,15 @@ describe("aiming at a target", () => {
 
   it("does not see through a rock or the floor", () => {
     // A rock with open water around it at its height, so only the rock itself can be in the way.
-    const rock = rocks.find((r) =>
-      [[0, 4], [0, -4], [r.size + 6, -4]].every(([dx, dz]) => floorHeight(r.x + dx, r.z + dz) < r.y + r.height * 0.4 - 1),
-    )!;
+    const rock = rocks.find((r) => {
+      const height = r.y + r.height * 0.75;
+      if (![[0, 4], [0, -4], [r.size + 6, -4]].every(([dx, dz]) => floorHeight(r.x + dx, r.z + dz) < height - 0.2)) return false;
+      // Larger reef colonies may now grow near a rock. Pick a control ray with open water along its entire length.
+      for (let dx = 0.85; dx <= r.size + 6; dx += 0.2) if (terrainSolidAt(r.x + dx, height, r.z - 4)) return false;
+      return true;
+    })!;
     expect(rock).toBeDefined();
-    const above = new Vector3(rock.x, rock.y + rock.height * 0.4, rock.z);
+    const above = new Vector3(rock.x, rock.y + rock.height * 0.75, rock.z);
     // The target lies 4 m behind the rock's centre, the ray comes from 4 m in front of it, at the rock's height.
     const start = new Vector3(rock.x, above.y, rock.z + 4);
     const behind = sphere(rock.x, above.y, rock.z - 4, 0.8);

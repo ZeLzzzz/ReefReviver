@@ -1,8 +1,9 @@
 import { Vector3 } from "three";
 import { describe, expect, it } from "vitest";
 import { config } from "../../src/config";
+import { boulderSurfaceHeight, insideBoulder } from "../../src/game/boulder-shape";
 import { allSpots } from "../../src/game/layout";
-import { arches, boulders, constrainToBay, corals, floorHeight, insideRockAt, rocks, terrainSolidAt } from "../../src/game/bay";
+import { arches, boulders, constrainToBay, floorHeight, insideRockAt, rocks, terrainSolidAt } from "../../src/game/bay";
 import { followCamera, keepCameraInWater } from "../../src/game/follow-camera";
 import { createRovState, forwardVector, stepRov, type MoveInput, type RovState } from "../../src/game/rov";
 import { stationPosition } from "../../src/game/station";
@@ -79,17 +80,16 @@ describe("a bay about 300 m wide with hills and valleys (REQ-011 AC-1)", () => {
     for (const valley of bay.valleys) expect(floorHeight(valley.x, valley.z)).toBeLessThan(floorHeight(valley.x + valley.radius, valley.z) - 2);
   });
 
-  it("has flat-topped boulders in two tiers standing on the floor, the upper one narrower", () => {
+  it("has asymmetric rock outcrops buried in the floor with uneven sloping surfaces", () => {
     expect(boulders.length).toBe(bay.boulders.length);
     for (const boulder of boulders) {
-      const [lower, upper] = boulder.tiers;
-      expect(upper.radius).toBeLessThan(lower.radius);
-      expect(upper.baseY).toBeCloseTo(lower.baseY + lower.height, 0);
-      // The lower tier is buried all around: no gap under it.
+      // The base is buried all around: no gap under the rock.
       for (let angle = 0; angle < Math.PI * 2; angle += 0.3) {
-        expect(lower.baseY).toBeLessThan(floorHeight(boulder.x + Math.cos(angle) * lower.radius, boulder.z + Math.sin(angle) * lower.radius));
+        expect(boulder.baseY).toBeLessThan(floorHeight(boulder.x + Math.cos(angle) * boulder.radius, boulder.z + Math.sin(angle) * boulder.radius));
       }
-      expect(upper.baseY + upper.height).toBeLessThan(bay.surfaceY - 4);
+      expect(boulder.topY).toBeLessThan(bay.surfaceY - 4);
+      const heights = [0, 1, 2, 3, 4, 5].map(a => boulderSurfaceHeight(boulder, boulder.x + Math.cos(a) * boulder.radius * 0.5, boulder.z + Math.sin(a) * boulder.radius * 0.5)!);
+      expect(Math.max(...heights) - Math.min(...heights)).toBeGreaterThan(0.3);
     }
   });
 
@@ -196,22 +196,19 @@ describe("limits (REQ-011 AC-3)", () => {
     expect(state.position.x).toBeGreaterThan(hill.x);
   });
 
-  it("stops at a boulder's side and settles on its top", () => {
+  it("slides over a boulder's side and crown without penetrating its visible surface", () => {
     for (const boulder of boulders) {
-      const [lower, upper] = boulder.tiers;
-      const midY = lower.baseY + lower.height - 1;
-      const state = rovAt(boulder.x - lower.radius - 4, midY, boulder.z, Math.PI / 2);
+      const midY = boulder.baseY + (boulder.topY - boulder.baseY) * 0.4;
+      const state = rovAt(boulder.x - boulder.radius - 4, midY, boulder.z, Math.PI / 2);
       constrainToBay(state.position, state.velocity);
       fly(state, { forward: 1 }, 3, (s) => {
-        if (s.position.y < lower.baseY + lower.height) expect(Math.hypot(s.position.x - boulder.x, s.position.z - boulder.z)).toBeGreaterThanOrEqual(lower.radius + rov.radius - 1e-6);
+        expect(insideBoulder(boulder, s.position.x, s.position.y, s.position.z, rov.radius - 0.02)).toBe(false);
       });
-      const top = upper.baseY + upper.height;
-      // REQ-020: a boulder with a reef on its top is topped by the coral, so the vehicle settles on that; a bare one, on the rock.
-      const reefOnTop = corals.some((c) => Math.hypot(c.x - boulder.x, c.z - boulder.z) < lower.radius && c.y > lower.baseY + lower.height - 0.5);
-      const above = rovAt(boulder.x + upper.radius - 0.3, top + 3, boulder.z);
-      fly(above, { rise: -1 }, 4);
-      if (reefOnTop) expect(above.position.y).toBeGreaterThan(top - 2.5);
-      else expect(above.position.y).toBeCloseTo(top + rov.radius, 3);
+      const above = rovAt(boulder.x, boulder.topY + 3, boulder.z);
+      fly(above, { rise: -1 }, 4, (s) => {
+        expect(insideBoulder(boulder, s.position.x, s.position.y, s.position.z, rov.radius - 0.02)).toBe(false);
+      });
+      expect(above.position.y).toBeGreaterThan(boulder.baseY + rov.radius);
     }
   });
 
@@ -239,9 +236,8 @@ describe("limits (REQ-011 AC-3)", () => {
 describe("the camera stays out of slopes, rocks and walls (REQ-011 AC-4)", () => {
   it("comes in closer when a boulder is behind the ROV", () => {
     const boulder = boulders[0];
-    const lower = boulder.tiers[0];
     // Facing east with the boulder right behind: the camera would be inside it.
-    const state = rovAt(boulder.x + lower.radius + rov.radius + 0.2, lower.baseY + lower.height - 1.5, boulder.z, Math.PI / 2);
+    const state = rovAt(boulder.x + boulder.radius + rov.radius + 0.2, boulder.baseY + (boulder.topY - boulder.baseY) * 0.4, boulder.z, Math.PI / 2);
     const position = new Vector3();
     followCamera(state, position, new Vector3());
     expect(terrainSolidAt(position.x, position.y, position.z)).toBe(false);

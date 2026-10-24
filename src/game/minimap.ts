@@ -102,7 +102,7 @@ export const minimapLayout: MinimapLayout = {
   terrain: terrainShades(),
   rocks: [
     ...rocks.map((rock) => ({ ...mapPoint(rock.x, rock.z), radius: rock.size * SCALE })),
-    ...boulders.map((boulder) => ({ ...mapPoint(boulder.x, boulder.z), radius: boulder.tiers[0].radius * SCALE })),
+    ...boulders.map((boulder) => ({ ...mapPoint(boulder.x, boulder.z), radius: boulder.radius * SCALE })),
     ...archFeet,
   ],
   station: mapPoint(station.x, station.z),

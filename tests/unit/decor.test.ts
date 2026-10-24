@@ -1,6 +1,7 @@
 import { Color, InstancedMesh, Vector3 } from "three";
 import { describe, expect, it } from "vitest";
 import { config } from "../../src/config";
+import { boulderSurfaceHeight } from "../../src/game/boulder-shape";
 import { arches, boulders, constrainToBay, floorHeight, floorSlope, insideRockAt, isSolidAt, rocks } from "../../src/game/bay";
 import { createDecorView, decorColour, decorShape } from "../../src/game/decor-model";
 import { allSpots, chooseLayout } from "../../src/game/layout";
@@ -16,16 +17,16 @@ const ALGAE: DecorKind[] = ["halimeda", "padina", "sargassum"];
 function onHardGround(d: Decor, reach: number): boolean {
   return (
     rocks.some((r) => Math.hypot(d.x - r.x, d.z - r.z) < r.size + reach) ||
-    boulders.some((b) => Math.hypot(d.x - b.x, d.z - b.z) < b.tiers[0].radius + reach) ||
+    boulders.some((b) => Math.hypot(d.x - b.x, d.z - b.z) < b.radius + reach) ||
     arches.some((a) => Math.abs(Math.hypot(d.x - a.x, d.z - a.z) - a.radius) < a.tube + reach)
   );
 }
 
-/** On the flat top of a boulder, standing at its height. */
+/** Rooted on a boulder's visible surface. */
 function onBoulderTop(d: Decor): boolean {
   return boulders.some((b) => {
-    const top = b.tiers[b.tiers.length - 1];
-    return Math.hypot(d.x - b.x, d.z - b.z) < top.radius && Math.abs(d.y - (top.baseY + top.height)) < 1e-9;
+    const top = boulderSurfaceHeight(b, d.x, d.z);
+    return top !== null && Math.abs(d.y - top) < 1e-9;
   });
 }
 
@@ -56,7 +57,7 @@ describe("decoration grows where its kind grows (REQ-021 AC-2 to AC-4)", () => {
     expect(fans).toHaveLength(tuning.fan.count);
     for (const d of fans) {
       expect(depth(d)).toBeGreaterThan(tuning.fanDepth);
-      const boulderOrArch = boulders.some((b) => Math.hypot(d.x - b.x, d.z - b.z) < b.tiers[0].radius + tuning.hardReach) || arches.some((a) => Math.abs(Math.hypot(d.x - a.x, d.z - a.z) - a.radius) < a.tube + tuning.hardReach);
+      const boulderOrArch = boulders.some((b) => Math.hypot(d.x - b.x, d.z - b.z) < b.radius + tuning.hardReach) || arches.some((a) => Math.abs(Math.hypot(d.x - a.x, d.z - a.z) - a.radius) < a.tube + tuning.hardReach);
       expect(boulderOrArch || floorSlope(d.x, d.z) >= tuning.slope).toBe(true);
       expect(d.yaw).toBe(tuning.current);
     }

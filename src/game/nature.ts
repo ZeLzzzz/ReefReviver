@@ -1,6 +1,7 @@
 import { config } from "../config";
 import type { LogbookId } from "../logbook/entries";
 import { arches, boulders, corals, floorHeight, floorSlope, insideRockAt, rocks } from "./bay";
+import { boulderSurfaceHeight } from "./boulder-shape";
 import { allSpots } from "./layout";
 import { generateMeadows, type Meadow } from "./seagrass";
 import { inland, squareRadius, wallness } from "./terrain";
@@ -51,18 +52,18 @@ const DECOR_KINDS: readonly DecorKind[] = ["halimeda", "padina", "sargassum", "s
 
 const depthOf = (y: number): number => bay.surfaceY - y;
 
-/** The top of a boulder's flat upper tier, if (x, z) lies on it: hard ground that is shallow (REQ-021 AC-2). */
+/** The visible rock surface under a decoration's root. */
 function boulderTop(x: number, z: number): number | null {
   for (const boulder of boulders) {
-    const upper = boulder.tiers[boulder.tiers.length - 1];
-    if (Math.hypot(x - boulder.x, z - boulder.z) < upper.radius - 0.5) return upper.baseY + upper.height;
+    const top = boulderSurfaceHeight(boulder, x, z);
+    if (top !== null && top > floorHeight(x, z)) return top;
   }
   return null;
 }
 
 /** Within `reach` m of a small rock's edge, a boulder's edge or an arch's ring: the hard ground around them (REQ-021 AC-2 to AC-4). */
 const nearRock = (x: number, z: number, reach: number): boolean => rocks.some((r) => Math.hypot(x - r.x, z - r.z) < r.size + reach);
-const nearBoulder = (x: number, z: number, reach: number): boolean => boulders.some((b) => Math.hypot(x - b.x, z - b.z) < b.tiers[0].radius + reach);
+const nearBoulder = (x: number, z: number, reach: number): boolean => boulders.some((b) => Math.hypot(x - b.x, z - b.z) < b.radius + reach);
 const nearArch = (x: number, z: number, reach: number): boolean => arches.some((a) => Math.abs(Math.hypot(x - a.x, z - a.z) - a.radius) < a.tube + reach);
 
 /**
@@ -102,7 +103,7 @@ function clearOfPlaces(x: number, z: number): boolean {
 /** The hard ground that stands up from the floor: the rocks, boulders and arches, each with its centre and its edge's reach. */
 const hardFeatures: readonly { x: number; z: number; edge: number }[] = [
   ...rocks.map((r) => ({ x: r.x, z: r.z, edge: r.size })),
-  ...boulders.map((b) => ({ x: b.x, z: b.z, edge: b.tiers[0].radius })),
+  ...boulders.map((b) => ({ x: b.x, z: b.z, edge: b.radius })),
   ...arches.map((a) => ({ x: a.x, z: a.z, edge: a.radius + a.tube })),
 ];
 

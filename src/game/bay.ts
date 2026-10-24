@@ -1,11 +1,13 @@
 import { config } from "../config";
 import { Vector3 } from "three";
 import { caveSolidAt, pushOutOfCave } from "./cave";
+import { insideBoulder, makeBoulderShape, pushOutOfBoulder, type Boulder } from "./boulder-shape";
 import { generateReefs, type Colony, type Reef } from "./coral-reef";
 import { allSpots } from "./layout";
 import { floorGradient, floorHeight, squareRadius, wallness } from "./terrain";
 
 export { floorHeight, floorSlope } from "./terrain";
+export type { Boulder } from "./boulder-shape";
 
 const { bay, station } = config;
 
@@ -17,20 +19,6 @@ export interface Rock {
   size: number;
   height: number;
   rotation: number;
-}
-
-/** One tier of a flat-topped boulder: an upright cylinder from `baseY` up by `height`. */
-export interface Tier {
-  baseY: number;
-  radius: number;
-  height: number;
-}
-
-/** A big flat-topped rock in two tiers, the narrower one on top (REQ-011 AC-1). */
-export interface Boulder {
-  x: number;
-  z: number;
-  tiers: readonly Tier[];
 }
 
 /**
@@ -66,18 +54,9 @@ function lowestFloor(x: number, z: number, radius: number): number {
   return lowest;
 }
 
-function makeBoulder(spec: { x: number; z: number; radius: number; height: number }): Boulder {
+function makeBoulder(spec: { x: number; z: number; radius: number; height: number }, index: number): Boulder {
   const baseY = lowestFloor(spec.x, spec.z, spec.radius) - 0.5;
-  const lowerTop = floorHeight(spec.x, spec.z) + spec.height * 0.6;
-  const upperRadius = spec.radius * 0.62;
-  return {
-    x: spec.x,
-    z: spec.z,
-    tiers: [
-      { baseY, radius: spec.radius, height: lowerTop - baseY },
-      { baseY: lowerTop - 0.05, radius: upperRadius, height: spec.height * 0.4 + 0.05 },
-    ],
-  };
+  return makeBoulderShape(spec.x, spec.z, spec.radius, baseY, floorHeight(spec.x, spec.z) + spec.height, index);
 }
 
 export const boulders: readonly Boulder[] = bay.boulders.map(makeBoulder);
@@ -359,7 +338,7 @@ function pushOutOfFloor(p: Vector3, v: Vector3, radius: number): void {
  */
 export function constrainToBay(p: Vector3, v: Vector3, radius: number = config.rov.radius): void {
   for (const rock of rocks) pushOutOfRock(p, v, rock, radius);
-  for (const boulder of boulders) for (const tier of boulder.tiers) pushOutOfCylinder(p, v, boulder.x, boulder.z, tier.baseY, tier, radius);
+  for (const boulder of boulders) pushOutOfBoulder(p, v, boulder, radius);
   for (const arch of arches) pushOutOfArch(p, v, arch, radius);
   // After the boulders and arches: some coral stands on their tops, and being pushed onto a top must not end inside it.
   // The blobs of a reef overlap, so a push out of one can end inside the next: go round again.
@@ -375,7 +354,7 @@ export function constrainToBay(p: Vector3, v: Vector3, radius: number = config.r
   pushOutOfCave(p, v, radius);
   // REQ-020: the push off a reef or the floor can end inside a rock beside the reef, or a hair inside the rock it stands on.
   for (const rock of rocks) pushOutOfRock(p, v, rock, radius);
-  for (const boulder of boulders) for (const tier of boulder.tiers) pushOutOfCylinder(p, v, boulder.x, boulder.z, tier.baseY, tier, radius);
+  for (const boulder of boulders) pushOutOfBoulder(p, v, boulder, radius);
   for (const arch of arches) pushOutOfArch(p, v, arch, radius);
   keepInDeepEnoughWater(p, v, radius);
 
@@ -416,7 +395,7 @@ export function insideRockAt(x: number, y: number, z: number, margin = 0): boole
     const dz = (z - rock.z) / rx;
     if (dx * dx + dy * dy + dz * dz < 1) return true;
   }
-  for (const boulder of boulders) for (const tier of boulder.tiers) if (insideCylinder(x, y, z, boulder.x, boulder.z, tier.baseY, tier, margin)) return true;
+  for (const boulder of boulders) if (insideBoulder(boulder, x, y, z, margin)) return true;
   for (const arch of arches) {
     if (Math.hypot(x - arch.x, z - arch.z) > arch.radius + arch.tube + margin) continue;
     if (nearestOnArch(probe.set(x, y, z), arch).distanceTo(probe) < arch.tube + margin) return true;

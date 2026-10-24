@@ -1,5 +1,4 @@
 import {
-  BoxGeometry,
   BufferGeometry,
   CircleGeometry,
   Color,
@@ -13,7 +12,6 @@ import {
   Matrix4,
   MeshStandardMaterial,
   Quaternion,
-  TorusGeometry,
   Vector3,
 } from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
@@ -64,19 +62,24 @@ function merged(parts: BufferGeometry[]): BufferGeometry {
 
 // The shapes below stand on their root at y = 0 at size 1; each piece is scaled to its own size.
 
-/** Halimeda (REQ-021 AC-1): three clumps of flat segments, each segment a coin on the one below, about 0.33 m tall. */
+/** Halimeda: small upright, overlapping paddle segments, with each shoot bending out from its root. */
 function halimedaShape(): BufferGeometry {
   const parts: BufferGeometry[] = [];
   for (let stem = 0; stem < 3; stem++) {
     const angle = stem * 2.1;
     for (let k = 0; k < 4; k++) {
-      const turn = new Quaternion().setFromEuler(new Euler(0.3 * Math.cos(angle), angle, 0.3 * Math.sin(angle)));
-      const spread = 0.03 + 0.03 * k;
-      const coin = new CylinderGeometry(0.075 - 0.005 * k, 0.082 - 0.005 * k, 0.022, 7);
-      parts.push(moved(coin, Math.cos(angle) * spread, 0.04 + 0.09 * k, Math.sin(angle) * spread, turn));
+      const turn = new Quaternion().setFromEuler(new Euler(Math.PI / 2 + 0.16 * Math.sin(k + angle), angle + 0.22 * k, 0.12 * Math.cos(angle), "YXZ"));
+      const spread = 0.018 + 0.025 * k;
+      const paddle = new CylinderGeometry(0.055 - 0.004 * k, 0.059 - 0.004 * k, 0.012, 7);
+      parts.push(moved(paddle, Math.cos(angle) * spread, 0.04 + 0.075 * k, Math.sin(angle) * spread, turn));
     }
   }
-  return merged(parts);
+  const geometry = merged(parts);
+  geometry.computeBoundingBox();
+  const box = geometry.boundingBox!;
+  geometry.translate(0, -box.min.y, 0);
+  geometry.scale(1, 0.325 / (box.max.y - box.min.y), 1);
+  return geometry;
 }
 
 /** Padina (REQ-021 AC-1): a whitish fan standing on its flat edge, its bands rippled across it, about 0.25 m wide. */
@@ -114,57 +117,99 @@ function sargassumShape(): BufferGeometry {
   return merged(parts);
 }
 
-/**
- * A barrel sponge (REQ-021 AC-3): a hollow barrel open at both ends, with ridges up its wall and a jagged rim, 1 m tall at
- * size 1. The material is double-sided, so its inside shows.
- */
+/** A leaning barrel with an uneven thick rim and a shaded inner wall; the opening stays visibly hollow. */
 function spongeShape(): BufferGeometry {
-  const sides = 24;
-  const rows = 8;
+  const sides = 20;
+  const rows = 6;
   const positions: number[] = [];
-  for (let j = 0; j <= rows; j++) {
-    const t = j / rows;
-    const barrel = 0.27 + 0.13 * Math.sin(Math.PI * (0.2 + 0.7 * t));
-    for (let i = 0; i < sides; i++) {
-      const angle = (i / sides) * Math.PI * 2;
-      const ridge = 1 + 0.1 * Math.cos(8 * angle);
-      const tooth = j === rows ? (i % 2 ? 0.8 : 1.05) : 1;
-      const r = barrel * ridge * tooth;
-      positions.push(Math.cos(angle) * r, t, Math.sin(angle) * r);
+  const colours: number[] = [];
+  const rim = Array.from({ length: sides }, (_, i) => {
+    const angle = (i / sides) * Math.PI * 2;
+    return 0.96 + 0.025 * Math.sin(angle * 3 + 0.7) + 0.015 * Math.sin(angle * 5);
+  });
+  const top = Math.max(...rim);
+  for (let wall = 0; wall < 2; wall++) {
+    for (let j = 0; j <= rows; j++) {
+      const t = j / rows;
+      const barrel = 0.245 + 0.125 * Math.sin(Math.PI * (0.12 + 0.83 * t));
+      for (let i = 0; i < sides; i++) {
+        const angle = (i / sides) * Math.PI * 2;
+        const ridge = 1 + 0.065 * Math.cos(angle * 7 + t * 1.5) + 0.035 * Math.sin(angle * 3 + t);
+        const r = barrel * ridge - wall * (0.045 + 0.015 * (1 - t));
+        positions.push(Math.cos(angle) * r + 0.045 * t * t, t * rim[i] / top, Math.sin(angle) * r + 0.02 * t);
+        const shade = wall ? 0.4 + 0.32 * t : 1;
+        colours.push(shade, shade, shade);
+      }
     }
   }
   const indices: number[] = [];
-  for (let j = 0; j < rows; j++) {
-    for (let i = 0; i < sides; i++) {
-      const a = j * sides + i;
-      const b = j * sides + ((i + 1) % sides);
-      const c = a + sides;
-      const d = b + sides;
-      indices.push(a, c, b, b, c, d);
+  const wallSize = (rows + 1) * sides;
+  for (let wall = 0; wall < 2; wall++) {
+    for (let j = 0; j < rows; j++) {
+      for (let i = 0; i < sides; i++) {
+        const a = wall * wallSize + j * sides + i;
+        const b = wall * wallSize + j * sides + ((i + 1) % sides);
+        const c = a + sides;
+        const d = b + sides;
+        if (wall) indices.push(a, b, c, b, d, c);
+        else indices.push(a, c, b, b, c, d);
+      }
     }
+  }
+  for (let i = 0; i < sides; i++) {
+    const a = rows * sides + i;
+    const b = rows * sides + ((i + 1) % sides);
+    indices.push(a, b, a + wallSize, b, b + wallSize, a + wallSize);
   }
   const geometry = new BufferGeometry();
   geometry.setAttribute("position", new Float32BufferAttribute(positions, 3));
+  geometry.setAttribute("color", new Float32BufferAttribute(colours, 3));
   geometry.setIndex(indices);
+  geometry.computeVertexNormals();
   return geometry;
 }
 
-/**
- * A sea fan (REQ-021 AC-4): an upright fan standing on its base, 0.9 m high at size 1, with a lattice of radial ribs and rings
- * over a thin membrane. The membrane keeps it reading as a fan, not as a net.
- */
+/** A broad, asymmetric branching fan with real gaps, irregular forks and a short rooted stem. */
 function fanShape(): BufferGeometry {
-  const radius = 0.9;
-  const parts: BufferGeometry[] = [placed(new CircleGeometry(radius, 20, 0, Math.PI), new Matrix4().makeTranslation(0, 0, -0.01))];
-  const plane = new Vector3(0, 0, 1);
-  for (let k = 0; k <= 8; k++) {
-    // A rib from the base, fanned out `angle` round from the x axis.
-    const angle = (k / 8) * Math.PI;
-    const rib = new BoxGeometry(0.02, radius, 0.02).translate(0, radius / 2, 0);
-    parts.push(moved(rib, 0, 0, 0, new Quaternion().setFromAxisAngle(plane, angle - Math.PI / 2)));
+  const parts: BufferGeometry[] = [];
+  const segment = (from: Vector3, to: Vector3, width: number, tip: number) => {
+    const direction = to.clone().sub(from);
+    const geometry = new CylinderGeometry(tip, width, direction.length(), 5, 1, true);
+    const turn = new Quaternion().setFromUnitVectors(UP, direction.normalize());
+    parts.push(moved(geometry, (from.x + to.x) / 2, (from.y + to.y) / 2, (from.z + to.z) / 2, turn));
+  };
+  const random = (n: number) => {
+    const value = Math.sin(n * 127.1 + 47.7) * 43758.5453;
+    return value - Math.floor(value);
+  };
+  const grow = (start: Vector3, heading: number, length: number, width: number, depth: number, seed: number) => {
+    const points = [start];
+    for (let step = 1; step <= 3; step++) {
+      const t = step / 3;
+      const angle = heading + 0.16 * Math.sin(t * 2.4 + seed);
+      const previous = points[points.length - 1];
+      const point = previous.clone().add(new Vector3(Math.sin(angle) * length / 3, Math.cos(angle) * length / 3, 0.018 * Math.sin(seed + step)));
+      segment(previous, point, width * (1 - 0.45 * (t - 1 / 3)), width * (1 - 0.45 * t));
+      points.push(point);
+    }
+    if (depth === 0) return;
+    const side = seed % 2 ? 1 : -1;
+    grow(points[2], heading + side * (0.4 + random(seed) * 0.22), length * (0.5 + random(seed + 3) * 0.12), width * 0.56, depth - 1, seed * 2 + 1);
+    grow(points[3], heading - side * (0.18 + random(seed + 7) * 0.2), length * (0.44 + random(seed + 9) * 0.14), width * 0.48, depth - 1, seed * 2 + 2);
+  };
+  const root = new Vector3(0, 0, 0);
+  const fork = new Vector3(-0.025, 0.14, 0.015);
+  segment(root, fork, 0.032, 0.023);
+  for (let arm = 0; arm < 6; arm++) {
+    const heading = -1.05 + arm * 0.4 + random(arm + 17) * 0.16;
+    grow(fork, heading, 0.37 + random(arm + 20) * 0.12, 0.017 + random(arm + 30) * 0.005, 2, arm + 1);
   }
-  for (let k = 1; k <= 4; k++) parts.push(placed(new TorusGeometry((radius * k) / 5, 0.012, 3, 24, Math.PI), new Matrix4()));
-  return merged(parts);
+  const geometry = merged(parts);
+  geometry.computeBoundingBox();
+  const box = geometry.boundingBox!;
+  geometry.translate(0, -box.min.y, 0);
+  geometry.scale(1.1, 0.94 / (box.max.y - box.min.y), 1);
+  return geometry;
 }
 
 const shapes: Record<DecorKind, () => BufferGeometry> = {
@@ -177,7 +222,20 @@ const shapes: Record<DecorKind, () => BufferGeometry> = {
 
 /** The shape of one kind at size 1 (AC-1, AC-3, AC-4), for the view and for the tests. */
 export function decorShape(kind: DecorKind): BufferGeometry {
-  return shapes[kind]();
+  const geometry = shapes[kind]();
+  geometry.computeBoundingBox();
+  const position = geometry.getAttribute("position");
+  const previous = geometry.getAttribute("color");
+  const colours = new Float32Array(position.count * 3);
+  const box = geometry.boundingBox!;
+  const height = Math.max(0.01, box.max.y - box.min.y);
+  for (let i = 0; i < position.count; i++) {
+    const up = (position.getY(i) - box.min.y) / height;
+    const shade = (0.57 + 0.43 * Math.sqrt(up)) * (previous ? previous.getX(i) : 1);
+    colours.set([shade, shade, shade], i * 3);
+  }
+  geometry.setAttribute("color", new Float32BufferAttribute(colours, 3));
+  return geometry;
 }
 
 /** REQ-013 AC-4, REQ-021: the algae, barrel sponges and sea fans, one instanced mesh per kind, so a handful of draw calls. */
@@ -185,7 +243,7 @@ export function createDecorView(): DecorView {
   const group = new Group();
   group.name = "decor";
   // Flat-shaded and double-sided, like the rest of the low-poly reef. The material is white: each piece's colour comes from its instance.
-  const material = new MeshStandardMaterial({ color: 0xffffff, flatShading: true, roughness: 0.9, side: DoubleSide });
+  const material = new MeshStandardMaterial({ color: 0xffffff, flatShading: true, roughness: 0.9, side: DoubleSide, vertexColors: true });
   const dull = new Color(tuning.dull);
   const meshes: InstancedMesh[] = [];
   const slots: { item: Decor; mesh: InstancedMesh; index: number; own: Color; colour: Color; shown: boolean }[] = [];

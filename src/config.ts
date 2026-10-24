@@ -50,8 +50,8 @@ export const config = {
     // Small rocks scattered over the floor.
     rockCount: 55,
     rockSeed: 7,
-    // Big flat-topped rocks in two tiers: the lower one `radius` wide and 60% of `height` tall, the upper one
-    // narrower on top of it.
+    // Large irregular rock outcrops, with sloping shoulders and broken ledges. Their rendered surface is also used
+    // for collision and for grounding the coral and decoration.
     boulders: [
       { x: -45, z: -50, radius: 7, height: 5 },
       { x: 5, z: 30, radius: 6, height: 4 },
@@ -503,13 +503,13 @@ export const config = {
     // The transition takes this long in game time (AC-1); pausing freezes it.
     seconds: 6,
     clear: {
-      color: 0x38b0dc,
+      color: 0x258eaf,
       // Thin haze and a long view: the far end of the fog moves out to 90 m.
       fogNear: 10,
       fogFar: 90,
-      hemiSky: 0xd6f1ff,
-      hemiIntensity: 2.0,
-      sunIntensity: 1.6,
+      hemiSky: 0xb7e1ee,
+      hemiIntensity: 1.35,
+      sunIntensity: 2.2,
       snowOpacity: 0.25,
       surfaceColor: 0xb8e6f6,
     },
@@ -517,9 +517,9 @@ export const config = {
       // Fragments grow to this many times their size and blend to a pastel colour (AC-2). Each fragment takes
       // the next colour of this list, so the reef ends up multi-coloured (DESIGN).
       scale: 1.8,
-      pastel: [0xff9ec0, 0xffb590, 0xc4aaff, 0x8fe6d9, 0xffe28c, 0xa9d8ff],
+      pastel: [0xd77c87, 0xc5a45d, 0x9f85bd, 0x79ada0, 0xd6c38b, 0x7d9caf],
       // Emissive glow at the end, as a share of the colour, so the coral stays bright in the shade.
-      glow: 0.22,
+      glow: 0.06,
     },
     seagrass: {
       // Blades stretch to this many times their length, and thicken a little (AC-2).
@@ -542,12 +542,12 @@ export const config = {
     // is solid as blobs hugging its colonies, one per `cell` m square.
     coral: {
       seed: 23,
-      minSize: 0.3,
-      maxSize: 1.5,
-      sizeSkew: 2.2,
-      crowd: 0.8,
+      minSize: 0.4,
+      maxSize: 2.1,
+      sizeSkew: 1.35,
+      crowd: 0.76,
       shapes: [0.3, 0.25, 0.25, 0.2],
-      belt: { minDepth: 7, maxDepth: 12.5, peakDepth: 10.6, spread: 2, cover: 1, startClear: 8.1, attempts: 80000, gapPeriod: 60 },
+      belt: { minDepth: 7, maxDepth: 12.5, peakDepth: 10.6, spread: 2, cover: 1, startClear: 8.1, attempts: 60000, gapPeriod: 60 },
       patches: { count: 10, arches: 2, boulders: 4, minWidth: 6, maxWidth: 18 },
       porites: { count: 5, onBelt: 3, minRadius: 1.2, maxRadius: 2, spacing: 30 },
       cell: 3.5,
@@ -593,7 +593,7 @@ export const config = {
       padina: { count: 24, size: [0.85, 1.15], reach: 0.2 },
       sargassum: { count: 16, size: [0.65, 1.2], reach: 0.3 },
       sponge: { count: 30, size: [0.4, 1.2], reach: 0.45 },
-      fan: { count: 22, size: [1.15, 1.5], reach: 0.9 },
+      fan: { count: 22, size: [1.15, 1.9], reach: 0.9 },
       // Algae grow on hard ground (a rock, a boulder's top, an arch) and on the shallow shelf in the west, from `shallow` m
       // down to `algaeDepth` m; sargassum only down to `sargassumDepth` m (AC-2).
       shallow: 1.5,
