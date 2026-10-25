@@ -466,7 +466,7 @@ describe("the trash in the cave (REQ-014 AC-4)", () => {
       const inside = items.filter(inTunnel);
       expect(inside, `layout seed ${seed}`).toHaveLength(cave.trash.groups * cave.trash.groupSize);
       expect(inside).toHaveLength(6);
-      for (const item of items) if (!inTunnel(item) && !item.onBeach) expect(trashSpotOk(item.home.x, item.home.z)).toBe(true);
+      for (const item of items) if (!inTunnel(item) && !item.onBeach && !item.floating) expect(trashSpotOk(item.home.x, item.home.z)).toBe(true);
     }
   });
 

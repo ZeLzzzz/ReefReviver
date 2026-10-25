@@ -2,24 +2,28 @@ import { Vector3 } from "three";
 import { config } from "../config";
 import { floorHeight, floorSlope, insideRockAt } from "./bay";
 import { caveTrashSpots } from "./cave";
-import { insideShed, landObstacles, standable } from "./land";
+import { ashoreSpot, insideShed, landObstacles, standable } from "./land";
 import { areaReach, headland, inDiveArea, inland } from "./terrain";
 import { counterPosition, stationPosition } from "./station";
 import { pickNearestInCone } from "./vacuum";
 
 const { trash, vacuum, station } = config;
-const { beach } = trash;
+const { beach, surface } = trash;
 const { dock } = config.bay;
 
 export type TrashKind = "bottle" | "bag" | "can";
 const KINDS: readonly TrashKind[] = ["bottle", "bag", "can"];
+/** REQ-025 AC-2: what floats. */
+const FLOATING_KINDS: readonly TrashKind[] = ["bottle", "bag"];
+/** Mixed into the dive's seed for the floating items' own random stream, so they draw nothing from the floor's and the beach's. */
+const SURFACE_STREAM = 0x5f3759df;
 
 export interface TrashItem {
   id: number;
   kind: TrashKind;
   /** Where the item is now; it moves while being sucked in. */
   position: Vector3;
-  /** Resting spot on the floor. */
+  /** Resting spot on the floor (REQ-025: at the waterline for a floating item). */
   home: Vector3;
   /** Rotation around the vertical axis while lying on the floor. */
   rotation: number;
@@ -29,6 +33,8 @@ export interface TrashItem {
   pull: number;
   /** REQ-017: lies on the sand of the west beach, picked up on foot, never sucked by the vacuum. */
   onBeach: boolean;
+  /** REQ-025: floats at the sea surface (bottles and bags only); `home` is at the waterline, sucked up like floor trash. */
+  floating: boolean;
 }
 
 function mulberry32(seed: number): () => number {
@@ -107,41 +113,114 @@ function beachSpots(random: () => number): { x: number; z: number }[] {
   return spots;
 }
 
+/** REQ-025 AC-7: the places the submarine is left floating when the player goes ashore, one for each metre along the open beach. */
+const parkSpots: readonly { x: number; z: number }[] = (() => {
+  const spots: { x: number; z: number }[] = [];
+  const reach = config.bay.shore.openHalf - 20;
+  for (let z = -reach; z <= reach; z += 1) {
+    const spot = ashoreSpot(inland(0, z) + 1, z);
+    if (spot) spots.push(spot.park);
+  }
+  return spots;
+})();
+
+/**
+ * REQ-025 AC-1, AC-7: true where an item may float: over water at least `minDepth` deep, well inside the dive area (clear
+ * of its slow-down band) and of the headlands' rock, clear of the start, the dock, the cave hill, the rocks and boulders
+ * that reach the surface, and every spot the submarine is left at when going ashore.
+ */
+export function surfaceSpotOk(x: number, z: number): boolean {
+  const { start } = config.rov;
+  const { bay } = config;
+  if (!inDiveArea(x, z, surface.edgeMargin)) return false;
+  if (floorHeight(x, z) > bay.surfaceY - surface.minDepth) return false;
+  if (Math.hypot(x - start.x, z - start.z) < surface.clearOfStart) return false;
+  if (Math.hypot(x - bay.cave.x, z - bay.cave.z) < bay.cave.clear) return false;
+  // Not above, nor beside, the dock's deck and its posts.
+  const beyondDock = Math.max(dock.landX - x, 0, x - dock.seaX);
+  if (Math.hypot(beyondDock, Math.max(Math.abs(z - dock.z) - dock.halfWidth, 0)) < surface.clearOfDock) return false;
+  // Not near a headland, whose rock stands out of the water.
+  for (let k = 0; k < 8; k++) {
+    const angle = (k / 8) * Math.PI * 2;
+    if (headland(x + Math.cos(angle) * surface.clearOfHeadland, z + Math.sin(angle) * surface.clearOfHeadland) > 0) return false;
+  }
+  if (parkSpots.some((spot) => Math.hypot(x - spot.x, z - spot.z) < surface.clearOfPark)) return false;
+  return !insideRockAt(x, bay.surfaceY - 0.5, z, 1.2);
+}
+
+/**
+ * REQ-025 AC-1: where the floating items go: `surface.groups` small groups (as even in size as can be), every spot good
+ * (see surfaceSpotOk) and apart from the others. The first group lies near the west beach's waterline, so it is seen from
+ * the beach; the others are anywhere in the bay.
+ */
+function surfaceSpots(random: () => number): { x: number; z: number }[] {
+  const spots: { x: number; z: number }[] = [];
+  const centres: { x: number; z: number }[] = [];
+  const [fewest, most] = surface.groups;
+  const groups = fewest + Math.floor(random() * (most - fewest + 1));
+  const reach = areaReach(surface.edgeMargin);
+  const nearBeach = (x: number, z: number) => -inland(x, z) <= surface.nearShore && Math.abs(z) <= surface.beachHalfLength;
+  for (let attempts = 0; spots.length < surface.count && attempts < 5000; attempts++) {
+    const first = centres.length === 0;
+    const cz = first ? (random() * 2 - 1) * surface.beachHalfLength : (random() * 2 - 1) * reach;
+    const cx = first ? inland(0, cz) + random() * surface.nearShoreCentre : (random() * 2 - 1) * reach;
+    if (!surfaceSpotOk(cx, cz) || (first && !nearBeach(cx, cz))) continue;
+    if (centres.some((c) => Math.hypot(cx - c.x, cz - c.z) < surface.groupSpacing)) continue;
+    centres.push({ x: cx, z: cz });
+    const wanted = Math.ceil((surface.count - spots.length) / Math.max(1, groups - centres.length + 1));
+    let placed = 0;
+    for (let tries = 0; placed < wanted && tries < 80; tries++) {
+      const angle = random() * Math.PI * 2;
+      const distance = tries === 0 ? 0 : Math.sqrt(random()) * surface.groupRadius;
+      const x = cx + Math.cos(angle) * distance;
+      const z = cz + Math.sin(angle) * distance;
+      if (!surfaceSpotOk(x, z) || (first && !nearBeach(x, z))) continue;
+      if (spots.some((other) => Math.hypot(x - other.x, z - other.z) < surface.spacing)) continue;
+      spots.push({ x, z });
+      placed += 1;
+    }
+  }
+  return spots;
+}
+
 /**
  * Lays the trash on the floor in small groups (D-066): always the same layout for the same seed, every item on a
  * good spot (see trashSpotOk) and apart from the others. REQ-014: the first few lie on the cave's tunnel floor
- * (the cave itself is kept clear of the rest); the dive's seed moves them about in it. REQ-017: the last
- * `beach.count` lie on the sand of the west beach, laid after the others so the sea's items stay where they were.
+ * (the cave itself is kept clear of the rest); the dive's seed moves them about in it. REQ-025: the next `surface.count`
+ * float at the sea surface (bottles and bags), laid from a stream of their own. REQ-017: the last `beach.count` lie on the
+ * sand of the west beach, laid after the others.
  */
 export function generateTrash(seed: number = trash.seed): TrashItem[] {
   const random = mulberry32(seed);
   const reach = areaReach(6);
   const items: TrashItem[] = [];
   const centres: { x: number; z: number }[] = [];
-  const add = (x: number, z: number, onBeach = false) => {
-    const home = new Vector3(x, floorHeight(x, z) + trash.restHeight, z);
+  const add = (x: number, z: number, onBeach = false, floating = false, spin: () => number = random) => {
+    // REQ-025 AC-2: a floating item sits half under water at the waterline; only bottles and bags float, cans stay down.
+    const home = floating ? new Vector3(x, config.bay.surfaceY - surface.sink, z) : new Vector3(x, floorHeight(x, z) + trash.restHeight, z);
     items.push({
       id: items.length,
-      kind: KINDS[items.length % KINDS.length],
+      kind: floating ? FLOATING_KINDS[items.length % FLOATING_KINDS.length] : KINDS[items.length % KINDS.length],
       position: home.clone(),
       home,
-      rotation: random() * Math.PI * 2,
+      rotation: spin() * Math.PI * 2,
       state: "free",
       pull: 0,
       onBeach,
+      floating,
     });
   };
-  const seaCount = trash.count - beach.count;
+  const floorCount = trash.count - beach.count - surface.count;
   for (const spot of caveTrashSpots(random, trash.spacing)) add(spot.x, spot.z);
   let attempts = 0;
-  while (items.length < seaCount && attempts++ < 20000) {
+  while (items.length < floorCount && attempts++ < 20000) {
     const cx = (random() * 2 - 1) * reach;
     const cz = (random() * 2 - 1) * reach;
     if (!trashSpotOk(cx, cz)) continue;
     if (centres.some((c) => Math.hypot(cx - c.x, cz - c.z) < trash.groupSpacing)) continue;
     centres.push({ x: cx, z: cz });
     // A last single item would lie alone: split the final six as 3 and 3 instead of 5 and 1.
-    const left = seaCount - items.length;
+    const left = floorCount - items.length;
     const wanted = left === trash.groupSize + 1 ? Math.ceil(left / 2) : Math.min(trash.groupSize, left);
     let placed = 0;
     for (let tries = 0; placed < wanted && tries < 80; tries++) {
@@ -155,6 +234,8 @@ export function generateTrash(seed: number = trash.seed): TrashItem[] {
       placed += 1;
     }
   }
+  const floatRandom = mulberry32((seed ^ SURFACE_STREAM) | 0);
+  for (const spot of surfaceSpots(floatRandom)) add(spot.x, spot.z, false, true, floatRandom);
   for (const spot of beachSpots(random)) add(spot.x, spot.z, true);
   return items;
 }

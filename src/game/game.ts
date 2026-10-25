@@ -34,7 +34,7 @@ import { createSeaLifeView } from "./sea-life-model";
 import { naturalTargets } from "./nature";
 import { createNatureView } from "./nature-model";
 import { createRovModel, setHeadlight } from "./rov-model";
-import { constrainRov, createRovState, rightVector, steer, stepRov, surfaceBob, type Bob, type RovState } from "./rov";
+import { FLOAT_Y, constrainRov, createRovState, rightVector, steer, stepRov, surfaceBob, type Bob, type RovState } from "./rov";
 import { ashoreSpot, canBoard, createWalker, eyePosition, lookWalker, standable, stepWalker, type AshoreSpot, type Walker } from "./land";
 import { Rescue } from "./rescue";
 import { findAimPoint, SeedLauncher } from "./seed-launcher";
@@ -44,6 +44,7 @@ import { buildDockMesh, createStationModel, STATION_MARKER_HEIGHT } from "./stat
 import { toolForKey } from "./tools";
 import { TrashField, aimedBeachItem, type TrashItem } from "./trash";
 import { createTrashView } from "./trash-model";
+import { inVacuumCone, pickNearestInCone } from "./vacuum";
 import { buildWorld, type World } from "./world";
 
 /** What the app shell needs from the game. */
@@ -105,6 +106,8 @@ export class Game implements GameView {
   private readonly input: Input;
   private readonly field = new TrashField();
   private readonly trashView = createTrashView(this.field.items);
+  /** REQ-025 AC-8: the items that lie on the floor or the sand; the ones floating at the surface never hide a net from the cutter. */
+  private readonly floorItems = this.field.items.filter((item) => !item.floating);
   private readonly beam = createVacuumBeam();
   // REQ-003: ghost nets, trapped animals, the cutter.
   private readonly rescue = new Rescue();
@@ -158,7 +161,7 @@ export class Game implements GameView {
     this.world = buildWorld(this.scene);
     this.scene.add(this.rovModel, createStationModel(), buildDockMesh(), this.trashView.group, this.beam, this.rescue.group, this.scanBeam);
     this.trashView.sync(this.field.items);
-    this.natureView.setTrash(this.field.items.map((item) => item.home)); // REQ-021 AC-6
+    this.natureView.setTrash(this.floorHomes()); // REQ-021 AC-6
     this.scene.add(this.reefView.group, this.seedView.group, this.seaLifeView.group, this.natureView.group);
     this.scene.add(this.caveView.group);
     this.reefView.sync(this.reef);
@@ -182,6 +185,58 @@ export class Game implements GameView {
         // a way to stand `distance` m from the `index`th of them, looking at it.
         beachTrash: () => this.field.items.filter((i) => i.state === "free" && i.onBeach).map((i) => i.position.toArray()),
         beachTotal: () => this.field.items.filter((i) => i.onBeach).length,
+        // REQ-025: the items floating at the surface (free ones' positions, all of them counted, their kinds and states), the
+        // height of each one's model, and a way to put the submarine `distance` m from the nearest free one, aimed at it,
+        // floating or `below` m deeper; with `alone`, only from where no other free floating item is in the vacuum's cone.
+        surfaceTrash: () => this.field.items.filter((i) => i.state === "free" && i.floating).map((i) => i.position.toArray()),
+        surfaceTotal: () => this.field.items.filter((i) => i.floating).length,
+        surfaceKinds: () => this.field.items.filter((i) => i.floating).map((i) => i.kind),
+        surfaceModels: () => this.trashView.group.children.filter((_, id) => this.field.items[id].floating).map((model) => model.position.toArray()),
+        // Where a point shows on the screen in CSS pixels from the top left, or null when it is behind the camera.
+        screenOf: (x: number, y: number, z: number) => {
+          const p = new Vector3(x, y, z).project(this.camera);
+          if (Math.abs(p.z) > 1) return null;
+          const { clientWidth, clientHeight } = this.renderer.domElement;
+          return [((p.x + 1) / 2) * clientWidth, ((1 - p.y) / 2) * clientHeight];
+        },
+        // Takes every free floating item out of the field, counted as removed like removeTrash (no tank, no score).
+        removeSurfaceTrash: () => {
+          let removed = 0;
+          for (const item of this.field.items) {
+            if (!item.floating || item.state !== "free") continue;
+            item.state = "collected";
+            this.session.trashRemoved += 1;
+            removed += 1;
+          }
+          this.trashView.sync(this.field.items);
+          return removed;
+        },
+        aimAtSurfaceTrash: (distance = 3, below = 0, alone = false) => {
+          const free = this.field.items.filter((i) => i.state === "free" && i.floating);
+          free.sort((a, b) => a.position.distanceTo(this.rov.position) - b.position.distanceTo(this.rov.position));
+          const from = new Vector3();
+          const aim = new Vector3();
+          for (const item of free) {
+            for (let k = 0; k < 16; k++) {
+              const yaw = (k / 16) * Math.PI * 2;
+              from.set(item.position.x - Math.sin(yaw) * distance, FLOAT_Y - below, item.position.z - Math.cos(yaw) * distance);
+              const probe = from.clone();
+              constrainRov(probe, new Vector3());
+              if (probe.distanceTo(from) > 1e-6) continue;
+              const pitch = Math.atan2(item.position.y - from.y, distance);
+              aimDirection(yaw, pitch, aim);
+              // The group lies close together: within the vacuum's range, take a direction from which it would pick this very item.
+              if (distance <= config.vacuum.range && pickNearestInCone(from, aim, free.map((other) => other.position)) !== free.indexOf(item)) continue;
+              if (alone && free.some((other) => other !== item && inVacuumCone(from, aim, other.position))) continue;
+              this.rov.position.copy(from);
+              this.rov.velocity.set(0, 0, 0);
+              this.rov.yaw = yaw;
+              this.rov.pitch = pitch;
+              return item.position.toArray();
+            }
+          }
+          return null;
+        },
         beachStates: () => this.field.items.filter((i) => i.onBeach).map((i) => i.state),
         aimAtBeachTrash: (distance = 2, index = 0) => {
           if (!this.ashore) return null;
@@ -277,7 +332,8 @@ export class Game implements GameView {
         // The trash lies in groups (D-066): puts the ROV `distance` m from the nearest free item that can be approached
         // with no other item in or near the vacuum's cone, aimed straight at it. Returns the item's position, or null.
         aimAtTrash: (distance = 3) => {
-          const free = this.field.items.filter((i) => i.state === "free" && !i.onBeach);
+          // REQ-025: the ones lying on the floor; aimAtSurfaceTrash does the floating ones.
+          const free = this.field.items.filter((i) => i.state === "free" && !i.onBeach && !i.floating);
           free.sort((a, b) => a.position.distanceTo(this.rov.position) - b.position.distanceTo(this.rov.position));
           const from = new Vector3();
           const aim = new Vector3();
@@ -439,7 +495,7 @@ export class Game implements GameView {
     this.session = new Session(this.field.total);
     this.field.reset(layout.trashSeed);
     this.trashView.sync(this.field.items);
-    this.natureView.setTrash(this.field.items.map((item) => item.home)); // REQ-021 AC-6: no decoration over this dive's trash
+    this.natureView.setTrash(this.floorHomes()); // REQ-021 AC-6: no decoration over this dive's trash
     this.rescue.reset(layout); // REQ-003
     this.resetReef(layout);
     this.resetBloom(); // REQ-005
@@ -494,6 +550,7 @@ export class Game implements GameView {
     this.world.setAbove(this.above);
     if (this.mode !== "paused") {
       this.stepCave(dt);
+      this.trashView.sync(this.field.items, performance.now() / 1000); // REQ-025 AC-2: the floating items bob
       this.world.update(dt, this.camera.position);
       // The surface's light rays stay out of the cave, where only its own shaft lights the dark (REQ-014 AC-2).
       this.natureView.update(dt, this.camera.position, this.above || this.caveDark > 0.2);
@@ -592,11 +649,10 @@ export class Game implements GameView {
     this.sucking = held && room > 0;
     for (const _item of this.field.update(dt, rov.position, this.aim, held, room)) session.collect();
     // REQ-003: the cutter, the nets and the animals.
-    this.rescue.step(dt, rov, this.aim, primary && session.tool === "cutter", this.field.items, session);
+    this.rescue.step(dt, rov, this.aim, primary && session.tool === "cutter", this.floorItems, session);
     this.stepSeedLauncher(dt, primary);
     this.stepScanner(dt, primary);
     session.tick(dt);
-    this.trashView.sync(this.field.items);
 
     this.beam.visible = this.sucking;
     if (this.sucking) {
@@ -604,6 +660,11 @@ export class Game implements GameView {
       this.beam.lookAt(rov.position.x + this.aim.x, rov.position.y + this.aim.y, rov.position.z + this.aim.z);
       (this.beam.material as MeshBasicMaterial).opacity = 0.07 + 0.03 * Math.sin(performance.now() / 60);
     }
+  }
+
+  /** REQ-021 AC-6, REQ-025 AC-2: where the items lie on the floor; the floating ones clear no decoration under them. */
+  private floorHomes(): Vector3[] {
+    return this.floorItems.map((item) => item.home);
   }
 
   /** REQ-017: the beach trash the player on foot aims at with the crosshair, within reach; null aboard or when none. */

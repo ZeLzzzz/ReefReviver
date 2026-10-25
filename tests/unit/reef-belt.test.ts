@@ -230,7 +230,7 @@ describe("the reef keeps clear of everything else (REQ-020 AC-6)", () => {
   it("leaves all 60 pieces of trash clear of the reef, with room for the submarine above each", () => {
     for (const seed of [1, 2, 3, 4, 5, 6, 7, 8].map((s) => chooseLayout(s).trashSeed)) {
       for (const item of generateTrash(seed)) {
-        if (inCave(item.home.x, item.home.y + 1, item.home.z) || item.onBeach) continue;
+        if (inCave(item.home.x, item.home.y + 1, item.home.z) || item.onBeach || item.floating) continue;
         for (const c of corals) expect(Math.hypot(item.home.x - c.x, item.home.z - c.z)).toBeGreaterThan(c.radius * 0.5);
         const above = item.home.clone().add(new Vector3(0, 2, 0));
         const moved = above.clone();

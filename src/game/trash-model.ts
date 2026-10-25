@@ -12,6 +12,7 @@ import {
   type Material,
 } from "three";
 import { assets } from "../assets";
+import { config } from "../config";
 import { compactGroup, hasMesh } from "./model-utils";
 import type { TrashItem, TrashKind } from "./trash";
 
@@ -145,8 +146,11 @@ const DISPLAY_SCALE = 1.4;
 
 export interface TrashView {
   group: Group;
-  /** Copies each item's state onto its model: free items rest on the floor, sucked ones spin and shrink. */
-  sync(items: readonly TrashItem[]): void;
+  /**
+   * Copies each item's state onto its model: free items rest on the floor, sucked ones spin and shrink. REQ-025 AC-2: floating
+   * items bob and tilt with the waves at `seconds`, in the model only; the item's position stays still.
+   */
+  sync(items: readonly TrashItem[], seconds?: number): void;
 }
 
 export function createTrashView(items: readonly TrashItem[]): TrashView {
@@ -159,14 +163,23 @@ export function createTrashView(items: readonly TrashItem[]): TrashView {
 
   return {
     group,
-    sync(current) {
+    sync(current, seconds = 0) {
       for (const item of current) {
         const model = models[item.id];
         model.visible = item.state !== "collected";
         if (!model.visible) continue;
         model.position.copy(item.position);
         model.rotation.set(0, item.rotation + item.pull * 9, item.pull * 6);
-        model.scale.setScalar(DISPLAY_SCALE * (1 - 0.7 * item.pull));
+        if (item.floating) {
+          // Each item rocks on its own phase; the rocking dies away as it is sucked in.
+          const { period, amplitude, roll, pitch } = config.trash.surface.bob;
+          const phase = (seconds / period) * Math.PI * 2 + item.id * 1.7;
+          const weight = 1 - item.pull;
+          model.position.y += weight * amplitude * Math.sin(phase);
+          model.rotation.x += weight * roll * Math.sin(phase * 0.8 + 1);
+          model.rotation.z += weight * pitch * Math.sin(phase * 0.6 + 2);
+        }
+        model.scale.setScalar((item.floating ? config.trash.surface.displayScale : DISPLAY_SCALE) * (1 - 0.7 * item.pull));
       }
     },
   };

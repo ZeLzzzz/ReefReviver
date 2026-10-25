@@ -90,9 +90,12 @@ async function startSampler(page: Page) {
 const samples = (page: Page) => page.evaluate(() => (window as any).__samples as Sample[]);
 const channels = (hex: number) => [(hex >> 16) & 0xff, (hex >> 8) & 0xff, hex & 0xff];
 
-/** Puts the ROV 3 m from the nearest free trash item it can approach with no other item in the cone, aimed straight at it. */
+/**
+ * Puts the ROV 3 m from the nearest free trash item it can approach with no other item in the cone, aimed straight at it.
+ * REQ-025: with the floor clean, the ones left to the Vacuum are those floating at the surface.
+ */
 async function aimAtNearestTrash(page: Page, distance = 3) {
-  expect(await page.evaluate((d) => (window as any).__reef.aimAtTrash(d), distance)).not.toBeNull();
+  expect(await page.evaluate((d) => (window as any).__reef.aimAtTrash(d) ?? (window as any).__reef.aimAtSurfaceTrash(d, 0, true), distance)).not.toBeNull();
 }
 
 /** Cleans the bay to 80 % (50 of 60 trash and 2 nets) and plants everything: the Bloom starts at once. */

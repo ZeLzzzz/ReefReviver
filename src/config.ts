@@ -326,6 +326,34 @@ export const config = {
       liftSeconds: 0.3,
       liftHeight: 0.9,
     },
+    // REQ-025 (D-109, D-110): `count` of the items (bottles and bags only) float at the sea surface instead, in `groups`
+    // (min to max) small groups within `groupRadius`, over water at least `minDepth` deep. Groups stay `groupSpacing` apart
+    // and items `spacing`. One group (the first) lies within `nearShore` m of the west beach's waterline (its centre within
+    // `nearShoreCentre`) and between z = ±`beachHalfLength`, so it is seen from the beach; `displayScale` makes each item
+    // read at that distance. They keep `edgeMargin` m inside the dive area (clear of its slow-down band), `clearOfStart`
+    // from the start, `clearOfDock` from the dock's deck, `clearOfHeadland` from the headlands' rock and `clearOfPark` from
+    // anywhere the submarine can be left floating when the player goes ashore. An item floats half under water: its centre
+    // is `sink` m under the surface, and its model bobs in place (`bob`: seconds per cycle, rise in metres, tilt in
+    // radians), each item with a phase of its own; its position stays still.
+    surface: {
+      count: 8,
+      groups: [2, 3],
+      groupRadius: 3,
+      groupSpacing: 30,
+      spacing: 1.5,
+      minDepth: 3,
+      nearShore: 50,
+      nearShoreCentre: 30,
+      displayScale: 1.8,
+      beachHalfLength: 80,
+      edgeMargin: 6,
+      clearOfStart: 8,
+      clearOfDock: 4,
+      clearOfHeadland: 4,
+      clearOfPark: 4,
+      sink: 0.03,
+      bob: { period: 3.4, amplitude: 0.04, roll: 0.14, pitch: 0.1 },
+    },
   },
   vacuum: {
     // Trash within this distance of the ROV and this angle around the aim direction (crosshair) can be sucked.
