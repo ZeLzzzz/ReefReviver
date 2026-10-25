@@ -553,11 +553,12 @@ export const config = {
   end: {
     delay: 3,
   },
-  // REQ-027 (D-111, D-113): the opening cinematic, played on the first Mulai after the page opens. It shows black bars at the
-  // top and bottom (`letterbox`: each one's share of the screen's height, sliding in and out over `barSeconds`), hides the HUD
-  // and takes the controls away; a click or Space skips (the screen fades out and back in over `skipFadeSeconds`, and the
-  // control comes back at the darkest point). The camera merges into the follow camera over the last `blendSeconds`. A
-  // caption fades in and out over `captionFadeSeconds`.
+  // REQ-027, REQ-028 (D-111, D-112, D-113): the cinematics. The opening plays on the first Mulai after the page opens, the
+  // Bloom one when the Bloom starts, the ending one after the 7th Logbook entry. All of them show black bars at the top and
+  // bottom (`letterbox`: each one's share of the screen's height, sliding in and out over `barSeconds`), hide the HUD and take
+  // the controls away; a click or Space skips (the screen fades out and back in over `skipFadeSeconds`, and the control comes
+  // back at the darkest point). The camera merges into the normal one over the last `blendSeconds` of the opening and the
+  // Bloom's. A caption fades in and out over `captionFadeSeconds`.
   cinematic: {
     letterbox: 0.12,
     barSeconds: 0.7,
@@ -585,6 +586,44 @@ export const config = {
       ],
       aerial: { back: 72, height: 34 },
       glide: { height: 2.4, pass: 9 },
+    },
+    // REQ-028 AC-1: the Bloom's transition (`bloom.seconds`) seen from outside. Under water the camera climbs from the
+    // follow camera to `under.height` m above the player and circles at `under.radius` m, through `under.sweep` radians;
+    // on land or at the surface it rises `high.height` m, pulling back `high.radius` m, and looks `high.lookOut` m past the player
+    // (out to sea when it is landward of them). Under water it stays `ceilingGap` m under the surface, and it is `minRadius` m
+    // from the player at least.
+    bloom: {
+      under: { height: 8, radius: 15, sweep: 1.9 },
+      high: { height: 22, radius: 16, sweep: 0.5, lookOut: 12 },
+      minRadius: 3,
+      ceilingGap: 1,
+      // How fast (m/s) the camera's distance from the player shrinks as a wall comes into the way, and grows back when it leaves
+      // it. The camera looks `lookAheadSeconds` ahead for walls, so it begins to come in before it must; it is never in one.
+      pullIn: 16,
+      pullOut: 5,
+      lookAheadSeconds: 0.35,
+      // The player is "at the surface" when their height is above this.
+      surfaceAbove: -1.5,
+      // The follow camera leaves its place over the first `leaveSeconds`. In the cave the camera does not go where the cave
+      // level (0..1) is under `caveHold`, so it stays in the tunnel.
+      leaveSeconds: 1,
+      caveHold: 0.15,
+      // In the cave the camera stays low and close: `cave.height` m up, `cave.radius` m away.
+      cave: { height: 0.6, radius: 4.5, sweep: 0.9 },
+    },
+    // REQ-028 AC-2: about 18.5 s over the restored bay. `shots` is how long each lasts, in order: round a planted reef
+    // frame, beside the yellowtail school, beside a manta ray, below the dolphins, and the climb through the surface to the
+    // beach. `caption` shows in the last one. `follow` is how far (metres) behind, to the side and above its subject the
+    // camera flies.
+    ending: {
+      shots: [4, 3, 3.5, 3.5, 4.5],
+      caption: { key: "cinematic.ending", from: 0.8, to: 4.3 },
+      reef: { radius: 7, height: 3.2, sweep: 1.9 },
+      follow: { back: 7, side: 4, height: 1.6 },
+      dolphins: { back: 9, side: 3, below: 2.6 },
+      // The last shot: from (`fromX`, `fromY`, `fromZ`) under water up through the surface to (`toX`, `toY`, `toZ`) above the beach,
+      // looking at the beach and the shed toward (`lookX`, `lookY`).
+      climb: { fromX: -60, fromY: -5, fromZ: 30, toX: -118, toY: 11, toZ: 8, lookX: -146, lookY: 6 },
     },
   },
   hud: {

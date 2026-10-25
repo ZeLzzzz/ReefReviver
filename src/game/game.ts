@@ -18,7 +18,7 @@ import { LOGBOOK_ENTRIES, type LogbookId } from "../logbook/entries";
 import { atDiveEdge, rocks, setFrameColumns } from "./bay";
 import { Bloom } from "./bloom";
 import { caveInfo, caveLamp, caveLevel } from "./cave";
-import { Cinematic, beachGroup, cinematicsOnByDefault, createPose, openingPlan, type CinematicHud } from "./cinematic";
+import { BloomShot, Cinematic, EndingShot, beachGroup, cinematicsOnByDefault, createPose, openingPlan, patchReefs, type CinematicHud, type CinematicKind } from "./cinematic";
 import { createCaveView } from "./cave-model";
 import { aimDirection, followCamera, keepCameraInWater, viewAbove } from "./follow-camera";
 import type { HudState } from "./hud-state";
@@ -58,9 +58,9 @@ export interface GameView {
   resume(): void;
   /** The HUD listens here; it gets the state once per frame while playing. */
   onHud(listener: (state: HudState) => void): void;
-  /** REQ-008: called once per dive, a moment after the 7th Logbook entry is scanned. */
+  /** REQ-008: called once per dive, a moment after the 7th Logbook entry is scanned (REQ-028: after the ending cinematic). */
   onEnd(listener: (summary: SessionSummary) => void): void;
-  /** REQ-027: what the cinematic that is playing shows, or null when none is; the app keeps the Logbook shut meanwhile (AC-4). */
+  /** REQ-027, REQ-028: what the cinematic that is playing shows, or null when none is; the app keeps the Logbook shut meanwhile (AC-4). */
   cinematic?(): CinematicHud | null;
 }
 
@@ -158,15 +158,19 @@ export class Game implements GameView {
   private transition: { time: number; switched: boolean; to: "land" | "sub"; spot: AshoreSpot | null } | null = null;
   private readonly eye = new Vector3();
   private readonly lookAhead = new Vector3();
-  // REQ-027: the cinematic that is playing (null when none), its camera path, whether the opening has played since the page
-  // opened (D-021: nothing is saved, so a refresh starts over) and whether cinematics play at all.
+  // REQ-027, REQ-028: the cinematic that is playing (null when none), the camera paths it flies, whether the opening has
+  // played since the page opened (D-021: nothing is saved, so a refresh starts over) and whether cinematics play at all.
   private cine: Cinematic | null = null;
   private openingShot: ReturnType<typeof openingPlan> | null = null;
+  private bloomShot: BloomShot | null = null;
+  private endingShot: EndingShot | null = null;
   private cinematicsOn = cinematicsOnByDefault(import.meta.env.DEV, import.meta.env.VITE_TEST_SEED);
   private openingPlayed = false;
   /** The screen coming up from black: after the opening begins and after a skip (seconds gone, seconds in all). */
   private fade: { time: number; total: number } | null = null;
   private readonly shotPose = createPose();
+  private readonly normalPose = createPose();
+  private readonly focus = new Vector3();
   private mode: Mode = "title";
   private titleTime = 0;
   private lastFrame: number | null = null;
@@ -385,7 +389,7 @@ export class Game implements GameView {
         // REQ-024: whether the view is above the water, how often it changed since the page loaded, and the model's height.
         view: () => ({ above: this.above, flips: this.aboveFlips, modelY: this.rovModel.position.y }),
         inTransition: () => this.transition !== null,
-        // REQ-027: the browser tests start with the cinematics off (see cinematicsOnByDefault); a test that is about
+        // REQ-027, REQ-028: the browser tests start with the cinematics off (see cinematicsOnByDefault); a test that is about
         // them turns them on before Mulai. `cinematic()` is the one playing (its kind, seconds, shot, whether a skip is under
         // way and what the HUD shows); `skipCinematic` is a click; `seekCinematic` jumps the clock so a test need not wait.
         cinematics: (on: boolean) => {
@@ -547,13 +551,13 @@ export class Game implements GameView {
     this.lampLevel = 0;
     this.input.clear();
     this.cine = null;
-    this.openingShot = null;
+    this.openingShot = this.bloomShot = this.endingShot = null;
     this.fade = null;
     this.mode = "playing";
     // REQ-027 AC-1, AC-6: the first Mulai since the page opened plays the opening; Main lagi (and every later dive) does not.
     if (this.cinematicsOn && !this.openingPlayed) {
       this.openingPlayed = true;
-      this.startOpening();
+      this.startCinematic("opening");
     }
   }
 
@@ -579,7 +583,7 @@ export class Game implements GameView {
 
     if (this.mode === "playing") {
       const [dx, dy] = this.input.takeMouse();
-      this.stepCinematic(dt); // REQ-027
+      this.stepCinematic(dt); // REQ-027, REQ-028
       if (this.transition) this.stepTransition(dt);
       else if (this.cine) {
         // The player does not steer, walk or use a tool during a cinematic (REQ-027 AC-4); the world goes on.
@@ -598,7 +602,7 @@ export class Game implements GameView {
       this.stepBloom(dt); // REQ-005
       this.stepEnd(dt, real); // REQ-008
       this.syncRovModel();
-      this.placeCamera();
+      this.placeCamera(dt);
     } else if (this.mode === "title") {
       this.orbitTitleCamera(dt);
     }
@@ -795,7 +799,10 @@ export class Game implements GameView {
    */
   private stepBloom(dt: number): void {
     const event = this.bloom.update(dt, this.session.bloomReady);
-    if (event === "started") this.audio.play("bloom"); // REQ-026 AC-3; the music's filter follows the clarity (AC-4)
+    if (event === "started") {
+      this.audio.play("bloom"); // REQ-026 AC-3; the music's filter follows the clarity (AC-4)
+      if (this.cinematicsOn && !this.cine) this.startCinematic("bloom"); // REQ-028 AC-1
+    }
     this.showBloom(this.bloom.clarity);
     if (event === "finished") {
       this.seaLife.start();
@@ -807,9 +814,12 @@ export class Game implements GameView {
 
   /** REQ-008: counts the play time, and once the 7th entry's notice has been read, hands the summary to the end screen. */
   private stepEnd(dt: number, real: number): void {
-    // REQ-027 AC-5: the play time starts after the opening.
-    this.session.addPlayTime(this.cine ? 0 : real);
-    if (this.session.endDue(dt)) this.endListener?.(this.session.summary());
+    // REQ-027 AC-5: the play time starts after the opening. REQ-028 AC-5: it stops at the 7th entry (the Session), so the ending leaves it out.
+    this.session.addPlayTime(this.cine?.kind === "opening" ? 0 : real);
+    if (!this.session.endDue(dt)) return;
+    // REQ-028 AC-2: the ending flies over the restored bay first; the end screen follows it (or its skip).
+    if (this.cinematicsOn) this.startCinematic("ending");
+    else this.endListener?.(this.session.summary());
   }
 
   /** A click or Space skips the cinematic (REQ-027 AC-4); the Space that did it is not also a press for the submarine. */
@@ -821,7 +831,7 @@ export class Game implements GameView {
     if (clicked || space) cinematic.skip();
   }
 
-  /** Runs the cinematic's clock; when it ends, or is skipped, control comes back. */
+  /** Runs the cinematic's clock; when it ends, or is skipped, control comes back (the ending goes on to the end screen). */
   private stepCinematic(dt: number): void {
     if (this.fade && (this.fade.time += dt) >= this.fade.total) this.fade = null;
     const cinematic = this.cine;
@@ -830,22 +840,31 @@ export class Game implements GameView {
     const result = cinematic.step(dt);
     if (!result) return;
     this.cine = null;
-    this.openingShot = null;
+    this.openingShot = this.bloomShot = this.endingShot = null;
     this.input.clear();
     // REQ-027 AC-4: at the darkest point of a skip the control is back, and the screen fades in on the player's camera.
-    if (result === "skipped") this.fade = { time: 0, total: config.cinematic.skipFadeSeconds / 2 };
+    if (result === "skipped" && cinematic.kind !== "ending") this.fade = { time: 0, total: config.cinematic.skipFadeSeconds / 2 };
+    if (cinematic.kind === "ending") this.endListener?.(this.session.summary());
   }
 
-  /** Starts the opening. The submarine stands still for it, and the screen comes up from black. */
-  private startOpening(): void {
-    this.cine = new Cinematic("opening");
+  /** Starts a cinematic. The submarine stands still for it. */
+  private startCinematic(kind: CinematicKind): void {
+    this.cine = new Cinematic(kind);
+    this.openingShot = this.bloomShot = this.endingShot = null;
     this.input.clear();
     this.sucking = false;
     this.beam.visible = false;
-    // REQ-027 AC-8: the path follows this dive's floating trash near the beach.
-    const group = beachGroup(this.field.items.filter((item) => item.floating).map((item) => item.home));
-    this.openingShot = openingPlan(group ?? new Vector3(config.bay.shore.waterlineX + 20, config.bay.surfaceY, 0));
-    this.fade = { time: 0, total: config.cinematic.openingFadeSeconds };
+    this.rov.velocity.set(0, 0, 0);
+    if (kind === "opening") {
+      // REQ-027 AC-8: the path follows this dive's floating trash near the beach.
+      const group = beachGroup(this.field.items.filter((item) => item.floating).map((item) => item.home));
+      this.openingShot = openingPlan(group ?? new Vector3(config.bay.shore.waterlineX + 20, config.bay.surfaceY, 0));
+      this.fade = { time: 0, total: config.cinematic.openingFadeSeconds };
+    } else if (kind === "ending") {
+      const of = (species: string) => this.seaLife.creatures.filter((creature) => creature.species === species);
+      const kinds = { yellowtail: of("yellowtail"), mantaRay: of("mantaRay"), dolphin: of("dolphin") };
+      this.endingShot = new EndingShot({ frames: this.reef.frames, reefs: patchReefs, creature: (species, index) => kinds[species][index] ?? null });
+    }
   }
 
   /** 0 (clear) to 1 (black): the screen coming up from black, or going dark after a skip. */
@@ -936,16 +955,26 @@ export class Game implements GameView {
   }
 
   /** First person on the land, third person behind the submarine otherwise (D-029, D-079); a cinematic takes the camera over. */
-  private placeCamera(): void {
+  private placeCamera(dt: number): void {
     // The end screen (or the pause menu) may have taken over in this very frame: the view stays as it was.
     if (this.mode !== "playing") return;
     this.placeNormalCamera();
-    if (this.cine) this.placeCinematicCamera();
+    if (this.cine) this.placeCinematicCamera(dt);
   }
 
-  /** REQ-027: the camera of the opening. Its last seconds merge into the normal camera, so it ends on it. */
-  private placeCinematicCamera(): void {
-    const pose = this.openingShot!.pose(this.cine!.time, this.shotPose);
+  /** REQ-027, REQ-028: the camera of the cinematic that is playing. It starts from the normal camera, which it falls back into at the end. */
+  private placeCinematicCamera(dt: number): void {
+    const cinematic = this.cine!;
+    const normal = this.normalPose;
+    normal.position.copy(this.camera.position);
+    normal.target.copy(this.cameraTarget);
+    const pose = this.shotPose;
+    if (cinematic.kind === "opening") this.openingShot!.pose(cinematic.time, pose);
+    else if (cinematic.kind === "bloom") {
+      const focus = this.ashore ? eyePosition(this.ashore.walker, this.focus) : this.focus.copy(this.rov.position);
+      this.bloomShot ??= new BloomShot(focus, normal, this.ashore !== null);
+      this.bloomShot.pose(cinematic.time, cinematic.duration, dt, focus, normal, pose);
+    } else this.endingShot!.pose(cinematic.time, dt, pose);
     this.camera.position.copy(pose.position);
     this.cameraTarget.copy(pose.target);
     this.rovModel.children[0].visible = true;
@@ -1031,7 +1060,7 @@ export class Game implements GameView {
         canPickUp: !this.transition && this.aimedBeachTrash() !== null,
         fade: Math.max(this.transition ? 1 - Math.abs((2 * this.transition.time) / config.land.fadeSeconds - 1) : 0, this.fadeValue()),
       },
-      cinematic: this.cine ? this.cine.hud() : null, // REQ-027
+      cinematic: this.cine ? this.cine.hud() : null, // REQ-027, REQ-028
       // REQ-010; on the land the arrow is the player, and the parked submarine has its own mark (REQ-015 AC-6).
       minimap: buildMinimap({
         rov: this.ashore
