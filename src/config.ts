@@ -754,6 +754,143 @@ export const config = {
       spreadAcross: 1.6,
     },
   },
+
+  // REQ-026 (D-026, D-110): sound. Everything but the music is made in code with Web Audio. Volumes are 0..1 on the
+  // sliders and become gains through `volumeCurve` (gain = volume ^ curve, so the middle of the slider is half as loud
+  // to the ear, not half the signal).
+  audio: {
+    volume: { music: 0.6, effects: 0.8 },
+    volumeCurve: 2,
+    // Seconds of white noise in the one buffer every noise source loops (ambience, wind, the effects' hiss).
+    noiseSeconds: 3,
+    // Time constants (seconds) of the glides: `fast` for the sliders and M (they must feel immediate), `fade` for
+    // pausing and unpausing (AC-7).
+    fast: 0.03,
+    fade: 0.3,
+    // A tab or window that is not in front stops all sound; the context is suspended this many milliseconds later, once
+    // the gain is down, so the browser can stop the audio thread.
+    suspendDelayMs: 200,
+    // AC-4: the one track, loaded with a path relative to the page (the build runs from any folder, D-053). `level` is its
+    // gain at full volume. Before the Bloom a low-pass filter makes it sound heard through murky water: the cutoff goes
+    // from `muffledHz` at clarity 0 to `clearHz` at clarity 1 (exponentially, as the ear hears pitch), following the
+    // Bloom's clarity over its 6 s, then stays clear. `glide` smooths the filter. In the pause menu, the Logbook and
+    // the end screen the music plays at `quiet` of its level (AC-7).
+    music: { url: "assets/audio/Underwater-Ambient-Pad-isaiah658.ogg", level: 0.9, muffledHz: 600, clearHz: 18000, q: 0.7, glide: 0.2, quiet: 0.35 },
+    // The effects' (and the ambience's) bus gain at full volume.
+    effectsLevel: 0.8,
+    effects: {
+      // A sound is a list of layers, each starting `at` seconds in: a `tone` sweeps from `from` to `to` Hz (an
+      // oscillator), a `noise` is the shared noise through a filter (type, `from` to `to` Hz, q). `gain` is the peak
+      // and `attack` the rise in seconds; the fall is exponential to `dur`. `gap` is the shortest time between two plays
+      // of the sound (a vacuum pulling many pieces at once is one clink), `jitter` the most the pitch varies by chance
+      // (0.05 is 5 %), so a repeated sound is never the same twice.
+      click: { gap: 0.04, jitter: 0.03, layers: [
+        { kind: "tone", wave: "triangle", from: 1100, to: 700, dur: 0.07, gain: 0.5 },
+        { kind: "noise", filter: "highpass", from: 4000, dur: 0.03, gain: 0.15 },
+      ] },
+      trashIn: { gap: 0.05, jitter: 0.08, layers: [
+        { kind: "tone", wave: "sine", from: 400, to: 900, dur: 0.12, gain: 0.5 },
+        { kind: "tone", wave: "triangle", from: 1800, dur: 0.06, at: 0.03, gain: 0.12 },
+        { kind: "noise", filter: "bandpass", from: 1500, q: 1, dur: 0.06, gain: 0.15 },
+      ] },
+      tankFull: { gap: 0.5, layers: [
+        { kind: "tone", wave: "triangle", from: 200, dur: 0.2, gain: 0.5 },
+        { kind: "tone", wave: "triangle", from: 150, dur: 0.35, at: 0.22, gain: 0.5 },
+      ] },
+      netCut: { gap: 0.2, jitter: 0.04, layers: [
+        { kind: "noise", filter: "highpass", from: 2500, to: 6000, q: 0.7, dur: 0.14, gain: 0.5 },
+        { kind: "tone", wave: "triangle", from: 1400, to: 400, dur: 0.1, gain: 0.25 },
+      ] },
+      animalFreed: { gap: 0.5, layers: [
+        { kind: "tone", wave: "triangle", from: 523, dur: 0.35, gain: 0.3 },
+        { kind: "tone", wave: "triangle", from: 659, dur: 0.35, at: 0.09, gain: 0.3 },
+        { kind: "tone", wave: "triangle", from: 784, dur: 0.35, at: 0.18, gain: 0.3 },
+        { kind: "tone", wave: "triangle", from: 1047, dur: 0.6, at: 0.27, gain: 0.3 },
+      ] },
+      seedShot: { gap: 0.08, jitter: 0.05, layers: [
+        { kind: "tone", wave: "sine", from: 700, to: 200, dur: 0.12, gain: 0.45 },
+        { kind: "noise", filter: "bandpass", from: 2500, to: 800, q: 1.2, dur: 0.1, gain: 0.25 },
+      ] },
+      planted: { gap: 0.3, layers: [
+        { kind: "tone", wave: "sine", from: 659, dur: 0.5, gain: 0.35 },
+        { kind: "tone", wave: "sine", from: 988, dur: 0.6, at: 0.12, gain: 0.3 },
+        { kind: "tone", wave: "sine", from: 1319, dur: 0.8, at: 0.24, gain: 0.25 },
+      ] },
+      frameInstall: { gap: 0.3, jitter: 0.03, layers: [
+        { kind: "tone", wave: "triangle", from: 140, to: 70, dur: 0.25, gain: 0.6 },
+        { kind: "noise", filter: "lowpass", from: 900, dur: 0.12, gain: 0.4 },
+        { kind: "tone", wave: "sine", from: 880, dur: 0.3, at: 0.02, gain: 0.12 },
+      ] },
+      scanKnown: { gap: 0.4, layers: [{ kind: "tone", wave: "sine", from: 440, to: 330, dur: 0.15, gain: 0.3 }] },
+      logbookEntry: { gap: 0.5, layers: [
+        { kind: "tone", wave: "sine", from: 523, dur: 0.5, gain: 0.3 },
+        { kind: "tone", wave: "sine", from: 659, dur: 0.5, at: 0.12, gain: 0.3 },
+        { kind: "tone", wave: "sine", from: 784, dur: 0.5, at: 0.24, gain: 0.3 },
+        { kind: "tone", wave: "sine", from: 1047, dur: 0.6, at: 0.36, gain: 0.3 },
+        { kind: "tone", wave: "triangle", from: 1568, dur: 0.9, at: 0.36, gain: 0.12 },
+      ] },
+      deposit: { gap: 0.3, layers: [
+        { kind: "tone", wave: "triangle", from: 1800, dur: 0.08, gain: 0.3 },
+        { kind: "tone", wave: "triangle", from: 2300, dur: 0.08, at: 0.07, gain: 0.3 },
+        { kind: "tone", wave: "triangle", from: 1600, dur: 0.08, at: 0.14, gain: 0.3 },
+        { kind: "tone", wave: "triangle", from: 2000, dur: 0.14, at: 0.2, gain: 0.3 },
+        { kind: "noise", filter: "lowpass", from: 1200, dur: 0.3, gain: 0.2 },
+      ] },
+      pickup: { gap: 0.1, jitter: 0.05, layers: [
+        { kind: "noise", filter: "bandpass", from: 1800, q: 1, dur: 0.08, gain: 0.3 },
+        { kind: "tone", wave: "sine", from: 600, to: 900, dur: 0.1, at: 0.05, gain: 0.3 },
+      ] },
+      footstepSand: { gap: 0.15, jitter: 0.15, layers: [{ kind: "noise", filter: "lowpass", from: 900, to: 300, q: 0.5, dur: 0.14, gain: 0.35, attack: 0.01 }] },
+      footstepDock: { gap: 0.15, jitter: 0.1, layers: [
+        { kind: "tone", wave: "sine", from: 150, to: 90, dur: 0.1, gain: 0.5 },
+        { kind: "noise", filter: "bandpass", from: 700, q: 2, dur: 0.06, gain: 0.3 },
+      ] },
+      leaveSub: { gap: 0.5, layers: [
+        { kind: "noise", filter: "bandpass", from: 1200, to: 300, q: 1, dur: 0.5, gain: 0.3 },
+        { kind: "tone", wave: "triangle", from: 120, to: 60, dur: 0.3, at: 0.1, gain: 0.5 },
+        { kind: "tone", wave: "sine", from: 740, dur: 0.15, gain: 0.1 },
+      ] },
+      boardSub: { gap: 0.5, layers: [
+        { kind: "tone", wave: "triangle", from: 60, to: 120, dur: 0.3, gain: 0.5 },
+        { kind: "noise", filter: "bandpass", from: 300, to: 1200, q: 1, dur: 0.5, at: 0.15, gain: 0.3 },
+        { kind: "tone", wave: "sine", from: 740, dur: 0.15, at: 0.5, gain: 0.1 },
+      ] },
+      // The Bloom: a chord that builds over its 6 s, with a shimmer on top.
+      bloom: { layers: [
+        { kind: "tone", wave: "sine", from: 262, dur: 6.5, gain: 0.2, attack: 3 },
+        { kind: "tone", wave: "sine", from: 392, dur: 5.5, at: 1, gain: 0.15, attack: 2 },
+        { kind: "tone", wave: "sine", from: 523, dur: 4.5, at: 2, gain: 0.15, attack: 1.5 },
+        { kind: "tone", wave: "sine", from: 659, dur: 3.5, at: 3, gain: 0.15, attack: 1.5 },
+        { kind: "tone", wave: "sine", from: 784, dur: 2.5, at: 4, gain: 0.12, attack: 1 },
+        { kind: "noise", filter: "highpass", from: 5000, to: 9000, dur: 6, gain: 0.06, attack: 3 },
+      ] },
+    },
+    // The sounds held while the button is down. The vacuum: a motor hum (`humHz` through a low-pass at `humCutoff`)
+    // under a rush of air (noise through a band-pass at `noiseHz`). The Scanner: a tone that rises from `baseHz` by
+    // `rangeHz` as the scan fills, with a tremolo. `glide` is how fast they start and stop.
+    loops: {
+      vacuum: { noiseHz: 500, noiseQ: 1.2, noiseGain: 0.3, humHz: 70, humCutoff: 260, humGain: 0.22, glide: 0.08 },
+      scan: { baseHz: 520, rangeHz: 900, gain: 0.12, tremoloHz: 9, tremoloDepth: 0.5, glide: 0.05 },
+    },
+    // Ambience (AC-2): `crossfade` is the time constant of the change between under water and above it. Under water: a
+    // low rumble (noise through a low-pass at `cutoff`, swelling at `swellHz` by `depth`) and now and then up to `count`
+    // bubbles, one burst every `gapMin`..`gapMax` seconds. Above: waves (a low-pass of noise that swells like a wave
+    // every 1 / `swellHz` s) and wind (noise through a band-pass whose strength drifts at `gustHz`).
+    ambience: {
+      level: 0.6,
+      crossfade: 0.5,
+      under: {
+        rumble: { cutoff: 110, gain: 0.55, swellHz: 0.11, depth: 0.25 },
+        bubbles: { gapMin: 1.2, gapMax: 4, count: 4, spacing: 0.09, jitter: 0.35, layers: [{ kind: "tone", wave: "sine", from: 420, to: 760, dur: 0.1, gain: 0.12 }] },
+      },
+      above: {
+        waves: { cutoff: 700, gain: 0.35, swellHz: 0.13, depth: 0.6 },
+        wind: { hz: 620, q: 0.7, gain: 0.22, gustHz: 0.06, depth: 0.7 },
+      },
+    },
+    // How far the player walks between two footsteps.
+    footstepStride: 0.9,
+  },
 } as const;
 
 export type Config = typeof config;

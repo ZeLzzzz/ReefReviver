@@ -100,7 +100,9 @@ test.describe("Indonesian browser", () => {
     await expect(page.getByRole("heading", { name: "Tim" })).toBeVisible();
     await expect(page.getByText("Nama anggota tim belum diisi.")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Aset pihak ketiga" })).toBeVisible();
-    await expect(page.getByText("Belum ada aset pihak ketiga.")).toBeVisible();
+    // REQ-026: the one third-party asset is the music (G-005).
+    await expect(page.getByText("Underwater Ambient Pad (musik latar)")).toBeVisible();
+    await expect(page.getByText("Lisensi: CC0 1.0")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Kode pihak ketiga" })).toBeVisible();
     await expect(page.getByText("three.js", { exact: true })).toBeVisible();
     await expect(page.getByText("Lisensi: MIT", { exact: false })).toBeVisible();

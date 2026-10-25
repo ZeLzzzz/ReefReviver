@@ -143,8 +143,14 @@ describe("credits screen (REQ-009 AC-5)", () => {
     expect([...ui.querySelectorAll("h2")].map((h) => h.textContent)).toEqual(["Tim", "Aset pihak ketiga", "Kode pihak ketiga"]);
     // D-054: no invented names; a clear marker until the user fills in CREDITS.md.
     expect(ui.querySelector(".credit-pending")?.textContent).toBe("Nama anggota tim belum diisi.");
-    expect(ui.querySelector(".credit-none")?.textContent).toBe("Belum ada aset pihak ketiga.");
-    const three = ui.querySelector(".credit-list:not(.credit-team) li")!;
+    // REQ-026 AC-4, G-005: the one third-party asset is the music.
+    expect(ui.querySelector(".credit-none")).toBeNull();
+    const music = ui.querySelector(".credit-list:not(.credit-team) li")!;
+    expect(music.textContent).toContain("Underwater Ambient Pad (musik latar)");
+    expect(music.textContent).toContain("oleh isaiah658");
+    expect(music.textContent).toContain("Lisensi: CC0 1.0");
+    expect(music.querySelector("a")?.getAttribute("href")).toBe("https://opengameart.org/content/underwater-ambient-pad");
+    const three = [...ui.querySelectorAll(".credit-list:not(.credit-team) li")].find((li) => li.textContent?.includes("three.js"))!;
     expect(three.textContent).toContain("three.js");
     expect(three.textContent).toContain("Lisensi: MIT");
     expect(three.querySelector("a")?.getAttribute("href")).toBe("https://threejs.org");
@@ -157,7 +163,9 @@ describe("credits screen (REQ-009 AC-5)", () => {
     const { ui } = await openCredits(["en"]);
     expect([...ui.querySelectorAll("h2")].map((h) => h.textContent)).toEqual(["Team", "Third-party assets", "Third-party code"]);
     expect(ui.querySelector(".credit-pending")?.textContent).toContain("have not been filled in yet");
-    expect(ui.querySelector(".credit-list:not(.credit-team) li")?.textContent).toContain("Licence: MIT");
+    const lists = [...ui.querySelectorAll(".credit-list:not(.credit-team) li")].map((li) => li.textContent);
+    expect(lists.some((text) => text?.includes("by isaiah658") && text.includes("Licence: CC0 1.0"))).toBe(true);
+    expect(lists.some((text) => text?.includes("Licence: MIT"))).toBe(true);
   });
 
   it("Kembali returns to the title screen", async () => {

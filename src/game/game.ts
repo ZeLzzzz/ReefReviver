@@ -12,6 +12,7 @@ import {
   Vector3,
   WebGLRenderer,
 } from "three";
+import { silentAudio, type GameAudio } from "../audio/types";
 import { config } from "../config";
 import { LOGBOOK_ENTRIES, type LogbookId } from "../logbook/entries";
 import { atDiveEdge, rocks, setFrameColumns } from "./bay";
@@ -35,7 +36,7 @@ import { naturalTargets } from "./nature";
 import { createNatureView } from "./nature-model";
 import { createRovModel, setHeadlight } from "./rov-model";
 import { FLOAT_Y, constrainRov, createRovState, rightVector, steer, stepRov, surfaceBob, type Bob, type RovState } from "./rov";
-import { ashoreSpot, canBoard, createWalker, eyePosition, lookWalker, standable, stepWalker, type AshoreSpot, type Walker } from "./land";
+import { ashoreSpot, canBoard, createWalker, eyePosition, lookWalker, onDock, standable, stepWalker, type AshoreSpot, type Walker } from "./land";
 import { Rescue } from "./rescue";
 import { findAimPoint, SeedLauncher } from "./seed-launcher";
 import { Session, type SessionSummary } from "./session";
@@ -142,6 +143,9 @@ export class Game implements GameView {
   private endListener: ((summary: SessionSummary) => void) | null = null;
   private lastHud: HudState | null = null;
   private sucking = false;
+  /** REQ-026: the vacuum button was held last frame (a press on a full tank sounds the buzzer), and how far the player has walked since the last footstep. */
+  private vacuumHeld = false;
+  private stride = 0;
   private rov: RovState = createRovState();
   // REQ-015: on foot on the land, with the submarine floating where it was left (D-080); null while aboard.
   private ashore: { walker: Walker; sub: Vector3 } | null = null;
@@ -155,7 +159,7 @@ export class Game implements GameView {
   private titleTime = 0;
   private lastFrame: number | null = null;
 
-  constructor(canvas: HTMLCanvasElement, context: WebGL2RenderingContext) {
+  constructor(canvas: HTMLCanvasElement, context: WebGL2RenderingContext, private readonly audio: GameAudio = silentAudio) {
     this.renderer = new WebGLRenderer({ canvas, context, antialias: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.world = buildWorld(this.scene);
@@ -369,6 +373,9 @@ export class Game implements GameView {
         // REQ-024: whether the view is above the water, how often it changed since the page loaded, and the model's height.
         view: () => ({ above: this.above, flips: this.aboveFlips, modelY: this.rovModel.position.y }),
         inTransition: () => this.transition !== null,
+        // REQ-026: the sound engine's state (context, buses, music filter, ambience mix, effects fired), when it has one.
+        audio: () => ("debug" in this.audio ? (this.audio as unknown as { debug(): unknown }).debug() : null),
+        playSound: (name: Parameters<GameAudio["play"]>[0]) => this.audio.play(name),
         // Turns (and moves) the player on foot, like placeRov for the submarine.
         placeWalker: (x: number, z: number, yaw: number, pitch: number) => {
           if (!this.ashore) return;
@@ -512,6 +519,10 @@ export class Game implements GameView {
   pause(): void {
     this.mode = "paused";
     this.input.clear();
+    // REQ-026 AC-7: the held sounds stop with the game.
+    this.audio.loop("vacuum", 0);
+    this.audio.loop("scan", 0);
+    this.vacuumHeld = false;
   }
 
   resume(): void {
@@ -531,7 +542,9 @@ export class Game implements GameView {
       else if (this.ashore) {
         // REQ-015: walking on the land.
         lookWalker(this.ashore.walker, dx, dy);
+        const { x, z } = this.ashore.walker.position;
         stepWalker(this.ashore.walker, this.input.move(), dt);
+        this.stepFootsteps(x, z);
       } else {
         steer(this.rov, dx, dy);
         stepRov(this.rov, this.input.move(), dt);
@@ -547,6 +560,7 @@ export class Game implements GameView {
     }
     // REQ-015: above the water the world shows the sky and daylight instead of the water's fog.
     this.updateAbove();
+    this.audio.scene({ above: this.above, clarity: this.bloom.clarity }); // REQ-026 AC-2, AC-4
     this.world.setAbove(this.above);
     if (this.mode !== "paused") {
       this.stepCave(dt);
@@ -580,6 +594,15 @@ export class Game implements GameView {
     } else if (!atDiveEdge(x, z, config.bay.area.slowBand / 2)) {
       this.atEdge = false;
     }
+  }
+
+  /** REQ-026 AC-3: a footstep every `footstepStride` m walked, on the dock's boards or on the sand. */
+  private stepFootsteps(fromX: number, fromZ: number): void {
+    const { x, z } = this.ashore!.walker.position;
+    this.stride += Math.hypot(x - fromX, z - fromZ);
+    if (this.stride < config.audio.footstepStride) return;
+    this.stride = 0;
+    this.audio.play(onDock(x, z) ? "footstepDock" : "footstepSand");
   }
 
   /**
@@ -633,9 +656,13 @@ export class Game implements GameView {
         // REQ-016: otherwise at the shed's counter E deposits the tank; next to the submarine it gets back in.
         const aimed = code === "KeyE" ? this.aimedBeachTrash() : null;
         if (aimed) {
-          if (session.collect()) this.field.lift(aimed);
-        } else if (code === "KeyE" && inStationZone(this.ashore.walker.position)) session.deposit();
-        else if (code === "KeyE" && canBoard(this.ashore.walker, this.ashore.sub)) this.startTransition("sub", null);
+          if (session.collect()) {
+            this.field.lift(aimed);
+            this.audio.play("pickup"); // REQ-026
+          } else this.audio.play("tankFull");
+        } else if (code === "KeyE" && inStationZone(this.ashore.walker.position)) {
+          if (session.deposit() !== "empty") this.audio.play("deposit"); // REQ-026
+        } else if (code === "KeyE" && canBoard(this.ashore.walker, this.ashore.sub)) this.startTransition("sub", null);
         continue;
       }
       session.select(toolForKey(code));
@@ -647,9 +674,23 @@ export class Game implements GameView {
     const held = primary && session.tool === "vacuum";
     const room = session.tankSpace - this.field.pulling;
     this.sucking = held && room > 0;
-    for (const _item of this.field.update(dt, rov.position, this.aim, held, room)) session.collect();
+    // REQ-026 AC-3: the vacuum hums while the button is down; each piece into the tank clinks; the last one that fits
+    // sounds the buzzer, and so does a press on a full tank.
+    let collected = 0;
+    for (const _item of this.field.update(dt, rov.position, this.aim, held, room)) if (session.collect()) collected += 1;
+    if (collected > 0) {
+      this.audio.play("trashIn");
+      if (session.tankFull) this.audio.play("tankFull", 0.12);
+    } else if (held && !this.vacuumHeld && session.tankFull) this.audio.play("tankFull");
+    this.vacuumHeld = held;
+    this.audio.loop("vacuum", this.sucking ? 1 : 0);
     // REQ-003: the cutter, the nets and the animals.
+    const netsCut = session.netsCut;
     this.rescue.step(dt, rov, this.aim, primary && session.tool === "cutter", this.floorItems, session);
+    if (session.netsCut > netsCut) {
+      this.audio.play("netCut"); // REQ-026
+      this.audio.play("animalFreed", 0.25);
+    }
     this.stepSeedLauncher(dt, primary);
     this.stepScanner(dt, primary);
     session.tick(dt);
@@ -688,9 +729,13 @@ export class Game implements GameView {
       this.scanHit = aimedScanTarget(this.scanCamera, this.aim, rov.position, targets);
     }
     const event = this.scanner.update(dt, scanning, this.scanHit, session.unlocked);
-    if (event) session.scanned(event);
+    if (event) {
+      session.scanned(event);
+      this.audio.play(event.kind === "scanned" ? "logbookEntry" : "scanKnown"); // REQ-026
+    }
 
     const working = this.scanHit !== null && this.scanner.progress > 0;
+    this.audio.loop("scan", working ? this.scanner.progress : 0); // REQ-026
     this.scanBeam.visible = working;
     if (working && this.scanHit) {
       this.scanNose.set(rov.position.x + Math.sin(rov.yaw) * 0.8, rov.position.y + 0.2, rov.position.z + Math.cos(rov.yaw) * 0.8);
@@ -704,6 +749,7 @@ export class Game implements GameView {
    */
   private stepBloom(dt: number): void {
     const event = this.bloom.update(dt, this.session.bloomReady);
+    if (event === "started") this.audio.play("bloom"); // REQ-026 AC-3; the music's filter follows the clarity (AC-4)
     this.showBloom(this.bloom.clarity);
     if (event === "finished") {
       this.seaLife.start();
@@ -764,6 +810,7 @@ export class Game implements GameView {
   /** REQ-015: starts the short fade for getting out (`spot` is where) or back in. */
   private startTransition(to: "land" | "sub", spot: AshoreSpot | null): void {
     this.transition = { time: 0, switched: false, to, spot };
+    this.audio.play(to === "land" ? "leaveSub" : "boardSub"); // REQ-026
     this.sucking = false;
     this.beam.visible = false;
   }
@@ -784,6 +831,7 @@ export class Game implements GameView {
   private goAshore(spot: AshoreSpot): void {
     const sub = new Vector3(spot.park.x, config.bay.surfaceY - config.land.floatDepth, spot.park.z);
     this.ashore = { walker: createWalker(spot.landing.x, spot.landing.z, spot.landing.yaw), sub };
+    this.stride = 0;
     this.rov.position.copy(sub);
     this.rov.velocity.set(0, 0, 0);
     this.rov.pitch = 0;
@@ -818,6 +866,7 @@ export class Game implements GameView {
     const site = this.reef.emptySiteNear(this.rov.position.x, this.rov.position.z);
     if (site < 0 || !this.session.buyFrame()) return;
     this.reef.install(site);
+    this.audio.play("frameInstall"); // REQ-026
     setFrameColumns(this.reef.columns());
     this.reefView.sync(this.reef);
   }
@@ -829,13 +878,14 @@ export class Game implements GameView {
     for (const result of seeds.update(dt, this.reef)) {
       if (result.kind === "coral") session.coralAttached(result.planted);
       else if (result.kind === "seed") session.seedPlanted(result.planted);
+      if (result.kind !== "miss" && result.planted) this.audio.play("planted"); // REQ-026
       changed ||= result.kind !== "miss";
     }
     if (primary && session.tool === "seedLauncher" && seeds.ready) {
       // The crosshair is the camera's ray along the aim; the shot leaves the ROV and flies to the point that ray hits.
       followCamera(rov, this.seedCamera, this.seedCameraTarget);
       findAimPoint(this.seedCamera, this.aim, this.reef, this.seedTarget);
-      seeds.fire(rov.position, this.seedTarget, this.aim);
+      if (seeds.fire(rov.position, this.seedTarget, this.aim)) this.audio.play("seedShot"); // REQ-026
     }
     if (changed) this.reefView.sync(this.reef);
     this.seedView.sync(seeds.shots);

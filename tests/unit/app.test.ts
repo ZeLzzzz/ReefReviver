@@ -193,14 +193,14 @@ describe("HUD (REQ-002)", () => {
 });
 
 describe("pause (REQ-001 AC-5)", () => {
-  it("Esc pauses and shows Lanjut, Kontrol and Bahasa", async () => {
+  it("Esc pauses and shows Lanjut, Kontrol, Suara and Bahasa", async () => {
     const { ui, app, game, lock } = await startPlaying();
     pressEscape();
     expect(app.screen).toBe("paused");
     expect(game.pause).toHaveBeenCalledOnce();
     expect(lock.locked).toBe(false);
     expect(ui.querySelector("h2")?.textContent).toBe("Jeda");
-    expect(buttons(ui)).toEqual(["Lanjut", "Kontrol", "Bahasa"]);
+    expect(buttons(ui)).toEqual(["Lanjut", "Kontrol", "Suara", "Bahasa"]);
   });
 
   it("pauses when the browser releases the cursor on Esc", async () => {
@@ -247,13 +247,14 @@ describe("pause (REQ-001 AC-5)", () => {
       "4 = Pilih Scanner",
       "E = Setor sampah, pasang rangka, naik ke darat, memungut sampah di pantai, atau masuk kapal selam mini",
       "L = Buka atau tutup Marine Logbook",
+      "M = Matikan atau nyalakan suara",
       "Esc = Jeda",
     ]);
     await clickButton(ui, "Kembali");
-    expect(buttons(ui)).toEqual(["Lanjut", "Kontrol", "Bahasa"]);
+    expect(buttons(ui)).toEqual(["Lanjut", "Kontrol", "Suara", "Bahasa"]);
     await clickButton(ui, "Kontrol");
     pressEscape();
-    expect(buttons(ui)).toEqual(["Lanjut", "Kontrol", "Bahasa"]);
+    expect(buttons(ui)).toEqual(["Lanjut", "Kontrol", "Suara", "Bahasa"]);
   });
 
   it("Bahasa switches the language while paused", async () => {
@@ -263,7 +264,7 @@ describe("pause (REQ-001 AC-5)", () => {
     await clickButton(ui, "English");
     expect(ui.querySelector("h2")?.textContent).toBe("Paused");
     await clickButton(ui, "Back");
-    expect(buttons(ui)).toEqual(["Resume", "Controls", "Language"]);
+    expect(buttons(ui)).toEqual(["Resume", "Controls", "Sound", "Language"]);
   });
 });
 

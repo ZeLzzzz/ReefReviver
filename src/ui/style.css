@@ -78,6 +78,12 @@ body {
   backdrop-filter: blur(6px);
 }
 
+/* REQ-026: the Controls list grew by a row; on a short window the pause menu scrolls instead of losing its Back button. */
+.pause-screen .panel {
+  max-height: 100%;
+  overflow-y: auto;
+}
+
 .panel h1,
 .panel h2 {
   margin: 0 0 4px;
@@ -935,4 +941,37 @@ kbd {
   background: #0b1c26;
   opacity: 0;
   pointer-events: none;
+}
+
+/* REQ-026: the Sound view's sliders, and the tag shown while M has muted the sound. */
+.slider-row {
+  display: grid;
+  grid-template-columns: 8.5em minmax(160px, 1fr) 3.5em;
+  align-items: center;
+  gap: 12px;
+}
+
+.slider-row input[type="range"] {
+  min-height: 44px;
+  accent-color: var(--accent);
+}
+
+.slider-row output {
+  text-align: right;
+}
+
+.sound-off {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  margin: 0;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.sound-off[hidden] {
+  display: none;
 }

@@ -148,5 +148,12 @@
   "end.lockFailed": "Kursor belum terkunci ke game. Klik tombolnya lagi.",
   "land.ashorePrompt": "Tekan E untuk naik ke darat",
   "land.boardPrompt": "Tekan E untuk masuk kapal selam mini",
-  "land.pickupPrompt": "Tekan E untuk memungut sampah"
+  "land.pickupPrompt": "Tekan E untuk memungut sampah",
+  "pause.sound": "Suara",
+  "sound.music": "Musik",
+  "sound.effects": "Efek suara",
+  "sound.unavailable": "Browser ini tidak bisa memutar suara, jadi pengaturan ini tidak berpengaruh.",
+  "hud.muted": "Suara mati",
+  "controls.mute.keys": "M",
+  "controls.mute.action": "Matikan atau nyalakan suara"
 }

@@ -21,7 +21,8 @@ Game browser 3D low-poly: pemain mengemudikan kapal selam mini untuk membersihka
 - HUD berisi tangki, bahan, skor, kebersihan teluk, alat aktif, daftar tujuan Fase 1, dan daftar tujuan Fase 2 setelah setoran pertama. Setelah Bloom, kedua daftar itu diganti tujuan Fase 3 (Pindai 0/7).
 - Minimap di pojok kanan atas (utara di atas), dengan panel statistik tepat di bawahnya. Peta menampilkan seluruh teluk: daratan di barat beserta tanjungnya, garis tipis tepi area penyelaman, dan dasar laut yang makin terang di bagian yang makin dangkal (puncak bukit), lalu arah kapal selam (atau pemain saat di darat), gudang daur ulang (kotak), dermaga (garis), titik terumbu (belah ketupat), petak lamun (lingkaran), dan jaring yang masih menjerat satwa (X). Tanda titik berubah saat rangka terpasang dan saat titik ditanami. Sisa sampah baru tampil sebagai titik setelah kebersihan mencapai 70%.
 - Layar Kredit (dari layar judul): anggota tim, aset pihak ketiga, dan kode pihak ketiga beserta lisensinya. Isinya dibaca dari `CREDITS.md` saat build.
-- Menu jeda (Esc) berisi Lanjut, Kontrol, dan Bahasa. Game juga otomatis berhenti kalau kursor lepas, misalnya karena alt-tab.
+- Suara: di bawah air terdengar gemuruh laut dan gelembung, di atas air dan di darat ombak dan angin. Setiap aksi punya efek suara (Vacuum, sampah masuk tangki, tangki penuh, memotong jaring, satwa bebas, tembakan bibit, titik tertanam, Scanner, entri Logbook baru, setor, memungut sampah, langkah di pasir dan dermaga, keluar/masuk kapal, tombol menu, Bloom). Semua efek dibuat dengan Web Audio di kode (`src/audio/`), tanpa file. Musik latar "Underwater Ambient Pad" (isaiah658, CC0) diputar berulang: teredam sebelum Bloom, lalu jernih. Suara baru mulai setelah Mulai ditekan. M mematikan/menyalakan suara; volume musik dan efek diatur di menu jeda (awal 60% dan 80%), dan kembali ke awal setelah refresh. Saat jeda, Logbook, dan layar akhir hanya musik yang terdengar, lebih pelan. Kalau musik gagal dimuat (mis. Safari yang tidak bisa memutar OGG) atau browser tidak punya Web Audio, game tetap jalan tanpa musik atau tanpa suara.
+- Menu jeda (Esc) berisi Lanjut, Kontrol, Bahasa, dan Suara. Game juga otomatis berhenti kalau kursor lepas, misalnya karena alt-tab.
 - Di HP/tablet muncul pesan "Mainkan di komputer". Di browser tanpa WebGL 2 muncul penjelasan, bukan layar hitam.
 
 Model 3D memakai gaya low-poly; model GLB dari artist bisa menggantikan aset buatan kode. Batu besar menggunakan permukaan yang sama untuk gambar, tabrakan, dan tempat menempel biota. Karang alami memiliki dua variasi bentuk per jenis: cabang dengan percabangan tidak seragam, lempeng tipis bertumpuk dengan tepian bergelombang, bongkah berlekuk, dan jari bercabang. Koloni kecil mengisi sela di antara koloni besar; warna berkelompok dengan pangkal lebih gelap dan ujung lebih terang. Kipas laut bercabang terbuka, spons memiliki bibir tebal dan rongga gelap, dan sinar bawah air memudar lembut di tepinya.
@@ -40,6 +41,7 @@ Model 3D memakai gaya low-poly; model GLB dari artist bisa menggantikan aset bua
 | 4 | Pilih Scanner (setelah Bloom) |
 | E | Pasang rangka di titik terumbu, naik ke darat di dekat pantai barat; di darat: pungut sampah di pasir yang dibidik, setor sampah di loket gudang daur ulang, atau masuk kapal selam |
 | L | Buka/tutup Marine Logbook |
+| M | Matikan atau nyalakan suara |
 | Esc | Jeda, atau tutup Logbook |
 
 ## Menjalankan
@@ -88,6 +90,7 @@ Sebelum `test:e2e` pertama kali, pasang Chromium-nya dengan `npx playwright inst
 | `src/logbook/entries.ts` | Data tujuh entri Marine Logbook: nama ilmiah, target SDG 14, dan sumber tiap fakta. Teksnya ada di file string (`logbook.*`) |
 | `src/app.ts`, `src/ui/` | Alur layar: loading, judul, kredit, bermain (HUD dan minimap), jeda, Marine Logbook, pesan perangkat/WebGL/gagal muat |
 | `src/assets.ts`, `public/assets/manifest.json` | Pemuat model artist dan daftar filenya |
+| `src/audio/`, `public/assets/audio/` | Suara (REQ-026): mesin Web Audio, resep efek dan suasana yang dibuat kode, dan file musik latar. Volume dan nada tiap efek ada di `config.audio` |
 | `CREDITS.md` | Sumber layar Kredit: tim, aset pihak ketiga, kode pihak ketiga dan teks lisensinya |
 | `scripts/` | Cek ukuran build dan server lokal untuk mencoba build dari sub-folder |
 | `src/game/` | Adegan Three.js dan aturan main: medan teluk (`terrain.ts`: bukit, lembah, pantai, tanjung, laut dalam di luar area, batas area penyelaman), batu besar dan lengkungan batu, kapal selam (di kode disebut ROV), daratan dan berjalan (`land.ts`), tabrakan, kamera, input, sampah, vacuum, gudang daur ulang dan dermaga, jaring, satwa, cutter, titik terumbu, seed launcher, Bloom dan satwa yang kembali, scanner, sesi (tangki, skor, kebersihan, tujuan) |

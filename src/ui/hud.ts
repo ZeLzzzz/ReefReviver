@@ -9,6 +9,8 @@ export interface HudView {
   element: HTMLElement;
   /** Shows a new state. Only touches the DOM for what changed, so it is cheap to call every frame. */
   update(state: HudState): void;
+  /** REQ-026 AC-5: shows or hides the "Suara mati" tag. */
+  setMuted(muted: boolean): void;
 }
 
 const OBJECTIVE_KEYS: Record<ObjectiveId, StringKey> = {
@@ -117,6 +119,10 @@ export function createHud(lang: Lang): HudView {
   const minimap = createMinimap(lang);
   minimap.element.hidden = true;
 
+  // REQ-026 AC-5: a small tag in the corner while M has muted the sound.
+  const soundOff = h("p", { class: "sound-off", role: "status" });
+  soundOff.hidden = true;
+
   const element = h(
     "div",
     { class: "hud" },
@@ -128,11 +134,16 @@ export function createHud(lang: Lang): HudView {
     toolPanel,
     h("div", { class: "hud-messages" }, fullMessage, notice, prompt),
     marker,
+    soundOff,
     fade,
   );
 
   return {
     element,
+    setMuted(muted) {
+      setHidden(soundOff, !muted);
+      setText(soundOff, muted ? t(lang, "hud.muted") : "");
+    },
     update(state) {
       const phase2 = state.reef?.phase2 ?? [];
       // REQ-005: once the Bloom is over (phase3 present) only the Phase 3 list shows.
@@ -221,7 +232,7 @@ export function createHud(lang: Lang): HudView {
       // message (REQ-016 AC-5).
       const half = markerWidth / 2 + 8;
       const edgeLeft = Math.min(Math.max(state.marker.left, half), Math.max(half, window.innerWidth - half));
-      const panels = [goalsPanel, minimap.element, statsPanel, toolPanel, fullMessage, notice, prompt].map((panel) => panel.getBoundingClientRect());
+      const panels = [goalsPanel, minimap.element, statsPanel, toolPanel, fullMessage, notice, prompt, soundOff].map((panel) => panel.getBoundingClientRect());
       const placed = avoidRects(edgeLeft, state.marker.top, markerWidth, markerHeight, panels, window.innerWidth, window.innerHeight);
       marker.style.transform = `translate(${placed.x.toFixed(1)}px, ${placed.y.toFixed(1)}px) translate(-50%, -50%)`;
       markerArrow.style.transform = `rotate(${state.marker.angle.toFixed(3)}rad)`;

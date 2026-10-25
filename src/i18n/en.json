@@ -148,5 +148,12 @@
   "end.lockFailed": "The game couldn't capture the mouse. Click the button again.",
   "land.ashorePrompt": "Press E to go ashore",
   "land.boardPrompt": "Press E to board the mini submarine",
-  "land.pickupPrompt": "Press E to pick up the trash"
+  "land.pickupPrompt": "Press E to pick up the trash",
+  "pause.sound": "Sound",
+  "sound.music": "Music",
+  "sound.effects": "Sound effects",
+  "sound.unavailable": "This browser can't play sound, so these settings have no effect.",
+  "hud.muted": "Sound off",
+  "controls.mute.keys": "M",
+  "controls.mute.action": "Turn sound off or on"
 }

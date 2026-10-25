@@ -21,7 +21,7 @@ Satu baris per aset yang bukan buatan tim (model, gambar, suara, font), formatny
 Aset buatan tim sendiri tidak ditulis di sini. Tanpa lisensi yang jelas, aset tidak boleh dipakai (G-005).
 -->
 
-Belum ada.
+- Underwater Ambient Pad (musik latar) | isaiah658 | CC0 1.0 | https://opengameart.org/content/underwater-ambient-pad
 
 ## Kode pihak ketiga
 

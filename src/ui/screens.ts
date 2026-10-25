@@ -56,7 +56,19 @@ export function titleScreen({ lang, notice: noticeKey, onStart, onCredits, onLan
   );
 }
 
-export type PauseView = "main" | "controls" | "language";
+export type PauseView = "main" | "controls" | "sound" | "language";
+
+/** REQ-026 AC-6: the Sound view's sliders (0 to 1) and where they start. */
+export interface SoundProps {
+  music: number;
+  effects: number;
+  /** False when the browser cannot make sound: the sliders stay, with a note that they do nothing. */
+  available: boolean;
+  onMusic: (volume: number) => void;
+  onEffects: (volume: number) => void;
+  /** The effects slider was let go: a click lets the player hear the new level. */
+  onEffectsDone: () => void;
+}
 
 export interface PauseProps {
   lang: Lang;
@@ -65,12 +77,26 @@ export interface PauseProps {
   onResume: () => void;
   onView: (view: PauseView) => void;
   onLanguage: (lang: Lang) => void;
+  sound: SoundProps;
 }
 
 // Only the controls that work so far; each REQ that adds a control adds its row (D-019).
-const CONTROLS = ["move", "rise", "dive", "look", "use", "cutter", "vacuum", "seed", "scanner", "interact", "logbook", "pause"] as const;
+const CONTROLS = ["move", "rise", "dive", "look", "use", "cutter", "vacuum", "seed", "scanner", "interact", "logbook", "mute", "pause"] as const;
 
-export function pauseMenu({ lang, view, notice: noticeKey, onResume, onView, onLanguage }: PauseProps): HTMLElement {
+/** A volume slider, 0 to 100 %, that applies as it moves; the percentage beside it is updated without redrawing the screen. */
+function volumeSlider(lang: Lang, id: string, labelKey: StringKey, value: number, onInput: (volume: number) => void, onDone?: () => void): HTMLElement {
+  const percent = (v: number) => `${Math.round(v)}%`;
+  const output = h("output", { for: id }, percent(value * 100));
+  const input = h("input", { id, type: "range", min: "0", max: "100", step: "1", value: String(Math.round(value * 100)) });
+  input.addEventListener("input", () => {
+    output.textContent = percent(input.valueAsNumber);
+    onInput(input.valueAsNumber / 100);
+  });
+  if (onDone) input.addEventListener("change", onDone);
+  return h("div", { class: "slider-row" }, h("label", { for: id }, t(lang, labelKey)), input, output);
+}
+
+export function pauseMenu({ lang, view, notice: noticeKey, onResume, onView, onLanguage, sound }: PauseProps): HTMLElement {
   const back = button(t(lang, "pause.back"), () => onView("main"));
   let body: Child[];
   if (view === "controls") {
@@ -85,12 +111,20 @@ export function pauseMenu({ lang, view, notice: noticeKey, onResume, onView, onL
       ),
       back,
     ];
+  } else if (view === "sound") {
+    body = [
+      volumeSlider(lang, "volume-music", "sound.music", sound.music, sound.onMusic),
+      volumeSlider(lang, "volume-effects", "sound.effects", sound.effects, sound.onEffects, sound.onEffectsDone),
+      !sound.available && h("p", { class: "notice" }, t(lang, "sound.unavailable")),
+      back,
+    ];
   } else if (view === "language") {
     body = [languagePicker(lang, "pause.language", onLanguage), back];
   } else {
     body = [
       button(t(lang, "pause.resume"), onResume, "primary"),
       button(t(lang, "pause.controls"), () => onView("controls")),
+      button(t(lang, "pause.sound"), () => onView("sound")),
       button(t(lang, "pause.language"), () => onView("language")),
       notice(lang, noticeKey),
     ];

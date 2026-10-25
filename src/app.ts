@@ -1,3 +1,4 @@
+import { silentAudio, type AppAudio } from "./audio/types";
 import type { GameView } from "./game/game";
 import type { HudState } from "./game/hud-state";
 import type { SessionSummary } from "./game/session";
@@ -25,6 +26,8 @@ export interface AppDeps {
   pointerLock: PointerLock;
   /** Loads the game's files, reporting progress (0 to 1); rejects when one cannot be loaded (REQ-009). Without it, the game starts at once. */
   loadAssets?: (onProgress: (fraction: number) => void) => Promise<void>;
+  /** The game's sound (REQ-026); without it the screens are silent. */
+  audio?: AppAudio;
 }
 
 /** Screen flow around the game: loading, title, credits, playing, pause, the Marine Logbook, the end screen, and the messages for unsupported browsers. */
@@ -42,9 +45,13 @@ export class App {
   /** REQ-008: what the end screen shows, and which of its buttons was pressed. */
   private summary: SessionSummary | null = null;
   private endChoice: "replay" | "explore" = "explore";
+  private readonly audio: AppAudio;
+  /** REQ-026 AC-7: the window has lost focus (the tab being hidden is read from the document). */
+  private blurred = false;
 
   constructor(private readonly deps: AppDeps) {
     this.lang = initialLanguage(deps.storage, deps.browserLanguages);
+    this.audio = deps.audio ?? silentAudio;
   }
 
   /** Resolves once the title screen (or an error screen) is up; with no `loadAssets`, that happens before it returns. */
@@ -78,8 +85,25 @@ export class App {
     this.deps.pointerLock.onChange((locked) => this.lockChanged(locked));
     doc.defaultView!.addEventListener("keydown", (event) => this.keyDown(event));
     // Losing the cursor or the window (alt-tab, another tab) pauses the game (AC-6).
-    doc.defaultView!.addEventListener("blur", () => this.pause());
-    doc.addEventListener("visibilitychange", () => doc.hidden && this.pause());
+    doc.defaultView!.addEventListener("blur", () => {
+      this.blurred = true;
+      this.pause();
+      this.audio.setInactive(true);
+    });
+    doc.defaultView!.addEventListener("focus", () => {
+      this.blurred = false;
+      this.audio.setInactive(doc.hidden);
+    });
+    doc.addEventListener("visibilitychange", () => {
+      if (doc.hidden) this.pause();
+      this.audio.setInactive(doc.hidden || this.blurred);
+    });
+    // REQ-026 AC-3: every menu button clicks. The first click is also what lets the browser play sound at all.
+    this.deps.ui.addEventListener("click", (event) => {
+      if (!(event.target instanceof Element) || !event.target.closest("button")) return;
+      this.audio.unlock();
+      this.audio.play("click");
+    });
     this.show("title");
   }
 
@@ -155,6 +179,11 @@ export class App {
   }
 
   private keyDown(event: KeyboardEvent): void {
+    // REQ-026 AC-5: M mutes and unmutes all sound while playing; the HUD shows a tag while it is off.
+    if (event.code === "KeyM" && !event.repeat && this.screen === "playing") {
+      this.audio.setMuted(!this.audio.settings.muted);
+      this.hudView?.setMuted(this.audio.settings.muted);
+    }
     if (event.code === "KeyL" && !event.repeat) {
       if (this.screen === "playing") this.openLogbook();
       else if (this.screen === "logbook") void this.closeLogbook();
@@ -182,6 +211,8 @@ export class App {
     const { lang, notice } = this;
     this.hudView = null;
     this.loadingView = null;
+    // REQ-026 AC-7: while paused, in the Logbook or on the end screen the ambience and effects stop and the music quietens.
+    this.audio.setPhase(this.screen === "paused" || this.screen === "logbook" || this.screen === "end" ? "quiet" : "playing");
     const onLanguage = (choice: Lang) => this.setLanguage(choice);
     let content: HTMLElement;
     switch (this.screen) {
@@ -193,7 +224,10 @@ export class App {
         content = titleScreen({
           lang,
           notice,
-          onStart: () => this.lockCursor("title.lockFailed"),
+          onStart: () => {
+            this.audio.start(); // REQ-026 AC-1: this click is what lets the music and the ambience begin
+            void this.lockCursor("title.lockFailed");
+          },
           onCredits: () => this.show("credits"),
           onLanguage,
         });
@@ -204,6 +238,7 @@ export class App {
       case "playing":
         // The HUD is rebuilt for the current language and shows the latest state at once.
         this.hudView = createHud(lang);
+        this.hudView.setMuted(this.audio.settings.muted);
         if (this.hudState) this.hudView.update(this.hudState);
         content = this.hudView.element;
         break;
@@ -215,6 +250,14 @@ export class App {
           onResume: () => this.lockCursor("pause.lockFailed"),
           onView: (view) => this.showPauseView(view),
           onLanguage,
+          sound: {
+            music: this.audio.settings.music,
+            effects: this.audio.settings.effects,
+            available: this.audio.available,
+            onMusic: (volume) => this.audio.setMusicVolume(volume),
+            onEffects: (volume) => this.audio.setEffectsVolume(volume),
+            onEffectsDone: () => this.audio.play("click"),
+          },
         });
         break;
       case "end":
