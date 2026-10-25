@@ -52,6 +52,72 @@ function buildMesh(positions: number[], colours: number[], name: string, materia
   return mesh;
 }
 
+/**
+ * How far the tunnel's roof stands above the hill's top at (x, z): 0 or more where a mouth is open, with no rock over the
+ * tunnel's air; below 0 under rock. The rim of each mouth is where it is 0.
+ */
+function openness(x: number, z: number): number {
+  const a = x - cave.x;
+  return roofAbove(a, z - cave.z - bendAt(a)) - (massifRise(x, z) - 0.05);
+}
+
+/**
+ * The hill's outside and the tunnel's walls are cut this far into a mouth (in `openness`, metres of roof over the hill),
+ * so the two overlap a little along the rim instead of leaving slits between their cuts.
+ */
+const RIM_OVERLAP = 0.45;
+
+interface Corner {
+  x: number;
+  y: number;
+  z: number;
+  /** `openness` here: the corner is in a mouth from 0 on. */
+  f: number;
+}
+
+/** The point on the edge from `p` to `q` where it crosses a mouth's rim, found on the rim itself (not by a straight guess). */
+function rimPoint(p: Corner, q: Corner): Corner {
+  let low = 0;
+  let high = 1;
+  for (let i = 0; i < 10; i++) {
+    const t = (low + high) / 2;
+    const inMouth = openness(p.x + (q.x - p.x) * t, p.z + (q.z - p.z) * t) >= RIM_OVERLAP;
+    if (inMouth === p.f >= RIM_OVERLAP) low = t;
+    else high = t;
+  }
+  const t = (low + high) / 2;
+  return { x: p.x + (q.x - p.x) * t, y: p.y + (q.y - p.y) * t, z: p.z + (q.z - p.z) * t, f: RIM_OVERLAP };
+}
+
+/**
+ * The part of a triangle that is rock, cut along the rim of the mouths: the whole triangle, nothing, or one or two
+ * triangles ending on the rim. So neither the hill's outside nor the tunnel's walls reach into a mouth's opening, and the
+ * two meet along the rim with no gap.
+ */
+function rockPart<T extends Corner>(triangle: readonly T[], make: (corner: Corner) => T): T[][] {
+  const rock = (p: Corner) => p.f < RIM_OVERLAP;
+  if (triangle.every(rock)) return [[...triangle]];
+  if (!triangle.some(rock)) return [];
+  const polygon: T[] = [];
+  for (let i = 0; i < 3; i++) {
+    const p = triangle[i];
+    const q = triangle[(i + 1) % 3];
+    if (rock(p)) polygon.push(p);
+    if (rock(p) !== rock(q)) polygon.push(make(rimPoint(p, q)));
+  }
+  const parts: T[][] = [];
+  for (let k = 1; k + 1 < polygon.length; k++) parts.push([polygon[0], polygon[k], polygon[k + 1]]);
+  return parts;
+}
+
+/** A corner of the hill's outside at (x, z): on its top, or at `y` when given (a point cut on a mouth's rim). */
+function hillCorner(x: number, z: number, y?: number): Corner & { rise: number } {
+  const rise = massifRise(x, z);
+  // Toward the foot of the mound the surface sinks under the floor, so it meets the ground along a ragged line.
+  const sunk = 0.3 * (1 - smooth(0, 0.5, rise));
+  return { x, z, rise, f: openness(x, z), y: y ?? floorHeight(x, z) + rise - sunk };
+}
+
 /** The massif seen from outside: the rock hill the tunnel goes through, standing on the sea floor. */
 export function buildMassifOutside(): Mesh {
   const columns = Math.ceil((reachX * 2) / OUTER_STEP);
@@ -61,13 +127,7 @@ export function buildMassifOutside(): Mesh {
   const point = (i: number, j: number) => {
     const x = x0 + i * OUTER_STEP;
     const z = z0 + j * OUTER_STEP;
-    const rise = massifRise(x, z);
-    // Where the tunnel's roof would be above the massif's top there is no rock over the air: nothing to draw there, so
-    // the outside comes down to the floor (the mouths are open water, not a skin across the tunnel).
-    const open = roofAbove(x - cave.x, z - cave.z - bendAt(x - cave.x)) >= rise - 0.05;
-    // Toward the foot of the mound the surface sinks under the floor, so it meets the ground along a ragged line.
-    const sunk = 0.3 * (1 - smooth(0, 0.5, rise));
-    return { x, z, rise, open, y: floorHeight(x, z) + (open ? 0.02 : rise - sunk) };
+    return hillCorner(x, z);
   };
   const grid: ReturnType<typeof point>[][] = [];
   for (let i = 0; i <= columns; i++) {
@@ -92,11 +152,9 @@ export function buildMassifOutside(): Mesh {
       // Both ways of cutting the square into two triangles look the same; alternate them for a less regular surface.
       const triangles = (i + j) % 2 === 0 ? [[a, b, c], [a, c, d]] : [[a, b, d], [b, c, d]];
       for (const triangle of triangles) {
-        if (triangle.every((p) => p.rise < MIN_RISE || p.open)) continue;
-        // A triangle with a corner in a mouth would join the rock above to the floor and hang across the opening like a
-        // slanted wall; the tunnel's inside rises to the hill's top there, so leaving it out leaves the mouth open.
-        if (triangle.some((p) => p.open)) continue;
-        for (const p of triangle) corner(p);
+        if (triangle.every((p) => p.rise < MIN_RISE || p.f >= RIM_OVERLAP)) continue;
+        // Where the tunnel opens there is no rock over its air: the hill's outside stops at the mouth's rim.
+        for (const part of rockPart(triangle, (c) => hillCorner(c.x, c.z, c.y))) for (const p of part) corner(p);
       }
     }
   }
@@ -109,13 +167,12 @@ export function buildMassifOutside(): Mesh {
  * the collision says (never above the massif's own top, where the tunnel meets the outside at the mouths).
  */
 export function buildTunnelInside(): Mesh {
-  type Spot = { x: number; y: number; z: number; open: boolean };
+  type Spot = Corner;
   const rings: Spot[][] = [];
   const from = caveInfo.mouths[0].x - cave.x - 4;
   const to = caveInfo.mouths[1].x - cave.x + 4;
   for (let a = from; a <= to + 1e-6; a += RING_STEP) {
     const centreZ = cave.z + bendAt(a);
-    if (massifRise(cave.x + a, centreZ) < 0.6) continue;
     const half = halfWidthAt(a);
     const ring: Spot[] = [];
     for (let k = 0; k <= ARCH_POINTS; k++) {
@@ -127,7 +184,8 @@ export function buildTunnelInside(): Mesh {
       const top = massifRise(x, z) - 0.04;
       // The walls' feet go a little under the floor, so there is no gap or seam along it.
       const up = k === 0 || k === ARCH_POINTS ? -0.3 : Math.min(roof, top);
-      ring.push({ x, y: floor + up, z, open: k > 0 && k < ARCH_POINTS && roof >= top });
+      // Rock wherever the hill stands over the arch; in a mouth's opening, nothing (cut along the rim below).
+      ring.push({ x, y: floor + up, z, f: openness(x, z) });
     }
     rings.push(ring);
   }
@@ -145,9 +203,10 @@ export function buildTunnelInside(): Mesh {
       const b = rings[r + 1][k];
       const c = rings[r + 1][k + 1];
       const d = rings[r][k + 1];
-      // Open to the water (no rock over it): the mouth, not wall.
-      if (a.open && b.open && c.open && d.open) continue;
-      for (const p of (r + k) % 2 === 0 ? [a, b, c, a, c, d] : [a, b, d, b, c, d]) corner(p);
+      // Open to the water (no rock over it) is the mouth, not wall: the walls and roof stop at its rim.
+      for (const triangle of (r + k) % 2 === 0 ? [[a, b, c], [a, c, d]] : [[a, b, d], [b, c, d]]) {
+        for (const part of rockPart(triangle, (c) => c)) for (const p of part) corner(p);
+      }
     }
   }
   const material = new MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 1, side: DoubleSide });

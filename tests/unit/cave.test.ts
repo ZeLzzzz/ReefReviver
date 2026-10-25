@@ -373,7 +373,9 @@ describe("the roof hole (REQ-014 AC-6)", () => {
 describe("the open mouths (REQ-014 AC-1)", () => {
   // The hill's outside used to drop to the floor where the tunnel opens, and the triangles joining those points to the
   // rock above them hung across the mouth like a slanted wall: the vehicle flew through it (only the look was wrong).
-  it("are not hung across by the hill's outside: none of its rock lies in the tunnel's air", () => {
+  // Along the top of a mouth the hill's rock may come down as a lip (up to 0.75 m under the arch's top); lower than that,
+  // in the opening itself, there must be none of it.
+  it("are not hung across by the hill's outside: none of its rock lies in the opening below a lip along its top", () => {
     const position = buildMassifOutside().geometry.attributes.position;
     let inAir = 0;
     for (let i = 0; i < position.count; i += 3) {
@@ -385,7 +387,7 @@ describe("the open mouths (REQ-014 AC-1)", () => {
       const u = c.z - cave.z - bendAt(a);
       const above = c.y - floorHeight(c.x, c.z);
       // Inside the tunnel's arch, clear of its walls and roof by a margin, and above the floor.
-      if (Math.abs(u) < halfWidthAt(a) - 0.5 && above > 0.3 && above < roofAbove(a, u) - 0.3) inAir++;
+      if (Math.abs(u) < halfWidthAt(a) - 0.5 && above > 0.3 && above < roofAbove(a, u) - 0.75) inAir++;
     }
     expect(inAir).toBe(0);
   });
@@ -400,6 +402,46 @@ describe("the open mouths (REQ-014 AC-1)", () => {
       const hits = new Raycaster(start, ahead, 0, 16).intersectObject(massif);
       expect(hits.map((h) => h.distance.toFixed(1)), `from the ${sign > 0 ? "west" : "east"} mouth`).toEqual([]);
     }
+  });
+});
+
+describe("the rim of the mouths (REQ-014 AC-1)", () => {
+  // Leaving the hill's outside out wherever it touched a mouth opened gaps between it and the tunnel's walls: the hill
+  // looked hollow, and the roof hole's glow showed through. From outside, every look at the hill around a mouth must
+  // meet a surface before it is deep in the rock.
+  it("has no gap between the hill's outside and the tunnel's walls: no look from outside reaches deep rock unseen", () => {
+    const meshes = [buildMassifOutside(), buildTunnelInside()];
+    for (const m of meshes) m.updateMatrixWorld(true);
+    const ray = new Raycaster();
+    const through: string[] = [];
+    for (const [mouth, sign] of [[west, -1], [east, 1]] as const) {
+      const floor = floorHeight(mouth.x, mouth.z);
+      for (const [dz, up] of [[0, 3], [5, 2], [-5, 2], [0, 6]]) {
+        const eye = new Vector3(mouth.x + sign * 8, floor + up, mouth.z + dz);
+        for (let ix = 0; ix <= 6; ix++) {
+          for (let iz = -8; iz <= 8; iz++) {
+            for (let iy = 0; iy <= 6; iy++) {
+              const target = new Vector3(mouth.x - sign * ix, floor + iy, mouth.z + iz);
+              const dir = target.clone().sub(eye).normalize();
+              ray.set(eye, dir);
+              ray.far = 40;
+              const hit = ray.intersectObjects(meshes)[0];
+              const end = hit ? hit.distance : 40;
+              for (let t = 0.1; t < end; t += 0.1) {
+                const p = eye.clone().addScaledVector(dir, t);
+                // The sea floor is drawn by the terrain, not by these meshes: a look that reaches it has met a surface.
+                if (p.y < floorHeight(p.x, p.z)) break;
+                if (caveDistance(p.x, p.y, p.z) < -0.6) {
+                  through.push(`${sign < 0 ? "west" : "east"} ${p.x.toFixed(1)},${p.y.toFixed(1)},${p.z.toFixed(1)}`);
+                  break;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    expect(through.slice(0, 5), `${through.length} looks reach deep rock`).toEqual([]);
   });
 });
 
