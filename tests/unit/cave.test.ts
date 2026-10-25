@@ -1,4 +1,4 @@
-import { DirectionalLight, HemisphereLight, type Mesh, Scene, SpotLight, Vector3, type Fog } from "three";
+import { DirectionalLight, HemisphereLight, type Mesh, Raycaster, Scene, SpotLight, Vector3, type Fog } from "three";
 import { describe, expect, it } from "vitest";
 import { config } from "../../src/config";
 import { constrainToBay, floorHeight, insideRockAt, rocks, terrainSolidAt } from "../../src/game/bay";
@@ -367,6 +367,39 @@ describe("the roof hole (REQ-014 AC-6)", () => {
     const mid = (hole.top + hole.under) / 2;
     expect(caveSolidAt(hole.x, mid, hole.z, 0)).toBe(true);
     expect(terrainSolidAt(hole.x, mid, hole.z, 0)).toBe(true);
+  });
+});
+
+describe("the open mouths (REQ-014 AC-1)", () => {
+  // The hill's outside used to drop to the floor where the tunnel opens, and the triangles joining those points to the
+  // rock above them hung across the mouth like a slanted wall: the vehicle flew through it (only the look was wrong).
+  it("are not hung across by the hill's outside: none of its rock lies in the tunnel's air", () => {
+    const position = buildMassifOutside().geometry.attributes.position;
+    let inAir = 0;
+    for (let i = 0; i < position.count; i += 3) {
+      const c = new Vector3();
+      for (let k = 0; k < 3; k++) c.add(new Vector3(position.getX(i + k), position.getY(i + k), position.getZ(i + k)));
+      c.divideScalar(3);
+      const a = c.x - cave.x;
+      if (a < west.x - cave.x - 4 || a > east.x - cave.x + 4) continue;
+      const u = c.z - cave.z - bendAt(a);
+      const above = c.y - floorHeight(c.x, c.z);
+      // Inside the tunnel's arch, clear of its walls and roof by a margin, and above the floor.
+      if (Math.abs(u) < halfWidthAt(a) - 0.5 && above > 0.3 && above < roofAbove(a, u) - 0.3) inAir++;
+    }
+    expect(inAir).toBe(0);
+  });
+
+  it("can be seen into from outside: a look along the tunnel from each mouth meets none of the hill's outside", () => {
+    const massif = buildMassifOutside();
+    massif.updateMatrixWorld(true);
+    for (const [mouth, sign] of [[west, 1], [east, -1]] as const) {
+      const a = mouth.x - cave.x;
+      const start = new Vector3(mouth.x - sign * 6, floorHeight(mouth.x, mouth.z) + 1.9, cave.z + bendAt(a));
+      const ahead = new Vector3(cave.x + a + sign * 10, start.y, cave.z + bendAt(a + sign * 10)).sub(start).normalize();
+      const hits = new Raycaster(start, ahead, 0, 16).intersectObject(massif);
+      expect(hits.map((h) => h.distance.toFixed(1)), `from the ${sign > 0 ? "west" : "east"} mouth`).toEqual([]);
+    }
   });
 });
 

@@ -93,6 +93,9 @@ export function buildMassifOutside(): Mesh {
       const triangles = (i + j) % 2 === 0 ? [[a, b, c], [a, c, d]] : [[a, b, d], [b, c, d]];
       for (const triangle of triangles) {
         if (triangle.every((p) => p.rise < MIN_RISE || p.open)) continue;
+        // A triangle with a corner in a mouth would join the rock above to the floor and hang across the opening like a
+        // slanted wall; the tunnel's inside rises to the hill's top there, so leaving it out leaves the mouth open.
+        if (triangle.some((p) => p.open)) continue;
         for (const p of triangle) corner(p);
       }
     }
