@@ -18,7 +18,7 @@ import { LOGBOOK_ENTRIES, type LogbookId } from "../logbook/entries";
 import { atDiveEdge, rocks, setFrameColumns } from "./bay";
 import { Bloom } from "./bloom";
 import { caveInfo, caveLamp, caveLevel } from "./cave";
-import { BloomShot, Cinematic, EndingShot, beachGroup, cinematicsOnByDefault, createPose, openingPlan, patchReefs, type CinematicHud, type CinematicKind } from "./cinematic";
+import { BloomShot, Cinematic, EndingShot, beachGroup, cinematicsOnByDefault, createPose, floorGroup, openingPlan, patchReefs, seaFloorTrash, type CinematicHud, type CinematicKind } from "./cinematic";
 import { createCaveView } from "./cave-model";
 import { aimDirection, followCamera, keepCameraInWater, viewAbove } from "./follow-camera";
 import type { HudState } from "./hud-state";
@@ -856,9 +856,17 @@ export class Game implements GameView {
     this.beam.visible = false;
     this.rov.velocity.set(0, 0, 0);
     if (kind === "opening") {
-      // REQ-027 AC-8: the path follows this dive's floating trash near the beach.
+      // REQ-027 AC-8, D-115: the path follows this dive's floating trash near the beach, the floor trash nearest the start, and
+      // the turtle in its net (net 0 always traps it; the animals and nets were laid out for this dive just before).
       const group = beachGroup(this.field.items.filter((item) => item.floating).map((item) => item.home));
-      this.openingShot = openingPlan(group ?? new Vector3(config.bay.shore.waterlineX + 20, config.bay.surfaceY, 0));
+      const turtle = this.rescue.animals.animals.find((animal) => animal.species === "turtle") ?? this.rescue.animals.animals[0];
+      this.openingShot = openingPlan({
+        group: group ?? new Vector3(config.bay.shore.waterlineX + 20, config.bay.surfaceY, 0),
+        floor: floorGroup(seaFloorTrash(this.field.items), config.rov.start),
+        turtle: { position: turtle.home, yaw: turtle.homeYaw },
+        nets: this.rescue.nets.nets,
+        hide: this.rescue.animals.animals.filter((animal) => animal.species === "reefShark").map((animal) => animal.home),
+      });
       this.fade = { time: 0, total: config.cinematic.openingFadeSeconds };
     } else if (kind === "ending") {
       const of = (species: string) => this.seaLife.creatures.filter((creature) => creature.species === species);
@@ -867,10 +875,10 @@ export class Game implements GameView {
     }
   }
 
-  /** 0 (clear) to 1 (black): the screen coming up from black, or going dark after a skip. */
+  /** 0 (clear) to 1 (black): the screen coming up from black, going dark after a skip, or dark at a cut of the opening (D-115). */
   private fadeValue(): number {
     const coming = this.fade ? 1 - this.fade.time / this.fade.total : 0;
-    return Math.max(coming, this.cine?.fade ?? 0);
+    return Math.max(coming, this.cine?.fade ?? 0, this.cine?.cutFade ?? 0);
   }
 
   /** Sets the water, coral and seagrass to a point of the Bloom, only when it changed. */

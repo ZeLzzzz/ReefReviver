@@ -571,21 +571,35 @@ export const config = {
     clearance: 0.6,
     // The point the opening's camera looks at is this far (metres) ahead of it along its look direction.
     lookAhead: 14,
-    // REQ-027 AC-1: about 22 s. `shots` are the seconds at which the aerial shot ends, the low glide ends and the camera
-    // reaches the surface on its way down (the dive then runs to the end). `captions` are the three lines of narration, each
-    // with the seconds it shows from and to. The group of floating trash nearest the west beach is the subject: the camera
-    // starts `aerial.back` m out to sea from its waterline at `aerial.height` m, comes down to `glide.height` m over the
-    // water `glide.pass` m from the group, and dives toward the submarine.
+    // REQ-027 AC-1 (D-115): about 32 s. `shots` are the seconds at which the aerial shot ends, the low glide ends, the shot of
+    // the trash on the sea floor ends and the shot of the turtle in its net ends (the last shot, behind the submarine, runs to
+    // the end). The glide ends, the floor trash and the net each begin with a cut: the screen goes black and comes back
+    // (`cut`: it fades over `fadeSeconds` on each side and stays black `holdSeconds`, the camera jumping in the middle).
+    // `captions` are the three lines of narration, each with the seconds it shows from and to: the second one runs from the
+    // floating trash through the floor trash and the net. The group of floating trash nearest the west beach is the subject of
+    // the first two shots: the camera starts `aerial.back` m out to sea from its waterline at `aerial.height` m, comes down to
+    // `glide.height` m over the water `glide.pass` m from the group. Then the floor group nearest the start (items within
+    // `groupReach` of the nearest one) and the turtle are filmed from a distance that goes from the first to the second number
+    // of `radius` (metres from the subject, horizontally) and `height` (above it) while the camera circles `sweep` radians;
+    // the camera aims `lookAt` m above them, and keeps the reef shark's net (inside the fog) out of the picture, `hideCone` radians
+    // off its look direction, when any way round allows it. The last shot circles the submarine from `finish.sweep` radians off
+    // behind it, `finish.back` m further out and `finish.lower` m lower than the follow camera, and ends on the follow camera.
     opening: {
-      duration: 22,
-      shots: { aerial: 8, glide: 15.5, surface: 17 },
+      duration: 32,
+      shots: { aerial: 8, glide: 15.5, trash: 21, net: 26.5 },
+      cut: { fadeSeconds: 0.4, holdSeconds: 0.14 },
       captions: [
         { key: "cinematic.opening.1", from: 1.2, to: 6.8 },
-        { key: "cinematic.opening.2", from: 8.6, to: 15 },
-        { key: "cinematic.opening.3", from: 16.4, to: 21.2 },
+        { key: "cinematic.opening.2", from: 8.6, to: 25.8 },
+        { key: "cinematic.opening.3", from: 27.2, to: 31.4 },
       ],
       aerial: { back: 72, height: 34 },
       glide: { height: 2.4, pass: 9 },
+      groupReach: 8,
+      hideCone: 1.1,
+      trash: { radius: [5.6, 4.4], height: [2.8, 2.1], sweep: 0.9, lookAt: 0.3 },
+      net: { radius: [4.1, 3.4], height: [1.5, 1.2], sweep: 0.8, lookAt: 0.2 },
+      finish: { sweep: 1.7, back: 3.5, lower: 1.4 },
     },
     // REQ-028 AC-1: the Bloom's transition (`bloom.seconds`) seen from outside. Under water the camera climbs from the
     // follow camera to `under.height` m above the player and circles at `under.radius` m, through `under.sweep` radians;

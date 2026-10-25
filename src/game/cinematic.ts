@@ -87,6 +87,27 @@ export function blendAt(time: number, duration: number): number {
   return smoothstep((time - (duration - cinematic.blendSeconds)) / cinematic.blendSeconds);
 }
 
+/** The seconds at which the opening cuts from one place to another: the glide ends, then the floor trash, then the turtle's net. */
+export function openingCuts(): readonly number[] {
+  const { glide, trash: floor, net } = cinematic.opening.shots;
+  return [glide, floor, net];
+}
+
+/**
+ * REQ-027 AC-1 (D-115): how dark the screen is for a cut of the opening (0 clear, 1 black). It fades out toward each cut,
+ * stays black for `holdSeconds` around it (the camera jumps then) and fades back in. The other cinematics have no cuts.
+ */
+export function cutFadeAt(kind: CinematicKind, time: number): number {
+  if (kind !== "opening") return 0;
+  const { fadeSeconds, holdSeconds } = cinematic.opening.cut;
+  let dark = 0;
+  for (const cut of openingCuts()) {
+    const away = Math.abs(time - cut) - holdSeconds / 2;
+    dark = Math.max(dark, away <= 0 ? 1 : 1 - smoothstep(away / fadeSeconds));
+  }
+  return dark;
+}
+
 export type CinematicStep = "done" | "skipped" | null;
 
 /**
@@ -123,6 +144,11 @@ export class Cinematic {
     return clamp01(this.skipTime / (cinematic.skipFadeSeconds / 2));
   }
 
+  /** 0 (clear) to 1 (black): the screen at a cut of the opening (REQ-027 AC-1, D-115). */
+  get cutFade(): number {
+    return cutFadeAt(this.kind, this.time);
+  }
+
   /** The index of the shot being shown. */
   get shot(): number {
     return shotAt(this.kind, this.time);
@@ -139,11 +165,14 @@ export class Cinematic {
   }
 }
 
-/** Which shot of a cinematic plays at `time` (the opening has three, the Bloom one, the ending five). */
+/**
+ * Which shot of a cinematic plays at `time`. The opening has five: from high up, the low glide, the trash on the sea floor, the
+ * turtle in its net and the submarine (D-115); the Bloom has one, the ending five.
+ */
 export function shotAt(kind: CinematicKind, time: number): number {
   if (kind === "opening") {
     const { shots } = cinematic.opening;
-    return time < shots.aerial ? 0 : time < shots.glide ? 1 : 2;
+    return time < shots.aerial ? 0 : time < shots.glide ? 1 : time < shots.trash ? 2 : time < shots.net ? 3 : 4;
   }
   if (kind === "bloom") return 0;
   let end = 0;
@@ -343,14 +372,205 @@ export function startPose(out: Pose = createPose()): Pose {
   return out;
 }
 
+/** A ghost net as the camera must keep out of it: a dome of these half-sizes on `center`, turned by `yaw` as the cutter sees it. */
+export interface NetShape {
+  center: Placed;
+  yaw: number;
+  width: number;
+  height: number;
+  length: number;
+}
+
+/** True when a sphere of `margin` at (x, y, z) is in the dome of one of `nets` (REQ-027 AC-8, D-115). */
+export function netSolidAt(nets: readonly NetShape[], x: number, y: number, z: number, margin = 0): boolean {
+  for (const net of nets) {
+    const ox = x - net.center.x;
+    const oz = z - net.center.z;
+    const cos = Math.cos(net.yaw);
+    const sin = Math.sin(net.yaw);
+    const px = (ox * cos - oz * sin) / (net.width + margin);
+    const py = (y - net.center.y) / (net.height + margin);
+    const pz = (ox * sin + oz * cos) / (net.length + margin);
+    if (px * px + py * py + pz * pz < 1) return true;
+  }
+  return false;
+}
+
+/** Anything with a home on the floor: what the trash of the bay is made of for this file. */
+export interface HomedItem {
+  home: Placed;
+  onBeach: boolean;
+  floating: boolean;
+}
+
 /**
- * REQ-027 AC-1, AC-8: the opening's path for a dive whose beach group of floating trash is at `group`. From high out to sea
- * the camera looks at the coast (beach, headlands, shed, dock) and the sea with the trash on it; it comes down and glides
- * low past the group, with the beach behind it; then it goes through the surface toward the submarine, turning to face the
- * way the submarine does, and ends where the follow camera stands behind it. The group is kept in view until the dive; the
- * way down is open water.
+ * REQ-027 AC-1 (D-115): where the trash lies on the sea floor of the bay: neither on the beach, nor floating, nor in the cave
+ * (the cave's trash lies inside `bay.cave.clear` m of its middle, the rest keeps outside it).
  */
-export function openingPlan(group: Vector3): { pose(t: number, out: Pose): Pose } {
+export function seaFloorTrash(items: readonly HomedItem[]): Placed[] {
+  return items.filter((item) => !item.onBeach && !item.floating && Math.hypot(item.home.x - bay.cave.x, item.home.z - bay.cave.z) >= bay.cave.clear).map((item) => item.home);
+}
+
+/**
+ * REQ-027 AC-1 (D-115): the group of floor trash nearest `from` (the submarine's start): the item nearest it and the items
+ * within `opening.groupReach` m of that one. Empty when there is no trash on the floor.
+ */
+export function floorGroup(floor: readonly Placed[], from: Placed): Placed[] {
+  if (floor.length === 0) return [];
+  const away = (item: Placed) => Math.hypot(item.x - from.x, item.z - from.z);
+  const first = floor.reduce((best, item) => (away(item) < away(best) ? item : best));
+  return floor.filter((item) => Math.hypot(item.x - first.x, item.z - first.z) <= cinematic.opening.groupReach);
+}
+
+/** What the opening films: the floating group, the floor group, the turtle in its net, and every net (the camera keeps out of them). */
+export interface OpeningScene {
+  /** The centre of the beach group of floating trash (see beachGroup). */
+  group: Vector3;
+  /** The floor group nearest the start (see floorGroup); may be empty, and the shot then looks at the floor ahead of the submarine. */
+  floor: readonly Placed[];
+  /** Where the turtle lies in net 0, and the way it faces. */
+  turtle: { position: Placed; yaw: number };
+  nets: readonly NetShape[];
+  /** What the close shots keep out of the picture if they can: the reef shark in its net (D-115: it is not shown). */
+  hide: readonly Placed[];
+}
+
+type ShotPose = (u: number, out: Pose) => Pose;
+
+/** How a close shot is laid out; see `config.cinematic.opening.trash`. */
+interface CloseSpec {
+  radius: readonly number[];
+  height: readonly number[];
+  sweep: number;
+  lookAt: number;
+}
+
+/** The radius and the lift tried, in order, when the full shot has no room: a little closer, a little higher. */
+const CLOSE_TRIES: readonly (readonly [number, number])[] = [
+  [1, 0],
+  [1, 0.8],
+  [0.85, 0],
+  [0.85, 0.8],
+  [0.7, 0.4],
+  [0.7, 1.2],
+  [0.55, 0.6],
+  [0.55, 1.4],
+];
+
+/**
+ * REQ-027 AC-8 (D-115): a close shot of `subject` under water: the camera circles it `spec.sweep` radians at a distance and a
+ * height that come in, looking `spec.lookAt` m above it. It starts on the side of `preferred` (an azimuth, radians) and takes
+ * the nearest way round where every moment of the path is clear: not in the terrain, a rock, solid coral or a net, under the
+ * surface, with a clear line to the subject and, if any way allows it, none of `hide` in the picture. The path is worked out here, once, so it does not depend on the clock.
+ */
+function closeShot(subject: Placed, spec: CloseSpec, preferred: number, nets: readonly NetShape[], hide: readonly Placed[]): ShotPose {
+  const margin = cinematic.clearance + 0.25;
+  const eye = new Vector3(subject.x, subject.y + 0.7, subject.z);
+  const probe = new Vector3();
+  const look = new Vector3(subject.x, subject.y + spec.lookAt, subject.z);
+  const gaze = new Vector3();
+  const probe2 = new Vector3();
+  const place = (u: number, azimuth: number, direction: number, scale: number, lift: number, out: Vector3): Vector3 => {
+    const angle = azimuth + direction * spec.sweep * u;
+    const radius = lerp(spec.radius[0], spec.radius[1], u) * scale;
+    return out.set(subject.x + Math.sin(angle) * radius, subject.y + lerp(spec.height[0], spec.height[1], u) + lift, subject.z + Math.cos(angle) * radius);
+  };
+  // Whether any of `hide` would show: in the picture (within `hideCone` radians of where it looks, wider than any screen) and
+  // near enough for the water to let it be seen (inside the fog).
+  const shows = (p: Vector3): boolean => {
+    gaze.copy(look).sub(p).normalize();
+    return hide.some((thing) => {
+      const away = probe2.set(thing.x, thing.y, thing.z).sub(p);
+      return away.length() < config.water.murky.fogFar && away.normalize().dot(gaze) > Math.cos(cinematic.opening.hideCone);
+    });
+  };
+  const clear = (azimuth: number, direction: number, scale: number, lift: number, hiding: boolean): boolean => {
+    for (let u = 0; u <= 1 + 1e-9; u += 0.1) {
+      const p = place(u, azimuth, direction, scale, lift, probe);
+      if (p.y > bay.surfaceY - 1 || cameraBlocked(p.x, p.y, p.z, margin) || netSolidAt(nets, p.x, p.y, p.z, 0.6)) return false;
+      if (hiding && shows(p)) return false;
+      if (clipFrom(eye, p, false, 0.35) < 0.999) return false;
+    }
+    return true;
+  };
+  let chosen = { azimuth: preferred, direction: 1, scale: CLOSE_TRIES[CLOSE_TRIES.length - 1][0], lift: CLOSE_TRIES[CLOSE_TRIES.length - 1][1] };
+  // First a path that shows none of `hide`; failing that, any clear one.
+  search: for (const hiding of [true, false]) {
+    for (const [scale, lift] of CLOSE_TRIES) {
+      for (let k = 0; k < 16; k++) {
+        const azimuth = preferred + Math.ceil(k / 2) * ((Math.PI * 2) / 16) * (k % 2 === 0 ? 1 : -1);
+        for (const direction of [1, -1]) {
+          if (!clear(azimuth, direction, scale, lift, hiding)) continue;
+          chosen = { azimuth, direction, scale, lift };
+          break search;
+        }
+      }
+    }
+  }
+  return (u, out) => {
+    place(u, chosen.azimuth, chosen.direction, chosen.scale, chosen.lift, out.position);
+    out.target.copy(look);
+    return out;
+  };
+}
+
+/** The point of the floor group the camera films: the middle of its items, and a point ahead of the submarine when it has none. */
+function floorCentre(floor: readonly Placed[]): Vector3 {
+  const centre = new Vector3();
+  if (floor.length === 0) {
+    const { start } = config.rov;
+    return centre.set(start.x + 10, floorHeight(start.x + 10, start.z) + trash.restHeight, start.z);
+  }
+  for (const item of floor) centre.add(new Vector3(item.x, item.y, item.z));
+  return centre.divideScalar(floor.length);
+}
+
+/** 0 to 1 over `u` 0..1, quick at first and coming to a stop at 1: the last shot settles into the follow camera. */
+const settle = (u: number): number => 1 - (1 - u) ** 2.6;
+
+/**
+ * REQ-027 AC-1 (D-115): the last shot. The camera begins beside the submarine, `finish.back` m further out and `finish.lower` m
+ * lower than the follow camera and `finish.sweep` radians round from behind it (whichever side is clear), and comes round to
+ * the follow camera's place behind it, easing to a stop, with the look turning from the submarine to where it faces.
+ */
+function finishShot(end: Pose): ShotPose {
+  const sub = new Vector3(config.rov.start.x, config.rov.start.y, config.rov.start.z);
+  const { finish } = cinematic.opening;
+  const behind = Math.atan2(end.position.x - sub.x, end.position.z - sub.z);
+  const radius = Math.hypot(end.position.x - sub.x, end.position.z - sub.z);
+  const height = end.position.y - sub.y;
+  const place = (e: number, side: number, out: Vector3): Vector3 => {
+    const angle = behind + side * finish.sweep * (1 - e);
+    const r = radius + finish.back * (1 - e);
+    return out.set(sub.x + Math.sin(angle) * r, sub.y + height - finish.lower * (1 - e), sub.z + Math.cos(angle) * r);
+  };
+  const probe = new Vector3();
+  const free = (side: number): boolean => {
+    for (let u = 0; u <= 1 + 1e-9; u += 0.05) {
+      const p = place(settle(u), side, probe);
+      if (cameraBlocked(p.x, p.y, p.z, cinematic.clearance + 0.25)) return false;
+    }
+    return true;
+  };
+  const side = free(1) || !free(-1) ? 1 : -1;
+  return (u, out) => {
+    const e = settle(u);
+    place(e, side, out.position);
+    out.target.set(sub.x, sub.y + 0.3, sub.z).lerp(end.target, settle(u));
+    return out;
+  };
+}
+
+/**
+ * REQ-027 AC-1, AC-8 (D-115): the opening's path for a dive. From high out to sea the camera looks at the coast (beach,
+ * headlands, shed, dock) and the sea with the trash on it, comes down and glides low past the beach group of floating trash.
+ * Then, after a cut each (the screen goes black and comes back), a close shot of the group of trash on the sea floor nearest
+ * the submarine, a close shot of the turtle struggling in its net, and a last shot that comes round to the submarine and ends
+ * where the follow camera stands behind it. The floating group is kept in view until the first cut, the floor group and the
+ * turtle during their shots; the camera is never in the terrain, a rock, solid coral, a net or a building.
+ */
+export function openingPlan(scene: OpeningScene): { pose(t: number, out: Pose): Pose } {
+  const { group } = scene;
   const { aerial, glide, shots, duration: finish } = cinematic.opening;
   const start = config.rov.start;
   const end = startPose();
@@ -361,17 +581,15 @@ export function openingPlan(group: Vector3): { pose(t: number, out: Pose): Pose 
   const surfaceY = bay.surfaceY;
   const h = surfaceY + glide.height;
   // The glide passes on the sea side of the group, `glide.pass` m from it; for a group far out it passes closer, so that it stays
-  // short of the submarine and the dive comes at it from behind.
+  // short of the submarine.
   const pass = group.x + Math.max(Math.min(glide.pass, end.position.x - 10 - group.x), glide.pass * 0.7);
-  const diveX = Math.min(pass + 2, end.position.x - 6);
-  // From the middle of the glide on, it moves along the shore toward the submarine's z in steps of the way left to go.
+  // It moves along the shore toward the submarine's z in steps of the way left to go.
   const zAbeam = group.z + way * 2;
   const along = (progress: number) => lerp(zAbeam, end.position.z, progress);
   const glideEnd = shots.glide;
-  const dive = new Vector3(diveX, surfaceY - 0.25, along(0.5));
-  const down = new Vector3(lerp(diveX, end.position.x, 0.6), end.position.y - 0.4, along(0.85));
-  const late = new Vector3(lerp(diveX, end.position.x, 0.9), lerp(down.y, end.position.y, 0.8), along(0.96));
   const midGroup = new Vector3(group.x, surfaceY + 0.4, group.z);
+  // The glide goes on past its end (to the cut) so that the camera is still moving when the screen goes black.
+  const overrun = glideEnd + 1.5;
 
   const at = (t: number, x: number, y: number, z: number): [number, Vector3] => [t, new Vector3(x, y, z)];
   const position = new Track(
@@ -382,15 +600,11 @@ export function openingPlan(group: Vector3): { pose(t: number, out: Pose): Pose 
       at(lerp(shots.aerial, glideEnd, 0.45), pass, h + 0.6, group.z - way * 12),
       at(lerp(shots.aerial, glideEnd, 0.8), pass, h, zAbeam),
       at(glideEnd, pass + 1, h, along(0.25)),
-      at(shots.surface, dive.x, dive.y, dive.z),
-      at(lerp(shots.surface, finish, 0.55), down.x, down.y, down.z),
-      at(finish - 1.6, late.x, late.y, late.z),
-      at(finish, end.position.x, end.position.y, end.position.z),
+      at(overrun, pass + 2, h, along(0.38)),
     ].map(([t, v]) => ({ t, v })),
   );
 
-  // What it looks at. Until the end of the glide, points: the coast, tilted toward the trash that floats off it, and then the
-  // trash. After it, directions that turn evenly from where the trash is to the way the submarine faces. The turning is smoothed
+  // What it looks at: points, the coast tilted toward the trash that floats off it, and then the trash. The turning is smoothed
   // as angles, so the camera never whips round when the point it looks at passes near it.
   const coast = new Vector3(shore - 12, 1, middle);
   const coastLater = new Vector3(shore - 10, 1, lerp(middle, group.z, 0.7));
@@ -399,44 +613,47 @@ export function openingPlan(group: Vector3): { pose(t: number, out: Pose): Pose 
     [shots.aerial * 0.5, new Vector3().lerpVectors(coastLater, midGroup, 0.6)],
     [shots.aerial, midGroup],
     ...[0.25, 0.45, 0.62, 0.8, 1].map((k): [number, Vector3] => [lerp(shots.aerial, glideEnd, k), midGroup]),
+    [overrun, midGroup],
   ];
   const angles: { t: number; v: Vector3 }[] = [];
   let yaw = 0;
-  const addAngle = (t: number, wantedYaw: number, pitch: number) => {
-    if (angles.length > 0) wantedYaw += Math.round((yaw - wantedYaw) / (Math.PI * 2)) * Math.PI * 2;
-    yaw = wantedYaw;
-    angles.push({ t, v: new Vector3(yaw, pitch, 0) });
-  };
   const away = new Vector3();
   for (const [t, to] of points) {
     away.copy(to).sub(position.at(t, new Vector3()));
-    addAngle(t, Math.atan2(away.x, away.z), Math.atan2(away.y, Math.hypot(away.x, away.z)));
+    let wantedYaw = Math.atan2(away.x, away.z);
+    if (angles.length > 0) wantedYaw += Math.round((yaw - wantedYaw) / (Math.PI * 2)) * Math.PI * 2;
+    yaw = wantedYaw;
+    angles.push({ t, v: new Vector3(yaw, Math.atan2(away.y, Math.hypot(away.x, away.z)), 0) });
   }
-  const first = angles[angles.length - 1];
-  const faceYaw = Math.atan2(end.target.x - end.position.x, end.target.z - end.position.z);
-  const facePitch = Math.atan2(end.target.y - end.position.y, Math.hypot(end.target.x - end.position.x, end.target.z - end.position.z));
-  // The turn to the submarine's heading: the short way round, evenly eased between the end of the glide and the end.
-  let turn = faceYaw - first.v.x;
-  turn -= Math.round(turn / (Math.PI * 2)) * Math.PI * 2;
-  for (const k of [0.18, 0.4, 0.62, 0.8, 0.92, 1]) {
-    const eased = smoothstep(k);
-    addAngle(lerp(glideEnd, finish, k), first.v.x + turn * eased, lerp(first.v.y, facePitch, eased));
-  }
-
   const anglesTrack = new Track(angles);
   const angle = new Vector3();
+
+  // The shots under water. The camera starts on the side of the submarine, so that the way out of the picture is the open bay.
+  const trashCentre = floorCentre(scene.floor);
+  const trashShot = closeShot(trashCentre, cinematic.opening.trash, Math.atan2(start.x - trashCentre.x, start.z - trashCentre.z), scene.nets, scene.hide);
+  const turtle = scene.turtle.position;
+  const netShot = closeShot(new Vector3(turtle.x, turtle.y, turtle.z), cinematic.opening.net, Math.atan2(start.x - turtle.x, start.z - turtle.z), scene.nets, scene.hide);
+  const lastShot = finishShot(end);
   const normal = startPose();
+  const share = (t: number, from: number, to: number) => Math.min(1, Math.max(0, (t - from) / (to - from)));
+
   return {
     pose(t, out) {
+      if (t >= shots.net) {
+        lastShot(share(t, shots.net, finish), out);
+        // The last seconds merge into the follow camera (which, at the start, is where the path ends).
+        const w = blendAt(t, finish);
+        if (w > 0) {
+          out.position.lerp(normal.position, w);
+          out.target.lerp(normal.target, w);
+        }
+        return out;
+      }
+      if (t >= shots.trash) return netShot(share(t, shots.trash, shots.net), out);
+      if (t >= glideEnd) return trashShot(share(t, glideEnd, shots.trash), out);
       position.at(t, out.position);
       anglesTrack.at(t, angle);
       out.target.set(Math.sin(angle.x) * Math.cos(angle.y), Math.sin(angle.y), Math.cos(angle.x) * Math.cos(angle.y)).multiplyScalar(cinematic.lookAhead).add(out.position);
-      // The last seconds merge into the follow camera (which, at the start, is where the path ends).
-      const w = blendAt(t, finish);
-      if (w > 0) {
-        out.position.lerp(normal.position, w);
-        out.target.lerp(normal.target, w);
-      }
       return out;
     },
   };

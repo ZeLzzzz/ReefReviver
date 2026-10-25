@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { config } from "../../src/config";
 import { Vector3 } from "three";
-import { beachGroup, cameraBlocked } from "../../src/game/cinematic";
+import { beachGroup, cameraBlocked, floorGroup, netSolidAt, openingCuts, seaFloorTrash } from "../../src/game/cinematic";
 
 // REQ-027: the opening cinematic. The browser tests start with the cinematics off (dev server with VITE_TEST_SEED), so each test
 // here turns them on with `__reef.cinematics(true)` before Mulai. `seekCinematic` jumps its clock so most checks need not wait.
@@ -52,6 +52,30 @@ async function finishOpening(page: Page) {
 }
 
 const floatingTrash = async (page: Page) => (await reef(page, (h) => h.surfaceTrash())) as Vec[];
+
+/** This session's floor group nearest the start, the turtle's real position in its net, and the nets (REQ-027 D-115). */
+async function floorScene(page: Page) {
+  const all = (await reef(page, (h) => h.trash())) as Vec[];
+  // The floor's trash lies deep; the floating items and the beach's are at the surface or ashore.
+  const floor = floorGroup(
+    seaFloorTrash(all.filter(([, y]) => y < config.bay.surfaceY - 1).map(([x, y, z]) => ({ home: { x, y, z }, onBeach: false, floating: false }))),
+    config.rov.start,
+  );
+  const animals = (await reef(page, (h) => h.animals())) as { species: string; position: Vec }[];
+  const turtle = animals.find((animal) => animal.species === "turtle")!.position;
+  const shark = animals.find((animal) => animal.species === "reefShark")!.position;
+  const nets = ((await reef(page, (h) => h.nets())) as { center: Vec; yaw: number; size: Vec }[]).map((net) => ({
+    center: { x: net.center[0], y: net.center[1], z: net.center[2] },
+    yaw: net.yaw,
+    width: net.size[0],
+    height: net.size[1],
+    length: net.size[2],
+  }));
+  return { floor, turtle, shark, nets };
+}
+
+/** Where a point is on the screen, or null when it is behind the camera. */
+const screenOf = (page: Page, [x, y, z]: Vec) => reef(page, (h, a) => h.screenOf(a.x, a.y, a.z), { x, y, z }) as Promise<[number, number] | null>;
 
 test.describe("Indonesian", () => {
   test.use({ locale: "id-ID" });
@@ -105,11 +129,42 @@ test.describe("Indonesian", () => {
     expect((await cine(page))!.shot).toBe(1);
     await page.screenshot({ path: "test-results/req-027-glide.png" });
 
-    // Then under water, and it ends behind the submarine.
-    await seek(page, 20);
+    // A cut to the trash on the sea floor: under water, close, the group between the bars.
+    const { shots } = cinematic.opening;
+    const { floor, turtle } = await floorScene(page);
+    expect(floor.length).toBeGreaterThanOrEqual(3);
+    await seek(page, (shots.glide + shots.trash) / 2);
     expect((await camera(page))[1]).toBeLessThan(config.bay.surfaceY);
     expect((await cine(page))!.shot).toBe(2);
-    await page.screenshot({ path: "test-results/req-027-dive.png" });
+    const middle: Vec = [floor.reduce((sum, item) => sum + item.x, 0) / floor.length, floor.reduce((sum, item) => sum + item.y, 0) / floor.length, floor.reduce((sum, item) => sum + item.z, 0) / floor.length];
+    const { height, width } = viewport;
+    const at = await screenOf(page, middle);
+    expect(at).not.toBeNull();
+    expect(at![0]).toBeGreaterThan(0);
+    expect(at![0]).toBeLessThan(width);
+    expect(at![1]).toBeGreaterThan(height * cinematic.letterbox);
+    expect(at![1]).toBeLessThan(height * (1 - cinematic.letterbox));
+    await page.screenshot({ path: "test-results/req-027-floor-trash.png" });
+
+    // A cut to the turtle struggling in its net.
+    await seek(page, (shots.trash + shots.net) / 2);
+    expect((await camera(page))[1]).toBeLessThan(config.bay.surfaceY);
+    expect((await cine(page))!.shot).toBe(3);
+    const turtleNow = ((await reef(page, (h) => h.animals())) as { species: string; position: Vec }[]).find((animal) => animal.species === "turtle")!.position;
+    expect(turtleNow[0]).toBeCloseTo(turtle[0], 0);
+    const onScreen = await screenOf(page, turtleNow);
+    expect(onScreen).not.toBeNull();
+    expect(onScreen![0]).toBeGreaterThan(width * 0.1);
+    expect(onScreen![0]).toBeLessThan(width * 0.9);
+    expect(onScreen![1]).toBeGreaterThan(height * cinematic.letterbox);
+    expect(onScreen![1]).toBeLessThan(height * (1 - cinematic.letterbox));
+    await page.screenshot({ path: "test-results/req-027-turtle.png" });
+
+    // Then it comes to the submarine, and ends behind it.
+    await seek(page, shots.net + 1.5);
+    expect((await camera(page))[1]).toBeLessThan(config.bay.surfaceY);
+    expect((await cine(page))!.shot).toBe(4);
+    await page.screenshot({ path: "test-results/req-027-submarine.png" });
     await finishOpening(page);
     const [x, y, z] = await camera(page);
     expect(x).toBeCloseTo(rov.start.x - 6, 0);
@@ -132,6 +187,15 @@ test.describe("Indonesian", () => {
       const box = (await caption.boundingBox())!;
       expect(box.y).toBeGreaterThan(page.viewportSize()!.height * (1 - cinematic.letterbox - 0.01));
     }
+    // Line 2 stays through the floating trash, the trash on the floor and the net (D-115); line 3 is for the submarine.
+    const { shots } = cinematic.opening;
+    for (const t of [shots.aerial + 2, (shots.glide + shots.trash) / 2, shots.trash + 1, (shots.trash + shots.net) / 2]) {
+      await seek(page, t);
+      await expect(caption).toHaveText(lines[1]);
+    }
+    await seek(page, shots.net + 2.5);
+    await expect(caption).toHaveText(lines[2]);
+    expect((await cine(page))!.shot).toBe(4);
     // Between the lines there is none.
     const between = (cinematic.opening.captions[0].to + cinematic.opening.captions[1].from) / 2;
     await seek(page, between);
@@ -144,7 +208,7 @@ test.describe("Indonesian", () => {
     await seek(page, 3);
     await expect.poll(async () => (await audioState(page)).phase).toBe("playing");
     await expect.poll(async () => (await audioState(page)).ambience.above).toBeGreaterThan((await audioState(page)).ambience.under);
-    await seek(page, 19);
+    await seek(page, (cinematic.opening.shots.glide + cinematic.opening.shots.trash) / 2);
     expect((await reef(page, (h) => h.view())) as { above: boolean }).toMatchObject({ above: false });
     await expect.poll(async () => (await audioState(page)).ambience.under).toBeGreaterThan((await audioState(page)).ambience.above);
     expect((await audioState(page)).muted).toBe(false);
@@ -302,8 +366,60 @@ test.describe("Indonesian", () => {
     expect((await cine(page))!.time).toBe(left);
   });
 
-  test("the camera keeps the floating trash near the beach in view, whichever way it flies, and never goes inside the terrain or the buildings; the frame rate holds (AC-8)", async ({ page }) => {
-    test.setTimeout(180_000);
+  test("each cut goes to black and comes back, the camera jumps in the dark, the ambience follows, and the bars and the hint stay (AC-1, AC-3, D-115)", async ({ page }) => {
+    test.setTimeout(120_000);
+    await startWithCinematics(page);
+    const { shots } = cinematic.opening;
+    // The fade as the clock says it, read in the same instant as the jump (no frame passes in between).
+    const fadeAt = (seconds: number) => reef(page, (h, a) => (h.seekCinematic(a.seconds), h.screenFade()), { seconds }) as Promise<number>;
+    await seek(page, 3);
+    // The first fade-in (from black as the opening begins) is over by now.
+    await expect.poll(() => reef(page, (h) => h.screenFade())).toBe(0);
+    for (const cut of openingCuts()) {
+      expect(await fadeAt(cut), `at the cut ${cut} s`).toBeGreaterThan(0.95);
+      expect(await fadeAt(cut - cinematic.opening.cut.holdSeconds / 2 - cinematic.opening.cut.fadeSeconds - 0.05), `before ${cut} s`).toBe(0);
+      expect(await fadeAt(cut + cinematic.opening.cut.holdSeconds / 2 + cinematic.opening.cut.fadeSeconds + 0.05), `after ${cut} s`).toBe(0);
+      expect(await fadeAt(cut - 0.2), `halfway into ${cut} s`).toBeGreaterThan(0.2);
+    }
+    // The picture the player sees: the screen's black overlay follows it, and the bars and the hint stay up through a cut.
+    await seek(page, shots.glide - 0.7);
+    const before = await camera(page);
+    expect(before[1]).toBeGreaterThan(config.bay.surfaceY);
+    expect((await audioState(page)).ambience.above).toBeGreaterThan((await audioState(page)).ambience.under);
+    await seek(page, shots.glide + 0.5);
+    const after = await camera(page);
+    expect(after[1]).toBeLessThan(config.bay.surfaceY);
+    expect(Math.hypot(after[0] - before[0], after[1] - before[1], after[2] - before[2])).toBeGreaterThan(5);
+    await expect(page.locator(".cine-bar-top")).toBeVisible();
+    await expect(page.locator(".cine-skip")).toBeVisible();
+    await expect(page.locator(".crosshair")).toBeHidden();
+    await expect.poll(async () => (await audioState(page)).ambience.under).toBeGreaterThan((await audioState(page)).ambience.above);
+    // The game's own overlay is dark while the cut lasts.
+    await reef(page, (h, a) => h.seekCinematic(a.seconds), { seconds: shots.trash - 0.02 });
+    await expect.poll(async () => Number(await page.locator(".hud-fade").evaluate((el) => getComputedStyle(el).opacity)), { timeout: 3000 }).toBeGreaterThan(0.2);
+  });
+
+  test("a click in the middle of a cut still skips it, and a pause in the dark keeps the cut where it was (AC-4, AC-7)", async ({ page }) => {
+    test.setTimeout(120_000);
+    await startWithCinematics(page);
+    const { shots } = cinematic.opening;
+    await seek(page, shots.trash - 0.3);
+    await page.keyboard.press("Escape");
+    await expect.poll(() => mode(page)).toBe("paused");
+    const frozen = (await cine(page))!;
+    await page.waitForTimeout(800);
+    expect((await cine(page))!.time).toBe(frozen.time);
+    await page.getByRole("button", { name: "Lanjut" }).click();
+    await expect.poll(() => mode(page)).toBe("playing");
+    await page.mouse.click(400, 225);
+    await expect.poll(() => cine(page), { timeout: 5_000 }).toBeNull();
+    await expect(page.locator(".crosshair")).toBeVisible();
+    await expect.poll(() => reef(page, (h) => h.screenFade()), { timeout: 5_000 }).toBe(0);
+    expect(await position(page)).toEqual([rov.start.x, rov.start.y, rov.start.z]);
+  });
+
+  test("the camera keeps the floating trash near the beach, the trash on the floor and the turtle in its net in view, and never goes inside the terrain, a rock, coral, the buildings or a net; the frame rate holds (AC-8)", async ({ page }) => {
+    test.setTimeout(240_000);
     await startWithCinematics(page);
     const trash = await floatingTrash(page);
     const group = beachGroup(trash.map(([x, y, z]) => ({ x, y, z })))!;
@@ -332,11 +448,33 @@ test.describe("Indonesian", () => {
       requestAnimationFrame(tick);
     });
     await seek(page, 0.2);
+    const { floor, turtle, nets } = await floorScene(page);
+    const middle: Vec = [floor.reduce((sum, item) => sum + item.x, 0) / floor.length, floor.reduce((sum, item) => sum + item.y, 0) / floor.length, floor.reduce((sum, item) => sum + item.z, 0) / floor.length];
     const cameras: Vec[] = [];
-    while ((await cine(page)) !== null) {
-      cameras.push(await camera(page));
+    const seen = { floor: 0, turtle: 0, floorOff: [] as number[], turtleOff: [] as number[] };
+    const between = (at: [number, number] | null, margin: number) =>
+      at !== null && at[0] > width * margin && at[0] < width * (1 - margin) && at[1] > height * cinematic.letterbox && at[1] < height * (1 - cinematic.letterbox);
+    for (let now = await cine(page); now !== null; now = await cine(page)) {
+      const [x, y, z] = await camera(page);
+      cameras.push([x, y, z]);
+      // Away from the cuts (the screen is black, the camera in between two places), each close shot has its subject on the screen.
+      const dark = openingCuts().some((cut) => Math.abs(now.time - cut) < 0.6);
+      if (now.shot === 2 && !dark) {
+        seen.floor++;
+        if (!between(await screenOf(page, middle), 0)) seen.floorOff.push(now.time);
+      } else if (now.shot === 3 && !dark) {
+        seen.turtle++;
+        const position = ((await reef(page, (h) => h.animals())) as { species: string; position: Vec }[]).find((animal) => animal.species === "turtle")!.position;
+        if (!between(await screenOf(page, position), 0.05)) seen.turtleOff.push(now.time);
+      }
+      expect(netSolidAt(nets, x, y, z, 0.3), `camera at (${x.toFixed(1)}, ${y.toFixed(1)}, ${z.toFixed(1)}) in a net`).toBe(false);
       await page.waitForTimeout(150);
     }
+    expect(seen.floor).toBeGreaterThan(10);
+    expect(seen.turtle).toBeGreaterThan(10);
+    expect(seen.floorOff, "times the floor group was off the screen").toEqual([]);
+    expect(seen.turtleOff, "times the turtle was off the screen").toEqual([]);
+    expect(turtle).toHaveLength(3);
     for (const [x, y, z] of cameras) expect(cameraBlocked(x, y, z, 0.3), `camera at (${x.toFixed(1)}, ${y.toFixed(1)}, ${z.toFixed(1)})`).toBe(false);
     const frames = (await page.evaluate(() => (window as unknown as { __frames: number[] }).__frames)) as number[];
     const seconds = (frames[frames.length - 1] - frames[0]) / 1000;
