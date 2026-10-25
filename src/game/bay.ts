@@ -4,12 +4,13 @@ import { caveSolidAt, pushOutOfCave } from "./cave";
 import { insideBoulder, makeBoulderShape, pushOutOfBoulder, type Boulder } from "./boulder-shape";
 import { generateReefs, type Colony, type Reef } from "./coral-reef";
 import { allSpots } from "./layout";
-import { floorGradient, floorHeight, squareRadius, wallness } from "./terrain";
+import { areaReach, floorGradient, floorHeight, inDiveArea, squareRadius } from "./terrain";
 
-export { floorHeight, floorSlope } from "./terrain";
+export { floorHeight, floorSlope, inDiveArea } from "./terrain";
 export type { Boulder } from "./boulder-shape";
 
 const { bay, station } = config;
+const { area } = bay;
 
 export interface Rock {
   x: number;
@@ -94,10 +95,10 @@ function keptClear(x: number, z: number, size: number, { startClear = 10, ignore
   return false;
 }
 
-/** Scatters the small rocks over the floor of the bay, away from the shore's shallows and the rock wall. */
+/** Scatters the small rocks over the floor of the bay, away from the shore's shallows, the headlands and the dive area's edge. */
 function generateRocks(): Rock[] {
   const random = mulberry32(bay.rockSeed);
-  const reach = bay.wall.radius - bay.wall.width - 4;
+  const reach = areaReach(4);
   const rocks: Rock[] = [];
   let attempts = 0;
   while (rocks.length < bay.rockCount && attempts++ < 20000) {
@@ -105,7 +106,7 @@ function generateRocks(): Rock[] {
     const z = (random() * 2 - 1) * reach;
     const size = 1.2 + random() * 1.8;
     const rotation = random() * Math.PI;
-    if (squareRadius(x, z) > reach || wallness(x, z) > 0) continue;
+    if (!inDiveArea(x, z, 4)) continue;
     if (floorHeight(x, z) > -6) continue;
     if (keptClear(x, z, size)) continue;
     if (rocks.some((other) => Math.hypot(x - other.x, z - other.z) < size + other.size + 2)) continue;
@@ -337,6 +338,9 @@ function pushOutOfFloor(p: Vector3, v: Vector3, radius: number): void {
  * installed frames. Velocity into a limit is removed, so the ROV stops there (REQ-001 AC-4, REQ-011 AC-3).
  */
 export function constrainToBay(p: Vector3, v: Vector3, radius: number = config.rov.radius): void {
+  // REQ-022: first, so a position far outside the dive area is brought back before the floor and the rocks are looked at;
+  // the last lines keep it there after their pushes.
+  keepInDiveArea(p, v);
   for (const rock of rocks) pushOutOfRock(p, v, rock, radius);
   for (const boulder of boulders) pushOutOfBoulder(p, v, boulder, radius);
   for (const arch of arches) pushOutOfArch(p, v, arch, radius);
@@ -363,10 +367,54 @@ export function constrainToBay(p: Vector3, v: Vector3, radius: number = config.r
     p.y = ceiling;
     if (v.y > 0) v.y = 0;
   }
-  // The terrain mesh ends here; the walls and the land stop everything long before (no invisible wall).
-  const edge = bay.halfSize - 2;
-  p.x = Math.min(edge, Math.max(-edge, p.x));
-  p.z = Math.min(edge, Math.max(-edge, p.z));
+  // REQ-022: where the edge crosses a headland, the pushes above can have moved the sphere out past it: bring it back, and let
+  // the rock and the shallows have the last word.
+  if (keepInDiveArea(p, v)) {
+    keepInDeepEnoughWater(p, v, radius);
+    pushOutOfFloor(p, v, radius);
+  }
+}
+
+/** How close to the dive area's edge counts as touching it (the message shows, REQ-022 AC-4), in metres. */
+const EDGE_TOUCH = 1;
+
+/** True when (x, z) is within `within` m of the dive area's invisible edge, where the submarine has stopped (REQ-022 AC-4). */
+export function atDiveEdge(x: number, z: number, within = EDGE_TOUCH): boolean {
+  return squareRadius(x, z) >= area.radius - within;
+}
+
+/** The slowest the submarine may still go toward the edge inside the slow-down band, so it arrives instead of creeping for ever. */
+const EDGE_CREEP = 0.8;
+
+/**
+ * REQ-022 (D-104): the invisible edge of the dive area, about where the rock wall used to be. Over the last `slowBand`
+ * metres the speed toward the edge falls away; at the edge the position is held and the speed toward it is removed. The
+ * speed along the edge and away from it is untouched, so the submarine can turn and leave at once. True when it moved the position.
+ */
+function keepInDiveArea(p: Vector3, v: Vector3): boolean {
+  const r = squareRadius(p.x, p.z);
+  if (r <= area.radius - area.slowBand) return false;
+  // The edge's outward direction: the gradient of the rounded square's radius.
+  const nx = Math.sign(p.x) * Math.abs(p.x) ** (area.shape - 1);
+  const nz = Math.sign(p.z) * Math.abs(p.z) ** (area.shape - 1);
+  const length = Math.hypot(nx, nz);
+  const ox = nx / length;
+  const oz = nz / length;
+  const outward = v.x * ox + v.z * oz;
+  if (outward > 0) {
+    const allowed = r >= area.radius ? 0 : Math.max(config.rov.maxSpeed * ((area.radius - r) / area.slowBand), EDGE_CREEP);
+    if (outward > allowed) {
+      v.x -= (outward - allowed) * ox;
+      v.z -= (outward - allowed) * oz;
+    }
+  }
+  if (r > area.radius) {
+    // A rounded square scales with its radius.
+    p.x *= area.radius / r;
+    p.z *= area.radius / r;
+    return true;
+  }
+  return false;
 }
 
 function insideCylinder(x: number, y: number, z: number, cx: number, cz: number, baseY: number, cylinder: { radius: number; height: number }, margin: number): boolean {

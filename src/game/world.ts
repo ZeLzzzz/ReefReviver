@@ -26,7 +26,7 @@ import {
 import { assets } from "../assets";
 import { config } from "../config";
 import { arches, boulders, floorHeight, floorSlope, rocks, type Arch, type Boulder } from "./bay";
-import { wallness } from "./terrain";
+import { headland } from "./terrain";
 import { caveLevel } from "./cave";
 import { waterAt } from "./bloom";
 import { createGrassView, type GrassView } from "./grass-model";
@@ -93,57 +93,97 @@ function smoothstep(edge0: number, edge1: number, x: number): number {
 
 /**
  * The ground's colour at a point: sand on the flats (darker deeper down), algae turf on gentle hill tops, rock on
- * steep slopes and the walls, and beach and land above the water (REQ-011).
+ * steep slopes and the headlands, and beach and land above the water (REQ-011).
  */
 function groundColour(x: number, y: number, z: number, out: Color): Color {
   const slope = floorSlope(x, z);
   const ripple = 0.5 + 0.5 * Math.sin(x * 0.35 + z * 0.25) * Math.cos(z * 0.4 - x * 0.15);
   const strata = 0.5 + 0.5 * Math.sin(y * 1.4 + Math.sin(x * 0.11 + z * 0.07) * 2);
   // On the land, rock shows on the cliff that closes it at the west (REQ-015).
-  if (y > 0.2 && wallness(x, z) < 0.3) return out.copy(beach).lerp(dryLand, smoothstep(1, 3, y)).lerp(tmpRock.copy(rockDark).lerp(rockLight, strata), smoothstep(0.6, 1.2, slope));
+  if (y > 0.2 && headland(x, z) < 0.3) return out.copy(beach).lerp(dryLand, smoothstep(1, 3, y)).lerp(tmpRock.copy(rockDark).lerp(rockLight, strata), smoothstep(0.6, 1.2, slope));
   out.copy(sandDeep).lerp(sandLight, smoothstep(-24, -10, y)).lerp(sandLight, ripple * 0.25);
   out.lerp(algae, smoothstep(-12.5, -9.5, y) * (1 - smoothstep(0.2, 0.45, slope)) * 0.85);
-  const rocky = Math.max(smoothstep(0.55, 1.1, slope), wallness(x, z));
+  const rocky = Math.max(smoothstep(0.55, 1.1, slope), headland(x, z));
   return out.lerp(tmpRock.copy(rockDark).lerp(rockLight, strata), rocky);
 }
 const tmpRock = new Color();
 
-/** The terrain in TERRAIN_CHUNKS x TERRAIN_CHUNKS meshes, so the ones out of view are skipped when drawing. */
+/** REQ-022: the coarse terrain around the detailed one is made of squares this wide (an exact fraction of the detailed side). */
+const OUTER_STEP = (bay.halfSize * 2) / 30;
+const OUTER_RINGS = Math.round((bay.outerSize - bay.halfSize) / OUTER_STEP);
+const OUTER_HALF = bay.halfSize + OUTER_RINGS * OUTER_STEP;
+
+/** The detailed terrain's own outer edge follows the straight lines between the coarse terrain's corners, so no crack opens between them. */
+function onCoarseEdge(x: number, z: number): number | null {
+  const coarse = (t: number) => {
+    const k = Math.floor((t + bay.halfSize) / OUTER_STEP);
+    const t0 = -bay.halfSize + k * OUTER_STEP;
+    return [t0, t0 + OUTER_STEP, (t - t0) / OUTER_STEP] as const;
+  };
+  const edgeX = Math.abs(Math.abs(x) - bay.halfSize) < 1e-6;
+  const edgeZ = Math.abs(Math.abs(z) - bay.halfSize) < 1e-6;
+  if (edgeX === edgeZ) return null;
+  const [a, b, k] = coarse(edgeX ? z : x);
+  const at = (t: number) => (edgeX ? floorHeight(x, t) : floorHeight(t, z));
+  return at(a) + (at(b) - at(a)) * k;
+}
+
+/** Sets a flat grid's heights to the floor's, and colours it (REQ-014: the tunnel's floor is in shadow). */
+function shapeTerrain(geometry: BufferGeometry, stitch: boolean): void {
+  const colour = new Color();
+  const position = geometry.attributes.position;
+  const colors = new Float32Array(position.count * 3);
+  for (let k = 0; k < position.count; k++) {
+    const x = position.getX(k);
+    const z = position.getZ(k);
+    const y = floorHeight(x, z);
+    position.setY(k, stitch ? (onCoarseEdge(x, z) ?? y) : y);
+    groundColour(x, y, z, colour);
+    colour.multiplyScalar(1 - 0.45 * caveLevel(x, y + 0.05, z));
+    colors[k * 3] = colour.r;
+    colors[k * 3 + 1] = colour.g;
+    colors[k * 3 + 2] = colour.b;
+  }
+  geometry.setAttribute("color", new Float32BufferAttribute(colors, 3));
+  geometry.computeVertexNormals();
+  geometry.computeBoundingSphere();
+}
+
+/**
+ * The terrain in TERRAIN_CHUNKS x TERRAIN_CHUNKS detailed meshes, so the ones out of view are skipped when drawing, and a
+ * ring of four coarse meshes round them (REQ-022 AC-1): the floor goes on, dropping away into deep water, far enough that
+ * the water's fog hides its end from anywhere in the dive area.
+ */
 export function buildTerrainChunks(): Mesh[] {
   const material = new MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 1 });
   const span = (bay.halfSize * 2) / TERRAIN_CHUNKS;
   const segments = Math.round(span / TERRAIN_STEP);
-  const colour = new Color();
   const meshes: Mesh[] = [];
+  const add = (name: string, width: number, depth: number, cx: number, cz: number, columns: number, rows: number, stitch: boolean) => {
+    const geometry = new PlaneGeometry(width, depth, columns, rows);
+    geometry.rotateX(-Math.PI / 2);
+    geometry.translate(cx, 0, cz);
+    shapeTerrain(geometry, stitch);
+    const mesh = new Mesh(geometry, material);
+    mesh.name = name;
+    meshes.push(mesh);
+  };
   for (let i = 0; i < TERRAIN_CHUNKS; i++) {
     for (let j = 0; j < TERRAIN_CHUNKS; j++) {
       const cx = -bay.halfSize + span * (i + 0.5);
       const cz = -bay.halfSize + span * (j + 0.5);
-      const geometry = new PlaneGeometry(span, span, segments, segments);
-      geometry.rotateX(-Math.PI / 2);
-      geometry.translate(cx, 0, cz);
-      const position = geometry.attributes.position;
-      const colors = new Float32Array(position.count * 3);
-      for (let k = 0; k < position.count; k++) {
-        const x = position.getX(k);
-        const z = position.getZ(k);
-        const y = floorHeight(x, z);
-        position.setY(k, y);
-        groundColour(x, y, z, colour);
-        // REQ-014: the tunnel's floor is in shadow.
-        colour.multiplyScalar(1 - 0.45 * caveLevel(x, y + 0.05, z));
-        colors[k * 3] = colour.r;
-        colors[k * 3 + 1] = colour.g;
-        colors[k * 3 + 2] = colour.b;
-      }
-      geometry.setAttribute("color", new Float32BufferAttribute(colors, 3));
-      geometry.computeVertexNormals();
-      geometry.computeBoundingSphere();
-      const mesh = new Mesh(geometry, material);
-      mesh.name = `terrain-${i}-${j}`;
-      meshes.push(mesh);
+      add(`terrain-${i}-${j}`, span, span, cx, cz, segments, segments, true);
     }
   }
+  const band = OUTER_HALF - bay.halfSize;
+  const middle = (OUTER_HALF + bay.halfSize) / 2;
+  const across = Math.round((OUTER_HALF * 2) / OUTER_STEP);
+  const along = Math.round((bay.halfSize * 2) / OUTER_STEP);
+  const rings = OUTER_RINGS;
+  add("terrain-outer-north", OUTER_HALF * 2, band, 0, -middle, across, rings, false);
+  add("terrain-outer-south", OUTER_HALF * 2, band, 0, middle, across, rings, false);
+  add("terrain-outer-west", band, bay.halfSize * 2, -middle, 0, rings, along, false);
+  add("terrain-outer-east", band, bay.halfSize * 2, middle, 0, rings, along, false);
   return meshes;
 }
 
@@ -215,8 +255,11 @@ function addRocks(scene: Scene): void {
     scene.add(model);
   });
 }
+/** REQ-022 AC-2: the sea's surface reaches this far each way from the bay's centre, well past the horizon of the haze, so no edge shows. */
+const SEA_HALF = 3000;
+
 function addSurface(scene: Scene): MeshBasicMaterial {
-  const geometry = new PlaneGeometry(bay.halfSize * 2 + 40, bay.halfSize * 2 + 40);
+  const geometry = new PlaneGeometry(SEA_HALF * 2, SEA_HALF * 2);
   geometry.rotateX(Math.PI / 2);
   geometry.translate(0, bay.surfaceY, 0);
   const material = new MeshBasicMaterial({ color: water.murky.surfaceColor, transparent: true, opacity: 0.5, side: DoubleSide });

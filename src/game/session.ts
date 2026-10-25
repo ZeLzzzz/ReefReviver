@@ -178,9 +178,9 @@ export class Session {
     }
   }
 
-  say(notice: Notice): void {
+  say(notice: Notice, seconds: number = hud.noticeSeconds): void {
     this.notice = notice;
-    this.noticeLeft = hud.noticeSeconds;
+    this.noticeLeft = seconds;
   }
 
   /** Lets a message fade; call once per simulated frame. */

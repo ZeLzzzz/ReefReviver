@@ -3,11 +3,11 @@ import { describe, expect, it } from "vitest";
 import { config } from "../../src/config";
 import { boulderSurfaceHeight, insideBoulder } from "../../src/game/boulder-shape";
 import { allSpots } from "../../src/game/layout";
-import { arches, boulders, constrainToBay, floorHeight, insideRockAt, rocks, terrainSolidAt } from "../../src/game/bay";
+import { arches, atDiveEdge, boulders, constrainToBay, floorHeight, insideRockAt, rocks, terrainSolidAt } from "../../src/game/bay";
 import { followCamera, keepCameraInWater } from "../../src/game/follow-camera";
 import { createRovState, forwardVector, stepRov, type MoveInput, type RovState } from "../../src/game/rov";
 import { stationPosition } from "../../src/game/station";
-import { inland, squareRadius } from "../../src/game/terrain";
+import { areaReach, inDiveArea, inland, squareRadius } from "../../src/game/terrain";
 import { generateTrash } from "../../src/game/trash";
 
 const { bay, rov, camera, trash } = config;
@@ -32,24 +32,24 @@ function expectInWater(s: RovState): void {
   expect(s.position.y).toBeLessThanOrEqual(bay.surfaceY - rov.radius + 1e-9);
 }
 
-/** Every point of the open bay on a grid: away from the rock wall and the shore's shelf. */
+/** Every point of the open bay on a grid: away from the dive area's edge and the shore's shelf. */
 function openBay(step = 3): { x: number; z: number; y: number }[] {
   const points = [];
-  const reach = bay.wall.radius - bay.wall.width - 5;
+  const reach = areaReach(5);
   for (let x = -reach; x <= reach; x += step) {
     for (let z = -reach; z <= reach; z += step) {
-      if (squareRadius(x, z) > reach || inland(x, z) > -bay.shore.shelfWidth - bay.shore.blendWidth - 5) continue;
+      if (!inDiveArea(x, z, 5) || inland(x, z) > -bay.shore.shelfWidth - bay.shore.blendWidth - 5) continue;
       points.push({ x, z, y: floorHeight(x, z) });
     }
   }
   return points;
 }
 
-/** Water width along a line through the centre: from where the floor leaves the surface to where it meets it again. */
+/** Water width along a line through the centre, within the dive area: from where the floor leaves the surface to where it meets it again. */
 function waterWidth(along: (t: number) => [number, number]): number {
   let first = Infinity;
   let last = -Infinity;
-  for (let t = -bay.halfSize; t <= bay.halfSize; t += 0.5) {
+  for (let t = -bay.area.radius; t <= bay.area.radius; t += 0.5) {
     const [x, z] = along(t);
     if (floorHeight(x, z) < bay.surfaceY) {
       first = Math.min(first, t);
@@ -60,7 +60,7 @@ function waterWidth(along: (t: number) => [number, number]): number {
 }
 
 describe("a bay about 300 m wide with hills and valleys (REQ-011 AC-1)", () => {
-  it("is about 300 m across from west to east and from north to south, walls and shore included", () => {
+  it("is about 300 m across from west to east and from north to south, the dive area and shore included", () => {
     for (const width of [waterWidth((t) => [t, 0]), waterWidth((t) => [0, t])]) {
       expect(width).toBeGreaterThan(250);
       expect(width).toBeLessThan(300);
@@ -148,33 +148,16 @@ describe("the west shore (REQ-011 AC-2)", () => {
   });
 });
 
-describe("limits (REQ-011 AC-3)", () => {
-  it("rises above the surface all the way round before the edge of the terrain: no invisible wall", () => {
-    for (let a = 0; a < 720; a++) {
-      const angle = (a / 720) * Math.PI * 2;
-      let closed = false;
-      for (let r = 0; r < bay.halfSize * 1.42; r += 0.5) {
-        const x = Math.cos(angle) * r;
-        const z = Math.sin(angle) * r;
-        if (Math.max(Math.abs(x), Math.abs(z)) > bay.halfSize - 4) break;
-        if (floorHeight(x, z) > bay.surfaceY) {
-          closed = true;
-          break;
-        }
-      }
-      expect(closed).toBe(true);
-    }
-  });
-
+describe("limits (REQ-011 AC-3, REQ-022 AC-4: the rock wall is replaced by an invisible edge)", () => {
   it.each([
-    ["the rock wall to the north", Math.PI],
-    ["the rock wall to the north-east", (Math.PI * 3) / 4],
-    ["the rock wall to the east", Math.PI / 2],
-    ["the rock wall to the south-east", Math.PI / 4],
-    ["the rock wall to the south", 0],
+    ["the invisible edge to the north", Math.PI],
+    ["the invisible edge to the north-east", (Math.PI * 3) / 4],
+    ["the invisible edge to the east", Math.PI / 2],
+    ["the invisible edge to the south-east", Math.PI / 4],
+    ["the invisible edge to the south", 0],
     ["the shore to the west", -Math.PI / 2],
-    ["the rock wall to the north-west", (-Math.PI * 3) / 4],
-  ])("stops at %s, never inside it", (_name, yaw) => {
+    ["the headland to the north-west", (-Math.PI * 3) / 4],
+  ])("stops at %s, never inside it", (name, yaw) => {
     const state = rovAt(0, -10, 0, yaw);
     constrainToBay(state.position, state.velocity);
     fly(state, { forward: 1 }, 60, expectInWater);
@@ -184,6 +167,12 @@ describe("limits (REQ-011 AC-3)", () => {
     const edge = bay.halfSize - 3;
     expect(Math.abs(state.position.x)).toBeLessThan(edge);
     expect(Math.abs(state.position.z)).toBeLessThan(edge);
+    if (name.includes("invisible edge")) {
+      // Nothing rises there: the dive area's edge is what stopped it.
+      expect(atDiveEdge(state.position.x, state.position.z)).toBe(true);
+      expect(squareRadius(state.position.x, state.position.z)).toBeLessThanOrEqual(bay.area.radius + 1e-6);
+      return;
+    }
     // What stopped it is right ahead: floor rising above it, or water too shallow for it.
     const ahead = forwardVector(yaw).multiplyScalar(3).add(state.position);
     expect(floorHeight(ahead.x, ahead.z)).toBeGreaterThan(state.position.y - rov.radius);
@@ -233,7 +222,7 @@ describe("limits (REQ-011 AC-3)", () => {
   });
 });
 
-describe("the camera stays out of slopes, rocks and walls (REQ-011 AC-4)", () => {
+describe("the camera stays out of slopes, rocks and headlands (REQ-011 AC-4)", () => {
   it("comes in closer when a boulder is behind the ROV", () => {
     const boulder = boulders[0];
     // Facing east with the boulder right behind: the camera would be inside it.
@@ -244,7 +233,7 @@ describe("the camera stays out of slopes, rocks and walls (REQ-011 AC-4)", () =>
     expect(position.distanceTo(state.position)).toBeLessThan(camera.distance);
   });
 
-  it("is never inside the floor, a rock, a boulder, an arch or the wall, wherever the ROV is", () => {
+  it("is never inside the floor, a rock, a boulder, an arch or a headland, wherever the ROV is", () => {
     const random = (() => {
       let a = 99;
       return () => ((a = (a * 16807) % 2147483647) / 2147483647);

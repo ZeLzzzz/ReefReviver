@@ -2,12 +2,14 @@
 // Units: metres, seconds, radians. North is -Z.
 
 export const config = {
-  // REQ-011: a bay about 300 m wide (D-061). Rock walls close it on the north, east and south (D-062), the west is
-  // a shore where the floor rises to the surface and the land goes on above it (D-071).
+  // REQ-011: a bay about 300 m wide (D-061). The west is a shore where the floor rises to the surface and the land goes
+  // on above it (D-071); on the north, east and south it is open sea (REQ-022, D-104), bounded by an invisible edge.
   bay: {
     surfaceY: 0,
-    // The terrain mesh covers this many metres each way from the bay's centre; nothing is ever further out.
+    // The detailed terrain mesh covers this many metres each way from the bay's centre; the coarse mesh around it goes on
+    // to `outerSize` (REQ-022), well beyond what the water's fog lets the player see from the dive area.
     halfSize: 165,
+    outerSize: 407,
     // The rolling floor between the hills and valleys.
     baseDepth: -16,
     // Hill tops flatten out toward this depth and never rise above it (D-071: about 8 m down).
@@ -35,11 +37,20 @@ export const config = {
     ],
     // The west shore: the waterline wanders around `waterlineX`; the floor rises to it over `shelfWidth` from
     // `shelfDepth`, and blends into the rolling floor over `blendWidth` further out. Inland the land rises by
-    // `landRise` per metre up to `landHeight`. Between z = -openHalf and openHalf no rock wall closes the shore.
+    // `landRise` per metre up to `landHeight`. Between z = -openHalf and openHalf the beach is open; both its ends are
+    // closed by a rock headland (REQ-022, D-105).
     shore: { waterlineX: -132, wiggle: 5, shelfWidth: 30, shelfDepth: -10, blendWidth: 20, landRise: 0.35, landHeight: 5, openHalf: 100 },
-    // The rock wall on a rounded square (a superellipse of this exponent) about `radius` from the centre: it rises
-    // from the floor to `top` over `width` metres, with a face that juts in and out by up to `jag`.
-    wall: { radius: 147, width: 13, top: 8, jag: 5, shape: 4 },
+    // REQ-022 (D-104, D-108): the dive area is a rounded square (a superellipse of this exponent `shape`) of `radius` from the
+    // centre, bounded by an invisible edge: the submarine slows down over the last `slowBand` metres and stops at it, and
+    // "Batas area penyelaman" shows for `messageSeconds`. Everything the game places (reefs, trash, rocks, sea life) keeps
+    // `inset` metres inside it, plus its own margin. Outside it the floor drops away by `dropDepth` metres, from `dropFrom`
+    // metres before the edge to `dropWidth` metres beyond it, into deep water that fades to blue.
+    area: { radius: 147, shape: 4, inset: 13, slowBand: 14, messageSeconds: 2, dropFrom: 10, dropWidth: 110, dropDepth: 70 },
+    // REQ-022 (D-105): a rock headland at each end of the west beach: a ridge from the cliff behind the beach out into the sea
+    // along z = +-`z` from the cliff out to x = `tipX`, solid rock to `core` m of its middle line and falling to the sea over the
+    // next `fall` m, `top` m above the surface at the cliff (a few metres of unevenness on top) and lower toward the tip. The
+    // walkers stop at it.
+    headland: { z: 122, tipX: -96, core: 12, fall: 12, top: 9 },
     // The wooden dock (REQ-016): from landX on the beach out to seaX, halfWidth either side of z, its deck deckY above
     // the surface. Nothing else is placed within `clear` of (x, z).
     dock: { x: -124, z: 8, clear: 8, landX: -130, seaX: -116, halfWidth: 1.3, deckY: 0.9 },
@@ -332,7 +343,7 @@ export const config = {
           { along: 0, radius: 0.5 },
           { along: 0.85, radius: 0.22 },
         ],
-        // Radius used to keep the swimming animal out of rocks, slopes and the rock wall.
+        // Radius used to keep the swimming animal out of rocks, slopes and the edge of the dive area.
         radius: 0.7,
         // While trapped it twists and shifts by up to this far inside the net (AC-6).
         struggle: 0.22,
@@ -477,7 +488,7 @@ export const config = {
     size: 200,
     extent: 150,
     // REQ-011 AC-6: hills and valleys are shaded in `cells` x `cells` squares by the depth of the floor; floor
-    // above the surface is land (west) or rock wall.
+    // above the surface is land (west, and the headlands).
     cells: 80,
     depthBands: [-11, -15, -19],
     // Icon sizes in map units (the minimap is about 200 px wide at full size, so one unit is about one pixel).

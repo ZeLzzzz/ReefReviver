@@ -1,6 +1,6 @@
 import { config } from "../config";
 import type { Arch, Boulder, Coral, Rock } from "./bay";
-import { floorHeight, floorSlope, squareRadius, wallness } from "./terrain";
+import { floorHeight, floorSlope, inDiveArea } from "./terrain";
 import { boulderSurfaceHeight } from "./boulder-shape";
 
 const { bay } = config;
@@ -150,7 +150,7 @@ export function generateReefs(ctx: ReefContext): ReefSet {
 
   // The belt: on the floor of the shelf's edge, in stretches with sand between them.
   const inBelt = (x: number, z: number, width: number) => {
-    if (squareRadius(x, z) > bay.wall.radius - bay.wall.width - 8 || wallness(x, z) > 0) return false;
+    if (!inDiveArea(x, z, 8)) return false;
     const depth = depthAt(x, z);
     if (depth < spec.belt.minDepth || depth > spec.belt.maxDepth) return false;
     return floorSlope(x, z) <= spec.maxSlope && !ctx.keptClear(x, z, width * 0.5, { startClear });
@@ -229,7 +229,7 @@ export function generateReefs(ctx: ReefContext): ReefSet {
       }
     }
     const width = widthOf();
-    if (squareRadius(best.x, best.z) > bay.wall.radius - bay.wall.width - 8 || wallness(best.x, best.z) > 0) continue;
+    if (!inDiveArea(best.x, best.z, 8)) continue;
     if (-best.y < spec.belt.minDepth || -best.y > 14 || ctx.keptClear(best.x, best.z, width * 0.5)) continue;
     patches.push({ host: "hill", x: best.x, z: best.z, width });
   }
@@ -318,7 +318,7 @@ export function generateReefs(ctx: ReefContext): ReefSet {
 
   function patchSpot(x: number, z: number, patch: Patch): boolean {
     if (patch.boulder) return true;
-    return squareRadius(x, z) < bay.wall.radius - bay.wall.width - 8 && wallness(x, z) <= 0 && !ctx.keptClear(x, z, 0.5);
+    return inDiveArea(x, z, 8) && !ctx.keptClear(x, z, 0.5);
   }
 
   for (const colony of colonies) reefs[colony.reef].colonies++;

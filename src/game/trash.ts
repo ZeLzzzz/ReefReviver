@@ -3,7 +3,7 @@ import { config } from "../config";
 import { floorHeight, floorSlope, insideRockAt } from "./bay";
 import { caveTrashSpots } from "./cave";
 import { insideShed, landObstacles, standable } from "./land";
-import { inland, squareRadius, wallness } from "./terrain";
+import { areaReach, headland, inDiveArea, inland } from "./terrain";
 import { counterPosition, stationPosition } from "./station";
 import { pickNearestInCone } from "./vacuum";
 
@@ -45,7 +45,7 @@ function mulberry32(seed: number): () => number {
 export function trashSpotOk(x: number, z: number): boolean {
   const { start } = config.rov;
   const { bay, reef } = config;
-  if (squareRadius(x, z) > bay.wall.radius - bay.wall.width - 6 || wallness(x, z) > 0) return false;
+  if (!inDiveArea(x, z, 6)) return false;
   const floor = floorHeight(x, z);
   if (floor > bay.surfaceY - trash.minDepth) return false;
   if (floorSlope(x, z) > trash.maxSlope) return false;
@@ -69,7 +69,7 @@ export function trashSpotOk(x: number, z: number): boolean {
 export function beachSpotOk(x: number, z: number): boolean {
   const s = inland(x, z);
   if (s < beach.minInland || s > beach.maxInland || Math.abs(z) > beach.halfLength) return false;
-  if (!standable(x, z) || wallness(x, z) > 0 || floorSlope(x, z) > trash.maxSlope) return false;
+  if (!standable(x, z) || headland(x, z) > 0 || floorSlope(x, z) > trash.maxSlope) return false;
   if (insideShed(x, z, beach.clearOfShed)) return false;
   if (Math.hypot(x - counterPosition.x, z - counterPosition.z) < station.zoneRadius + beach.clearOfShed) return false;
   if (x >= dock.landX - beach.clearOfDock && Math.abs(z - dock.z) <= dock.halfWidth + beach.clearOfDock) return false;
@@ -115,7 +115,7 @@ function beachSpots(random: () => number): { x: number; z: number }[] {
  */
 export function generateTrash(seed: number = trash.seed): TrashItem[] {
   const random = mulberry32(seed);
-  const reach = config.bay.wall.radius - config.bay.wall.width - 6;
+  const reach = areaReach(6);
   const items: TrashItem[] = [];
   const centres: { x: number; z: number }[] = [];
   const add = (x: number, z: number, onBeach = false) => {

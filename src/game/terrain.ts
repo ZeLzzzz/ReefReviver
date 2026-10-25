@@ -3,7 +3,7 @@ import { caveFloorWeight } from "./cave-shape";
 import { allSpots } from "./layout";
 
 const { bay, station, land } = config;
-const { shore, wall } = bay;
+const { shore, area, headland: headlandSpec } = bay;
 
 const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value));
 
@@ -50,37 +50,50 @@ function shoreHeight(s: number, x: number, z: number): number {
   return shore.shelfDepth * t * (2 - t);
 }
 
-/** The "radius" of the rounded square the rock wall follows: constant along it, like a circle's radius. */
+/** The "radius" of the rounded square the dive area follows: constant along it, like a circle's radius. */
 export function squareRadius(x: number, z: number): number {
-  const n = wall.shape;
+  const n = area.shape;
   return Math.pow(Math.abs(x) ** n + Math.abs(z) ** n, 1 / n);
 }
 
-/** Where the wall's face starts at this angle around the centre: the jagged edge juts in and out. */
-function wallRadius(x: number, z: number): number {
-  const angle = Math.atan2(z, x);
-  return wall.radius + wall.jag * (0.6 * Math.sin(angle * 7 + 1) + 0.4 * Math.sin(angle * 17 - 0.5));
+/** How far from the dive area's edge things the game places keep: `margin` more than the area's own `inset` (REQ-022). */
+export function areaReach(margin = 0): number {
+  return area.radius - area.inset - margin;
 }
 
-/** How far the rock wall has risen here, 0 (none) to 1 (its top). The shore between ±openHalf has no wall. */
-export function wallness(x: number, z: number): number {
-  const r = wallRadius(x, z);
-  const rising = smoothstep(r - wall.width, r, squareRadius(x, z));
-  // The wall rises steeply where the open shore ends, so the beach is closed by a cliff, not a ramp (REQ-015 AC-3).
-  const openShore = (1 - smoothstep(shore.openHalf - 6, shore.openHalf, Math.abs(z))) * smoothstep(-20, -60, x);
-  return rising * (1 - openShore);
+/**
+ * How much of a headland's rock stands here, 0 (none) to 1 (solid) (REQ-022, D-105): a ridge along z = +-headland.z from the
+ * cliff behind the beach out to the sea, rounded at its tip, that closes both ends of the west beach.
+ */
+export function headland(x: number, z: number): number {
+  const beyondTip = Math.max(0, x - headlandSpec.tipX);
+  const d = Math.hypot(beyondTip, Math.abs(z) - headlandSpec.z);
+  return 1 - smoothstep(headlandSpec.core, headlandSpec.core + headlandSpec.fall, d);
 }
 
-/** The floor before anything is levelled: seabed, shore and wall. */
+/** True where the game may place things: inside the dive area by `margin` m more than its inset, and not on a headland. */
+export function inDiveArea(x: number, z: number, margin = 0): boolean {
+  return squareRadius(x, z) <= areaReach(margin) && headland(x, z) <= 0;
+}
+
+/** The sea floor out in the bay, dropping away outside the dive area into deep water (REQ-022 AC-1). */
+function openSeaHeight(x: number, z: number): number {
+  const drop = smoothstep(area.radius - area.dropFrom, area.radius + area.dropWidth, squareRadius(x, z));
+  return seabedHeight(x, z) - area.dropDepth * drop;
+}
+
+/** The floor before anything is levelled: seabed, shore and headlands. */
 function naturalFloorHeight(x: number, z: number): number {
   const s = inland(x, z);
   const fromShore = smoothstep(-shore.shelfWidth - shore.blendWidth, -shore.shelfWidth, s);
-  let h = seabedHeight(x, z) * (1 - fromShore) + shoreHeight(s, x, z) * fromShore;
-  const w = wallness(x, z);
+  let h = openSeaHeight(x, z) * (1 - fromShore) + shoreHeight(s, x, z) * fromShore;
+  const w = headland(x, z);
   if (w > 0) {
-    const top = wall.top + 1.5 * Math.sin(x * 0.19 + z * 0.07) + Math.sin(z * 0.23 - x * 0.05);
+    // The ridge is highest at the cliff and comes down toward its tip, with an uneven top.
+    const taper = 1 - 0.55 * smoothstep(-150, headlandSpec.tipX, x);
+    const top = headlandSpec.top * taper + 1.5 * Math.sin(x * 0.19 + z * 0.07) + Math.sin(z * 0.23 - x * 0.05);
     // Ledges on the face: a bulge that is strongest halfway up.
-    const ledge = 3 * Math.sin(x * 0.3 + z * 0.21) * w * (1 - w);
+    const ledge = 2 * Math.sin(x * 0.3 + z * 0.21) * w * (1 - w);
     h = h + (Math.max(h, top) - h) * w + ledge;
   }
   return h;

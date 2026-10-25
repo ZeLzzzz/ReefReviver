@@ -14,7 +14,7 @@ import {
 } from "three";
 import { config } from "../config";
 import { LOGBOOK_ENTRIES, type LogbookId } from "../logbook/entries";
-import { constrainToBay, rocks, setFrameColumns } from "./bay";
+import { atDiveEdge, constrainToBay, rocks, setFrameColumns } from "./bay";
 import { Bloom } from "./bloom";
 import { caveInfo, caveLamp, caveLevel } from "./cave";
 import { createCaveView } from "./cave-model";
@@ -139,6 +139,8 @@ export class Game implements GameView {
   private rov: RovState = createRovState();
   // REQ-015: on foot on the land, with the submarine floating where it was left (D-080); null while aboard.
   private ashore: { walker: Walker; sub: Vector3 } | null = null;
+  /** REQ-022: the submarine is at the dive area's edge, so its message has been shown. */
+  private atEdge = false;
   // The fade while getting out or in: the switch happens at its darkest point, halfway (D-084).
   private transition: { time: number; switched: boolean; to: "land" | "sub"; spot: AshoreSpot | null } | null = null;
   private readonly eye = new Vector3();
@@ -470,6 +472,7 @@ export class Game implements GameView {
       } else {
         steer(this.rov, dx, dy);
         stepRov(this.rov, this.input.move(), dt);
+        this.checkDiveEdge();
       }
       this.stepTools(dt);
       this.stepBloom(dt); // REQ-005
@@ -491,6 +494,20 @@ export class Game implements GameView {
     this.camera.lookAt(this.cameraTarget);
     if (this.mode === "playing") this.publishHud();
     this.renderer.render(this.scene, this.camera);
+  }
+
+  /**
+   * REQ-022 AC-4: when the submarine reaches the dive area's invisible edge the message shows (once for each time it gets
+   * there; it shows again after the submarine has left the edge and come back).
+   */
+  private checkDiveEdge(): void {
+    const { x, z } = this.rov.position;
+    if (atDiveEdge(x, z)) {
+      if (!this.atEdge) this.session.say({ key: "hud.diveEdge" }, config.bay.area.messageSeconds);
+      this.atEdge = true;
+    } else if (!atDiveEdge(x, z, config.bay.area.slowBand / 2)) {
+      this.atEdge = false;
+    }
   }
 
   /**

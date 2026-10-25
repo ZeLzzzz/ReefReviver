@@ -174,7 +174,7 @@ test.describe("Indonesian", () => {
       await gameSeconds(page, 2);
       const now = await reef(page, (h) => h.animals());
       now.forEach((a, k) => {
-        // Inside the bay's water, short of the rock wall and the shore (REQ-011: about 300 m across).
+        // Inside the bay's water, short of the dive area's edge and the shore (REQ-011: about 300 m across).
         expect(Math.max(Math.abs(a.position[0]), Math.abs(a.position[2]))).toBeLessThan(140);
         expect(a.position[1]).toBeLessThan(0);
         travelled += Math.hypot(a.position[0] - before[k].position[0], a.position[2] - before[k].position[2]);

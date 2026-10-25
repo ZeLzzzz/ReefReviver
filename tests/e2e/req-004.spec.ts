@@ -239,7 +239,7 @@ test.describe("Indonesian", () => {
     await page.waitForTimeout(2000);
     await page.mouse.up();
 
-    // The rock wall at the east edge of the bay, level with the ROV.
+    // Out to sea at the east edge of the dive area, level with the ROV: nothing to plant on.
     await reef(page, (h) => h.placeRov(122, -8, 10, Math.PI / 2, 0));
     await page.mouse.down();
     await page.waitForTimeout(2000);

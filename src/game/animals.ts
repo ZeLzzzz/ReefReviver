@@ -159,7 +159,7 @@ export class AnimalField {
     }
     let turn = fleeing ? 0 : animal.turnRate;
     if (Math.hypot(position.x, position.z) > wander.keepInside) {
-      // Too close to the shore or the rock wall: turn back toward the middle of the bay.
+      // Too close to the shore or the edge of the dive area: turn back toward the middle of the bay.
       const toCentre = wrapAngle(Math.atan2(-position.x, -position.z) - animal.yaw);
       turn = clamp(toCentre, -1, 1) * species.turnRate * 2;
     }
@@ -175,7 +175,7 @@ export class AnimalField {
     position.addScaledVector(velocity, dt);
     const [fromX, fromY, fromZ] = [position.x, position.y, position.z];
     constrainToBay(position, velocity, species.radius);
-    // Pushed by a rock, a slope or the rock wall: turn away from it.
+    // Pushed by a rock, a slope or the edge of the dive area: turn away from it.
     if (Math.hypot(position.x - fromX, position.y - fromY, position.z - fromZ) > 1e-4) {
       animal.yaw += (animal.id % 2 === 0 ? 1 : -1) * wander.blockedTurn * dt;
     }

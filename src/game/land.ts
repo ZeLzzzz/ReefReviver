@@ -2,7 +2,7 @@ import { Vector3 } from "three";
 import { config } from "../config";
 import { floorHeight, floorSlope } from "./bay";
 import type { MoveInput } from "./rov";
-import { inland, wallness } from "./terrain";
+import { headland, inland } from "./terrain";
 
 const { land, bay, station } = config;
 const { shore, dock } = bay;
@@ -44,22 +44,23 @@ export function groundHeight(x: number, z: number): number {
 }
 
 /**
- * True where a walking player can stand: on the dock, or ground no deeper than wading depth, not too steep, not the
- * rock wall, clear of the shed, the trees and the rocks.
+ * True where a walking player can stand: on the dock, or ground no deeper than wading depth, not too steep, not on a
+ * headland's rock (REQ-022, D-105: it cannot be climbed), clear of the shed, the trees and the rocks.
  */
 export function standable(x: number, z: number): boolean {
+  // The land goes on beyond the headlands, but nobody gets there; this keeps the walker inside the terrain all the same.
   const edge = bay.halfSize - 2;
   if (Math.abs(x) > edge || Math.abs(z) > edge) return false;
   if (insideShed(x, z, land.radius)) return false;
   if (onDock(x, z)) return true;
   if (floorHeight(x, z) < bay.surfaceY - land.wadeDepth) return false;
-  if (floorSlope(x, z) > land.maxSlope || wallness(x, z) > 0.3) return false;
+  if (floorSlope(x, z) > land.maxSlope || headland(x, z) > 0.3) return false;
   return !landObstacles.some((o) => Math.hypot(x - o.x, z - o.z) < o.radius + land.radius);
 }
 
 /**
  * Whether the submarine at (x, z) is close enough to the west shore to go ashore (within `ashoreRange` of the
- * waterline, on the open beach between the rock walls), and if so where the player lands and the submarine is left.
+ * waterline, on the open beach between the headlands), and if so where the player lands and the submarine is left.
  */
 export function ashoreSpot(x: number, z0: number): AshoreSpot | null {
   if (Math.abs(z0) > shore.openHalf - 20) return null;

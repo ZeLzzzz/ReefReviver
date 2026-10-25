@@ -44,19 +44,20 @@ test.describe("Indonesian", () => {
     await expect(page.locator(".marker-label")).toHaveText(/^Gudang daur ulang · \d+ m$/);
   });
 
-  test("the minimap shades the land, the rock wall and the depth of the floor (AC-6)", async ({ page }) => {
+  test("the minimap shades the land and the depth of the floor, and no longer a rock wall (AC-6, changed by REQ-022)", async ({ page }) => {
     await startDive(page);
     const shades = await page.locator(".hud-minimap .mm-terrain").evaluateAll((els) => els.map((el) => el.getAttribute("data-shade")));
-    expect(shades).toEqual(expect.arrayContaining(["land", "wall", "depth-0", "depth-1", "depth-2", "depth-3"]));
+    expect(shades).toEqual(expect.arrayContaining(["land", "depth-0", "depth-1", "depth-2", "depth-3"]));
+    expect(shades).not.toContain("wall");
     // The landmarks are drawn over the terrain.
     await expect(page.locator('.hud-minimap [data-kind="station"]')).toBeVisible();
     await page.locator(".hud-minimap").screenshot({ path: "test-results/req-011-minimap.png" });
   });
 
-  test("holding W into the rock wall stops the ROV at the wall, well inside the map's edge: no invisible wall (AC-3)", async ({ page }) => {
+  test("holding W to the east stops the ROV at the edge of the dive area, inside the map (AC-3, changed by REQ-022: an invisible edge, not a rock wall)", async ({ page }) => {
     test.setTimeout(120_000);
     await startDive(page);
-    // In the middle of the bay, facing east toward the wall about 130 m away.
+    // In the middle of the bay, facing east toward the edge about 90 m away.
     await reef(page, (h) => h.placeRov(60, -9, 5, Math.PI / 2, 0));
     await page.keyboard.down("KeyW");
     let last: Vec = await reef(page, (h) => h.rovPosition());
@@ -73,14 +74,14 @@ test.describe("Indonesian", () => {
       .toBe(true);
     await page.keyboard.up("KeyW");
     const [x, y] = last;
-    expect(x).toBeLessThan(160);
+    expect(x).toBeLessThan(150);
     expect(y).toBeLessThan(0);
-    // Right ahead, the ROV does not fit: the wall is there.
+    // Right ahead, the ROV does not fit: the dive area ends there.
     expect(await reef(page, (h, a) => h.fits(a.x + 2, a.y, a.z), { x: last[0], y: last[1], z: last[2] })).toBe(false);
-    await page.screenshot({ path: "test-results/req-011-wall-murky.png" });
+    await page.screenshot({ path: "test-results/req-011-edge-murky.png" });
   });
 
-  test("after the Bloom the hills, boulders and the rock wall are in view (AC-1)", async ({ page }) => {
+  test("after the Bloom the hills, boulders and the open sea at the edge are in view (AC-1)", async ({ page }) => {
     test.setTimeout(120_000);
     await startDive(page);
     await reef(page, (h) => {
@@ -91,7 +92,7 @@ test.describe("Indonesian", () => {
     for (const [name, at] of [
       ["hill", [0, -6, -24, Math.PI / 2, -0.15]],
       ["arch", [3, -9, -75, 0.4, -0.1]],
-      ["wall", [100, -6, 60, 1.0, 0]],
+      ["edge", [100, -6, 60, 1.0, 0]],
     ] as const) {
       await reef(page, (h, a) => h.placeRov(a[0], a[1], a[2], a[3], a[4]), at);
       await page.waitForTimeout(500);

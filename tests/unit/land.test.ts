@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { config } from "../../src/config";
 import { floorHeight, floorSlope } from "../../src/game/bay";
 import { ashoreSpot, canBoard, createWalker, eyePosition, landObstacles, lookWalker, onDock, standable, stepWalker, type Walker } from "../../src/game/land";
-import { inland } from "../../src/game/terrain";
+import { headland, inland } from "../../src/game/terrain";
 
 const { land, bay, rov } = config;
 const idle = { forward: 0, strafe: 0, rise: 0 };
@@ -34,7 +34,7 @@ describe("going ashore (REQ-015 AC-1)", () => {
     }
   });
 
-  it("is not offered out in the bay, by the rock walls, or on the east side", () => {
+  it("is not offered out in the bay, by the headlands, or on the east side", () => {
     expect(ashoreSpot(0, 0)).toBeNull();
     expect(ashoreSpot(config.station.x, config.station.z)).toBeNull();
     expect(ashoreSpot(rov.start.x, rov.start.z)).toBeNull();
@@ -114,7 +114,7 @@ describe("the land's limits (REQ-015 AC-3)", () => {
     expect(floorSlope(walker.position.x - 0.5, walker.position.z)).toBeGreaterThan(land.maxSlope * 0.8);
   });
 
-  it("stops at the rock walls at both ends of the beach", () => {
+  it("stops at the headlands at both ends of the beach (REQ-022 AC-3)", () => {
     // From past the last palms, along the beach and a little inland, so the walker slides along the foot of the
     // cliff rather than into the sea.
     for (const [z, yaw] of [[78, -0.3], [-78, Math.PI + 0.3]]) {
@@ -123,6 +123,8 @@ describe("the land's limits (REQ-015 AC-3)", () => {
       walk(walker, { forward: 1 }, 40);
       expect(Math.abs(walker.position.z)).toBeGreaterThan(bay.shore.openHalf - 30);
       expect(Math.abs(walker.position.z)).toBeLessThan(bay.halfSize - 5);
+      // What stops it is the headland's rock, right ahead.
+      expect(headland(walker.position.x, walker.position.z + Math.sign(z) * 1.5)).toBeGreaterThan(0.1);
     }
   });
 

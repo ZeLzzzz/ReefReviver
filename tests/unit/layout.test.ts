@@ -8,7 +8,7 @@ import { buildMinimap, mapPoint } from "../../src/game/minimap";
 import { NetField } from "../../src/game/nets";
 import { ReefField } from "../../src/game/reef-sites";
 import { SeaLife } from "../../src/game/sea-life";
-import { inland, wallness } from "../../src/game/terrain";
+import { inland, headland } from "../../src/game/terrain";
 import { generateTrash, TrashField, trashSpotOk } from "../../src/game/trash";
 
 const { reef, nets, trash, bay, rov, seaLife } = config;
@@ -36,7 +36,7 @@ describe("the candidate spots (REQ-012 AC-1, AC-3)", () => {
         expect(h).toBeLessThan(bay.surfaceY - 6);
         expect(inland(spot.x, spot.z)).toBeLessThan(-50);
       }
-      expect(wallness(spot.x, spot.z)).toBe(0);
+      expect(headland(spot.x, spot.z)).toBe(0);
       for (const [dx, dz] of [[2, 0], [-2, 0], [0, 2], [0, -2]]) expect(Math.abs(floorHeight(spot.x + dx, spot.z + dz) - h)).toBeLessThan(0.05);
       for (const rock of rocks) expect(Math.hypot(spot.x - rock.x, spot.z - rock.z)).toBeGreaterThan(rock.size + 4);
       for (const boulder of boulders) expect(Math.hypot(spot.x - boulder.x, spot.z - boulder.z)).toBeGreaterThan(boulder.radius + 4);

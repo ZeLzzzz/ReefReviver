@@ -9,7 +9,7 @@ import { chooseLayout } from "../../src/game/layout";
 import { buildMinimap } from "../../src/game/minimap";
 import { Session } from "../../src/game/session";
 import { counterPosition } from "../../src/game/station";
-import { inland, wallness } from "../../src/game/terrain";
+import { inland, headland } from "../../src/game/terrain";
 import { aimedBeachItem, generateTrash, TrashField, type TrashItem } from "../../src/game/trash";
 import { createHud } from "../../src/ui/hud";
 
@@ -98,7 +98,7 @@ describe("where beach trash never lies (REQ-017 AC-8)", () => {
         expect(onDock(x, z), where).toBe(false);
         expect(x >= bay.dock.landX - 1 && Math.abs(z - bay.dock.z) <= bay.dock.halfWidth + 1, where).toBe(false);
         for (const o of landObstacles) expect(Math.hypot(x - o.x, z - o.z), where).toBeGreaterThan(o.radius + 0.5);
-        expect(wallness(x, z), where).toBe(0);
+        expect(headland(x, z), where).toBe(0);
         expect(x, where).toBeGreaterThan(land.cliffX);
         expect(floorSlope(x, z), where).toBeLessThanOrEqual(trash.maxSlope);
       }

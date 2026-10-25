@@ -51,6 +51,12 @@ export function createMinimap(lang: Lang): MinimapView {
   const s = icon.station;
 
   const terrain = layout.terrain.map((shade) => svg("path", { class: "mm-terrain", "data-shade": shade.shade, d: shade.path }));
+  // REQ-022 AC-6: the dive area's edge, a thin line round the map.
+  const edge = svg("polygon", {
+    class: "mm-edge",
+    "data-kind": "edge",
+    points: layout.edge.map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(" "),
+  });
   const rocks = layout.rocks.map((rock) => svg("circle", { class: "mm-rock", cx: rock.x.toFixed(1), cy: rock.y.toFixed(1), r: rock.radius.toFixed(1) }));
   const dock = svg("line", {
     class: "mm-dock",
@@ -103,6 +109,7 @@ export function createMinimap(lang: Lang): MinimapView {
     "svg",
     { class: "mm-map", viewBox: `0 0 ${layout.size} ${layout.size}`, role: "img", "aria-label": t(lang, "minimap.label") },
     ...terrain,
+    edge,
     ...rocks,
     tunnel,
     trashLayer,

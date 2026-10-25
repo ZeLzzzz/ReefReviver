@@ -241,7 +241,7 @@ test.describe("Indonesian", () => {
     expect([count("clownfish"), count("yellowtail"), count("mantaRay"), count("dolphin")]).toEqual([6, 24, 2, 3]);
     expect(life.anemones).toHaveLength(3);
     expect(life.creatures.filter((c) => c.species === "yellowtail").every((c) => !c.scannable)).toBe(true);
-    // In the bay's water, short of the rock wall and the shore (REQ-011).
+    // In the bay's water, short of the dive area's edge and the shore (REQ-011).
     for (const c of life.creatures) expect(Math.max(Math.abs(c.position[0]), Math.abs(c.position[2]))).toBeLessThan(140);
     const later = await reef(page, (h) => h.seaLife());
     expect(later.creatures.some((c, i) => Math.hypot(c.position[0] - life.creatures[i].position[0], c.position[2] - life.creatures[i].position[2]) > 0.05)).toBe(true);

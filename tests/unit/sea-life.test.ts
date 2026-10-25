@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { config } from "../../src/config";
 import { defaultLayout } from "../../src/game/layout";
 import { floorHeight, insideRockAt, rocks } from "../../src/game/bay";
-import { inland, squareRadius } from "../../src/game/terrain";
+import { areaReach, inland, squareRadius } from "../../src/game/terrain";
 import { loopPose, SeaLife, type LoopSpec, type Pose, type SeaSpecies } from "../../src/game/sea-life";
 import { createSeaLifeView, createYellowtailGeometry } from "../../src/game/sea-life-model";
 import { stationPosition } from "../../src/game/station";
@@ -126,11 +126,11 @@ describe("the anemones", () => {
 describe("the school, rays and dolphins stay in the bay (AC-3)", () => {
   const free = (species: SeaSpecies) => (c: { species: SeaSpecies }) => c.species === species;
 
-  it("never get close to the rock wall or the shore, nor below the floor or above the surface (REQ-011 AC-7)", () => {
+  it("never get close to the edge of the dive area or the shore, nor below the floor or above the surface (REQ-011 AC-7)", () => {
     const life = new SeaLife();
     swim(life, 600, () => {
       for (const c of life.creatures) {
-        expect(squareRadius(c.position.x, c.position.z)).toBeLessThan(bay.wall.radius - bay.wall.width - 5);
+        expect(squareRadius(c.position.x, c.position.z)).toBeLessThan(areaReach(5));
         expect(inland(c.position.x, c.position.z)).toBeLessThan(-20);
         expect(c.position.y).toBeGreaterThan(floorHeight(c.position.x, c.position.z) + 0.3);
         expect(c.position.y).toBeLessThan(bay.surfaceY - 1);

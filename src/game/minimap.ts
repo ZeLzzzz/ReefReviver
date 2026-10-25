@@ -3,7 +3,6 @@ import { arches, boulders, floorHeight, rocks } from "./bay";
 import { caveInfo } from "./cave";
 import type { Net } from "./nets";
 import { frameStatus, patchStatus, type FrameSite, type PatchSite, type SiteStatus } from "./reef-sites";
-import { wallness } from "./terrain";
 import type { TrashItem } from "./trash";
 
 const { minimap, bay, station } = config;
@@ -14,7 +13,7 @@ export interface MapPoint {
   y: number;
 }
 
-/** The map shows `extent` metres each way from the bay's centre (REQ-011: the whole bay, walls and shore included). */
+/** The map shows `extent` metres each way from the bay's centre (REQ-011: the whole bay, shore included). */
 const SCALE = minimap.size / (2 * minimap.extent);
 
 /** World (x, z) to the map: north (-Z) is up, east (+X) is right, the bay is centred. */
@@ -31,14 +30,14 @@ export function headingDegrees(yaw: number): number {
 }
 
 /**
- * How the map shades a spot (REQ-011 AC-6): land above the water on the shore, the rock wall, or one of the depth
- * bands of the floor, "depth-0" the shallowest (hill tops) to the deepest valleys.
+ * How the map shades a spot (REQ-011 AC-6): land above the water (the shore and the headlands, REQ-022 AC-6), or one of
+ * the depth bands of the floor, "depth-0" the shallowest (hill tops) to the deepest valleys and the sea outside the dive area.
  */
-export type Shade = "land" | "wall" | `depth-${number}`;
+export type Shade = "land" | `depth-${number}`;
 
 export function shadeAt(x: number, z: number): Shade {
   const h = floorHeight(x, z);
-  if (h > bay.surfaceY) return wallness(x, z) > 0.3 ? "wall" : "land";
+  if (h > bay.surfaceY) return "land";
   let band = 0;
   while (band < minimap.depthBands.length && h < minimap.depthBands[band]) band++;
   return `depth-${band}`;
@@ -79,10 +78,12 @@ function terrainShades(): TerrainShade[] {
 /** What never changes in a dive: the shape of the bay and where the landmarks are. */
 export interface MinimapLayout {
   size: number;
-  /** The terrain, shaded by depth, with the land and the rock wall (REQ-011 AC-6). */
+  /** The terrain, shaded by depth, with the land and the headlands (REQ-011 AC-6, REQ-022 AC-6). */
   terrain: TerrainShade[];
   /** Rocks, boulders and the feet of the arches, in map units. */
   rocks: { x: number; y: number; radius: number }[];
+  /** REQ-022 AC-6: the dive area's edge, a thin closed line (the points of a rounded square). */
+  edge: MapPoint[];
   station: MapPoint;
   /** REQ-016 AC-6: the dock, a line from the beach out over the water. */
   dock: { from: MapPoint; to: MapPoint };
@@ -97,9 +98,25 @@ const archFeet = arches.flatMap((arch) =>
   })),
 );
 
+/** The points of the dive area's edge: |x|^shape + |z|^shape = radius^shape, walked once round. */
+function areaEdge(): MapPoint[] {
+  const { radius, shape } = bay.area;
+  const points: MapPoint[] = [];
+  const steps = 96;
+  for (let i = 0; i < steps; i++) {
+    const angle = (i / steps) * Math.PI * 2;
+    const c = Math.cos(angle);
+    const s = Math.sin(angle);
+    const r = radius / Math.pow(Math.abs(c) ** shape + Math.abs(s) ** shape, 1 / shape);
+    points.push(mapPoint(c * r, s * r));
+  }
+  return points;
+}
+
 export const minimapLayout: MinimapLayout = {
   size: minimap.size,
   terrain: terrainShades(),
+  edge: areaEdge(),
   rocks: [
     ...rocks.map((rock) => ({ ...mapPoint(rock.x, rock.z), radius: rock.size * SCALE })),
     ...boulders.map((boulder) => ({ ...mapPoint(boulder.x, boulder.z), radius: boulder.radius * SCALE })),

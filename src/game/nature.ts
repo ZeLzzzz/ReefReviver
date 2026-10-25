@@ -4,7 +4,7 @@ import { arches, boulders, corals, floorHeight, floorSlope, insideRockAt, rocks 
 import { boulderSurfaceHeight } from "./boulder-shape";
 import { allSpots } from "./layout";
 import { generateMeadows, type Meadow } from "./seagrass";
-import { inland, squareRadius, wallness } from "./terrain";
+import { areaReach, inDiveArea, inland } from "./terrain";
 
 const { nature, bay, rov, scanner, station } = config;
 
@@ -35,10 +35,9 @@ export interface Decor {
   seed: number;
 }
 
-/** Out in the bay's water: not the shore's shallows, not the rock wall, not the cave's hill. */
+/** Out in the bay's water: not the shore's shallows, not a headland, not the dive area's edge, not the cave's hill. */
 function inOpenBay(x: number, z: number, margin: number): boolean {
-  const reach = bay.wall.radius - bay.wall.width - margin;
-  if (squareRadius(x, z) > reach || wallness(x, z) > 0) return false;
+  if (!inDiveArea(x, z, margin)) return false;
   if (Math.hypot(x - bay.cave.x, z - bay.cave.z) < bay.cave.clear) return false;
   if (Math.hypot(x - bay.dock.x, z - bay.dock.z) < bay.dock.clear + margin) return false;
   return Math.hypot(x - rov.start.x, z - rov.start.z) > 12;
@@ -120,14 +119,14 @@ function nearAFeature(random: () => number): { x: number; z: number } {
 
 /**
  * Lays every piece of decoration once from the seed (REQ-021): each kind where it grows, out in the open bay (clear of the
- * wall, the cave, the dock and the start), never on a planting spot, a net or the shed, never inside a rock, and never
+ * edge of the dive area and the headlands, the cave, the dock and the start), never on a planting spot, a net or the shed, never inside a rock, and never
  * touching another piece. Half the spots are drawn near the rocks, boulders and arches, the rest over the whole bay. The
  * draws come in the same order for the same seed, so the bay is the same on every run.
  */
 function generateDecor(): Decor[] {
   const tuning = nature.decor;
   const random = mulberry32(tuning.seed);
-  const reach = bay.wall.radius - bay.wall.width - 6;
+  const reach = areaReach(6);
   const items: Decor[] = [];
   for (const kind of DECOR_KINDS) {
     const spec = tuning[kind];

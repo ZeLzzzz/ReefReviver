@@ -37,8 +37,8 @@ describe("minimap coordinates (REQ-010 AC-1)", () => {
     expect(mapPoint(20, 0).y).toBe(centre.y);
   });
 
-  it("keeps the whole bay, rock wall and shore included, inside the map (REQ-011 AC-6)", () => {
-    const wall = bay.wall.radius;
+  it("keeps the whole dive area and the shore inside the map (REQ-011 AC-6, REQ-022 AC-6)", () => {
+    const wall = bay.area.radius;
     for (const [x, z] of [[wall, 0], [-wall, 0], [0, wall], [0, -wall]]) {
       const p = mapPoint(x, z);
       expect(p.x).toBeGreaterThan(0);
@@ -46,10 +46,10 @@ describe("minimap coordinates (REQ-010 AC-1)", () => {
       expect(p.y).toBeGreaterThan(0);
       expect(p.y).toBeLessThan(minimap.size);
     }
-    // Around the water, the map's edges show land on the west and the rock wall elsewhere.
+    // Around the water, the map's edges show land on the west and open water elsewhere: no rock wall (REQ-022 AC-6).
     const edge = minimap.extent - 2;
     expect(shadeAt(-edge, 0)).toBe("land");
-    for (const [x, z] of [[edge, 0], [0, edge], [0, -edge]]) expect(shadeAt(x, z)).toBe("wall");
+    for (const [x, z] of [[edge, 0], [0, edge], [0, -edge]]) expect(shadeAt(x, z)).toMatch(/^depth-/);
   });
 
   it("puts the ROV at its map position", () => {
@@ -134,7 +134,7 @@ describe("landmarks (REQ-010 AC-2)", () => {
   });
 });
 
-describe("hills, valleys, shore and wall on the map (REQ-011 AC-6)", () => {
+describe("hills, valleys, shore and headlands on the map (REQ-011 AC-6, REQ-022 AC-6)", () => {
   const depthRank = (shade: string) => (shade.startsWith("depth-") ? Number(shade.slice(6)) : -1);
 
   it("shades the hill tops shallower than the valleys", () => {
@@ -144,7 +144,8 @@ describe("hills, valleys, shore and wall on the map (REQ-011 AC-6)", () => {
     const shades = new Set(minimapLayout.terrain.map((t) => t.shade));
     for (let band = 0; band <= minimap.depthBands.length; band++) expect(shades).toContain(`depth-${band}`);
     expect(shades).toContain("land");
-    expect(shades).toContain("wall");
+    // REQ-022 AC-6: the rock wall is gone from the map.
+    expect([...shades]).not.toContain("wall");
   });
 
   it("covers the whole map with squares, each of one shade, and no square twice", () => {

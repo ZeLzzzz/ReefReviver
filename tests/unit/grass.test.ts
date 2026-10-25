@@ -7,7 +7,7 @@ import { createGrassView } from "../../src/game/grass-model";
 import { createWalker, insideShed, landObstacles, onDock, stepWalker } from "../../src/game/land";
 import { counterPosition } from "../../src/game/station";
 import { generateTrash } from "../../src/game/trash";
-import { inland, wallness } from "../../src/game/terrain";
+import { inland, headland } from "../../src/game/terrain";
 import { buildWorld } from "../../src/game/world";
 
 const { land, bay, station } = config;
@@ -36,9 +36,9 @@ describe("grass on the land (REQ-018 AC-1)", () => {
 });
 
 describe("where grass must not grow (REQ-018 AC-3)", () => {
-  it("never on the rock walls at either end of the beach, in the water, or on the steep foot of the cliff", () => {
+  it("never on the headlands at either end of the beach, in the water, or on the steep foot of the cliff", () => {
     for (const b of grassBlades) {
-      expect(wallness(b.x, b.z)).toBe(0);
+      expect(headland(b.x, b.z)).toBe(0);
       expect(floorHeight(b.x, b.z)).toBeGreaterThan(bay.surfaceY);
       expect(floorSlope(b.x, b.z)).toBeLessThanOrEqual(grass.maxSlope + 1e-9);
     }

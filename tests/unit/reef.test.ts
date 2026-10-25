@@ -2,7 +2,7 @@ import { Box3, Mesh, type MeshBasicMaterial, Vector3 } from "three";
 import { describe, expect, it } from "vitest";
 import { config } from "../../src/config";
 import { constrainToBay, isSolidAt, rocks, setFrameColumns } from "../../src/game/bay";
-import { wallness } from "../../src/game/terrain";
+import { headland } from "../../src/game/terrain";
 import type { HudState } from "../../src/game/hud-state";
 import { aimDirection } from "../../src/game/follow-camera";
 import { createReefView } from "../../src/game/reef-model";
@@ -44,7 +44,7 @@ describe("sites (REQ-004 AC-1 placement)", () => {
       expect(site.y).toBeGreaterThan(config.bay.surfaceY - 5);
       expect(site.x).toBeLessThan(config.rov.start.x - 20);
     }
-    for (const site of all) expect(wallness(site.x, site.z)).toBe(0);
+    for (const site of all) expect(headland(site.x, site.z)).toBe(0);
   });
 
   it("keeps clear of the station, the start, the rocks, the trash and each other", () => {
@@ -339,11 +339,12 @@ describe("the seed launcher (REQ-004 AC-4 to AC-6)", () => {
 });
 
 describe("the bay's solid check", () => {
-  it("is true under the floor, above the surface, in the rock wall, in the land and inside rocks, false in open water", () => {
+  it("is true under the floor, above the surface, in a headland, in the land and inside rocks, false in open water, also out at sea (REQ-022)", () => {
     expect(isSolidAt(0, -6, 30)).toBe(false);
     expect(isSolidAt(0, -40, 30)).toBe(true);
     expect(isSolidAt(0, 1, 30)).toBe(true);
-    expect(isSolidAt(config.bay.halfSize - 5, -6, 0)).toBe(true);
+    expect(isSolidAt(-110, -1, config.bay.headland.z)).toBe(true);
+    expect(isSolidAt(config.bay.halfSize - 5, -6, 0)).toBe(false);
     expect(isSolidAt(-config.bay.halfSize + 5, -1, 0)).toBe(true);
     expect(isSolidAt(rocks[0].x + 0.1, rocks[0].y, rocks[0].z)).toBe(true);
   });

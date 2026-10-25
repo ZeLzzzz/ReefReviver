@@ -3,7 +3,7 @@ import { floorHeight, floorSlope } from "./bay";
 import { insideShed, landObstacles } from "./land";
 import { mulberry32 } from "./nature";
 import { counterPosition } from "./station";
-import { inland, wallness } from "./terrain";
+import { headland, inland } from "./terrain";
 
 const { bay, land, station } = config;
 const { dock } = bay;
@@ -29,12 +29,12 @@ function nearDock(x: number, z: number): boolean {
 }
 
 /**
- * Whether grass may grow at (x, z) (REQ-018 AC-1, AC-3): dry ground at least `fromInland` metres inland, not the rock
- * wall, not ground steeper than `maxSlope` (the foot of the cliff), and clear of the shed, the dock, the counter's zone
+ * Whether grass may grow at (x, z) (REQ-018 AC-1, AC-3): dry ground at least `fromInland` metres inland, not on a headland,
+ * not ground steeper than `maxSlope` (the foot of the cliff), and clear of the shed, the dock, the counter's zone
  * (AC-2), the palms and the rocks.
  */
 export function growsGrassAt(x: number, z: number): boolean {
-  if (inland(x, z) < grass.fromInland || wallness(x, z) > 0) return false;
+  if (inland(x, z) < grass.fromInland || headland(x, z) > 0) return false;
   if (floorHeight(x, z) <= bay.surfaceY || floorSlope(x, z) > grass.maxSlope) return false;
   if (insideShed(x, z, grass.structureClear) || nearDock(x, z)) return false;
   if (Math.hypot(x - counterPosition.x, z - counterPosition.z) < station.zoneRadius + grass.counterClear) return false;

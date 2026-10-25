@@ -8,7 +8,7 @@ import { createNatureView } from "../../src/game/nature-model";
 import { ReefField } from "../../src/game/reef-sites";
 import { aimedScanTarget, collectScanTargets, Scanner } from "../../src/game/scanner";
 import { SeedLauncher } from "../../src/game/seed-launcher";
-import { wallness } from "../../src/game/terrain";
+import { headland } from "../../src/game/terrain";
 
 const { nature, bloom, bay, reef } = config;
 
@@ -137,7 +137,7 @@ describe("natural seagrass meadows (REQ-013 AC-8)", () => {
     expect(meadows.length).toBeLessThanOrEqual(12);
     for (const meadow of meadows) {
       expect(meadow.y).toBeGreaterThan(bay.surfaceY - 7);
-      expect(wallness(meadow.x, meadow.z)).toBe(0);
+      expect(headland(meadow.x, meadow.z)).toBe(0);
       expect(meadow.blades.length).toBeGreaterThan(50);
       const spots = [...reef.patchSpots, ...reef.frameSpots];
       expect(meadow.blades.every((blade) => spots.every((spot) => Math.hypot(blade.x - spot.x, blade.z - spot.z) > bay.padRadius))).toBe(true);
