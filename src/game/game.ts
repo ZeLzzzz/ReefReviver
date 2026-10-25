@@ -387,6 +387,8 @@ export class Game implements GameView {
         decorItems: () => this.natureView.decorItems().map((d) => ({ ...d })),
         // REQ-018: the grass on the land: how many blades, their average colour, and the wind's clock.
         grass: () => this.world.grass.look(),
+        // REQ-023: the sky (drawn or not, the sun's direction, the clock) and the sea surface's mirror.
+        sky: () => ({ ...this.world.sky.look(), sea: this.world.sea.look(), lightDirection: this.sunDirection() }),
         reefLook: () => ({ ...this.reefView.look(), coral: this.reefView.coralMaterials.map((m) => m.color.getHex()), markers: this.reefView.markerOpacity() }),
         // REQ-006: the Logbook entries opened so far, and a way to free both animals without cutting.
         unlocked: () => [...this.session.unlocked],
@@ -525,6 +527,15 @@ export class Game implements GameView {
     this.lampLevel = Math.min(this.lampLevel + step, Math.max(this.lampLevel - step, this.lampLit ? 1 : 0));
     setHeadlight(this.rovModel, this.lampLevel, lamp.intensity);
     this.caveView.update(performance.now() / 1000);
+  }
+
+  /** The direction the sunlight comes from, as a unit vector, for the browser tests. */
+  private sunDirection(): [number, number, number] {
+    let direction: [number, number, number] = [0, 1, 0];
+    this.scene.traverse((object) => {
+      if (object instanceof DirectionalLight) direction = object.position.clone().normalize().toArray() as [number, number, number];
+    });
+    return direction;
   }
 
   /** The lights' intensities, for the browser tests: the sky, the sun. */

@@ -1,7 +1,6 @@
 import {
   BufferAttribute,
   BufferGeometry,
-  CircleGeometry,
   Color,
   ConeGeometry,
   CylinderGeometry,
@@ -31,6 +30,8 @@ import { caveLevel } from "./cave";
 import { waterAt } from "./bloom";
 import { createGrassView, type GrassView } from "./grass-model";
 import { compactGroup, hasMesh } from "./model-utils";
+import { createSky, createSkyUniforms, sunDirection, underwaterSunDirection, type SkyUniforms, type SkyView } from "./sky";
+import { createSeaUniforms, mirrorAt, shadeSea, type SeaUniforms } from "./sea-surface";
 
 const { bay, water, land } = config;
 const caveFog = new Color(config.bay.cave.dark.fogColor);
@@ -75,6 +76,8 @@ export function buildRockMesh(variant: number): Group {
   return compactGroup(group);
 }
 
+/** How far the sun's light sits from the origin; only its direction counts. */
+const SUN_DISTANCE = 31;
 const TERRAIN_STEP = 2.5;
 const TERRAIN_CHUNKS = 4;
 
@@ -258,11 +261,13 @@ function addRocks(scene: Scene): void {
 /** REQ-022 AC-2: the sea's surface reaches this far each way from the bay's centre, well past the horizon of the haze, so no edge shows. */
 const SEA_HALF = 3000;
 
-function addSurface(scene: Scene): MeshBasicMaterial {
+function addSurface(scene: Scene, sky: SkyUniforms, sea: SeaUniforms): MeshBasicMaterial {
   const geometry = new PlaneGeometry(SEA_HALF * 2, SEA_HALF * 2);
   geometry.rotateX(Math.PI / 2);
   geometry.translate(0, bay.surfaceY, 0);
   const material = new MeshBasicMaterial({ color: water.murky.surfaceColor, transparent: true, opacity: 0.5, side: DoubleSide });
+  // REQ-023: waves, the sky's reflection and the sun's glint above, ripples below; the colour and opacity stay the Bloom's.
+  shadeSea(material, sky, sea);
   scene.add(new Mesh(geometry, material));
   return material;
 }
@@ -360,6 +365,10 @@ export interface World {
   setCave(level: number): void;
   /** REQ-018: the grass on the land, which sways in the wind and never changes colour. */
   grass: GrassView;
+  /** REQ-023: the sky over the bay, drawn above the water only. */
+  sky: SkyView;
+  /** REQ-023: for the tests, the sea surface's material and what its shader mirrors of the sky. */
+  sea: { material: MeshBasicMaterial; look(): { mirror: number; time: number } };
 }
 
 /** The bay before the Bloom: murky green-grey water with short visibility (REQ-001 AC-3). */
@@ -371,7 +380,7 @@ export function buildWorld(scene: Scene): World {
   const hemisphere = new HemisphereLight(water.murky.hemiSky, 0x4a4636, water.murky.hemiIntensity);
   scene.add(hemisphere);
   const sun = new DirectionalLight(0xffffff, water.murky.sunIntensity);
-  sun.position.set(10, 30, 5);
+  sun.position.copy(underwaterSunDirection).multiplyScalar(SUN_DISTANCE);
   scene.add(sun);
 
   addTerrain(scene);
@@ -379,22 +388,20 @@ export function buildWorld(scene: Scene): World {
   addLand(scene);
   const grass = createGrassView();
   scene.add(grass.mesh);
-  const surface = addSurface(scene);
+  const skyUniforms = createSkyUniforms();
+  const seaUniforms = createSeaUniforms(bay.surfaceY);
+  const surface = addSurface(scene, skyUniforms, seaUniforms);
+  const sky = createSky(skyUniforms);
+  scene.add(sky.mesh);
   const snow = addMarineSnow(scene);
   const fog = scene.fog as Fog;
-  // REQ-015: the sun's disk, seen from the land; kept far away along the light's direction.
-  const sunDisk = new Mesh(new CircleGeometry(14, 24), new MeshBasicMaterial({ color: 0xfff3c4, fog: false }));
-  sunDisk.visible = false;
-  scene.add(sunDisk);
-  const sunDirection = sun.position.clone().normalize();
-
   let clarity = 0;
   let above = false;
   let cave = 0;
   const apply = () => {
     const look = waterAt(clarity);
     snow.points.visible = !above;
-    sunDisk.visible = above;
+    sky.setVisible(above);
     if (above) {
       // Daylight over the bay: a sky-coloured haze, and the sea seen from above in the water's own colour.
       murk.setHex(land.sky);
@@ -404,6 +411,7 @@ export function buildWorld(scene: Scene): World {
       hemisphere.color.setHex(0xe6f6ff);
       hemisphere.intensity = 2.1;
       sun.intensity = 2.4;
+      sun.position.copy(sunDirection).multiplyScalar(SUN_DISTANCE);
       surface.color.setHex(look.color);
       surface.opacity = land.seaOpacity;
       return;
@@ -418,6 +426,7 @@ export function buildWorld(scene: Scene): World {
     hemisphere.color.setHex(look.hemiSky).lerp(caveSky, cave);
     hemisphere.intensity = look.hemiIntensity * light;
     sun.intensity = look.sunIntensity * light;
+    sun.position.copy(underwaterSunDirection).multiplyScalar(SUN_DISTANCE);
     snow.material.opacity = look.snowOpacity * (1 - cave * (1 - dark.snow));
     surface.color.setHex(look.surfaceColor);
     surface.opacity = 0.5;
@@ -425,16 +434,18 @@ export function buildWorld(scene: Scene): World {
 
   return {
     grass,
+    sky,
+    sea: { material: surface, look: () => ({ mirror: seaUniforms.uMirror.value, time: skyUniforms.uTime.value }) },
     update(dt, around) {
       snow.update(dt, around);
       grass.update(dt);
-      if (above) {
-        sunDisk.position.copy(around).addScaledVector(sunDirection, 380);
-        sunDisk.lookAt(around);
-      }
+      // The clouds drift and the waves move by this clock; the dome follows the camera.
+      skyUniforms.uTime.value += dt;
+      if (above) sky.update(around);
     },
     setClarity(value) {
       clarity = value;
+      seaUniforms.uMirror.value = mirrorAt(value);
       apply();
     },
     setAbove(value) {

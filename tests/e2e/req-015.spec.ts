@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { config } from "../../src/config";
 
 type Vec = [number, number, number];
 type Spot = { landing: { x: number; z: number; yaw: number }; park: { x: number; z: number } } | null;
@@ -66,7 +67,7 @@ test.describe("Indonesian", () => {
     expect(eye[1]).toBeGreaterThan(0);
     expect(eye[1] - walker.position[1]).toBeCloseTo(1.6, 1);
     expect(Math.hypot(eye[0] - walker.position[0], eye[2] - walker.position[2])).toBeLessThan(0.01);
-    expect((await reef(page, (h) => h.water())).background).toBe(0x9fd6f2);
+    expect((await reef(page, (h) => h.water())).background).toBe(config.land.sky);
     // The submarine floats at the surface, alongside the beach.
     const sub = await reef(page, (h) => h.subPosition());
     expect(sub[1]).toBeGreaterThan(-0.6);

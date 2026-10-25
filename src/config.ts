@@ -196,11 +196,56 @@ export const config = {
       // seconds, its waves are `waveLength` metres long, and the wind blows toward (x, z).
       sway: { amplitude: 0.06, period: 6, waveLength: 6, wind: { x: 0.8, z: 0.6 } },
     },
-    // Above the water: the sky, the light haze over the bay, and the sea seen from above.
-    sky: 0x9fd6f2,
+    // Above the water: the haze over the bay, which is also the sky's colour at the horizon (REQ-023 AC-1), and the sea
+    // seen from above.
+    sky: 0xcbe8f6,
     hazeNear: 80,
     hazeFar: 420,
     seaOpacity: 0.88,
+  },
+  // REQ-023 (D-106, D-108): the sky over the bay, seen only above the water. It runs from `zenith` overhead to the haze
+  // colour (`land.sky`) at the horizon, with a sun and slowly drifting clouds.
+  sky: {
+    zenith: 0x2f77c9,
+    // The blend from horizon to zenith follows (height)^curve: below 1 keeps the pale band at the horizon thin.
+    curve: 0.55,
+    sun: {
+      // Where the sun is (the light above the water comes from here; under the water the light is steeper, as it is after
+      // bending into the sea), the disc's angular radius in radians, and its colour.
+      direction: { x: 70, y: 40, z: 28 },
+      underwater: { x: 10, y: 30, z: 5 },
+      radius: 0.03,
+      color: 0xfff0c8,
+    },
+    clouds: {
+      // How many cloud features fit across the sky (more is smaller), the share of the sky they cover, how soft their
+      // edges are, and how fast they drift (noise units per second, toward x and z). The shaded side is `shade`.
+      scale: 1.4,
+      cover: 0.5,
+      softness: 0.3,
+      drift: { x: 0.0045, z: 0.0025 },
+      shade: 0x93a9c4,
+    },
+    // The dome is this share of the camera's far distance away, so the whole of it is drawn.
+    domeShare: 0.97,
+  },
+  // REQ-023: the shaded sea surface (D-106). Seen from above it has gentle waves, reflects the sky and glints in the sun;
+  // from below it shows ripples of light. The waves are sums of sines in the fragment shader (no vertex moves).
+  sea: {
+    // Each wave: its wavelength in metres, the direction it travels in (radians), its steepest slope, and its speed in m/s.
+    waves: [
+      { length: 26, angle: 0.5, slope: 0.035, speed: 1.1 },
+      { length: 12, angle: 1.9, slope: 0.04, speed: 0.8 },
+      { length: 6.5, angle: -0.7, slope: 0.045, speed: 0.7 },
+      { length: 3.4, angle: 2.8, slope: 0.04, speed: 0.6 },
+      { length: 1.8, angle: 0.1, slope: 0.03, speed: 0.5 },
+    ],
+    // The sun's glint: the spread of the slopes it is seen in (wider is softer and broader) and how bright it is.
+    glint: { spread: 0.07, intensity: 1.3 },
+    // How much of the sky shows in the water's reflection (and of the glint) before the Bloom and after it.
+    reflection: { murky: 0.5, clear: 1 },
+    // Seen from below: the ripples of light (their size in metres and how bright they are).
+    ripples: { size: 3, brightness: 0.55 },
   },
   rov: {
     radius: 0.8,
