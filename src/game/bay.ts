@@ -336,8 +336,9 @@ function pushOutOfFloor(p: Vector3, v: Vector3, radius: number): void {
  * Keeps a sphere of `radius` inside the water: above the floor and below the surface, out of the shore's
  * shallows and the rock walls, and outside every rock, boulder, arch, the dock's posts (REQ-016) and the
  * installed frames. Velocity into a limit is removed, so the ROV stops there (REQ-001 AC-4, REQ-011 AC-3).
+ * Under the surface a body stops `floatDepth` short of it (`radius` unless told otherwise).
  */
-export function constrainToBay(p: Vector3, v: Vector3, radius: number = config.rov.radius): void {
+export function constrainToBay(p: Vector3, v: Vector3, radius: number = config.rov.radius, floatDepth: number = radius): void {
   // REQ-022: first, so a position far outside the dive area is brought back before the floor and the rocks are looked at;
   // the last lines keep it there after their pushes.
   keepInDiveArea(p, v);
@@ -362,7 +363,8 @@ export function constrainToBay(p: Vector3, v: Vector3, radius: number = config.r
   for (const arch of arches) pushOutOfArch(p, v, arch, radius);
   keepInDeepEnoughWater(p, v, radius);
 
-  const ceiling = bay.surfaceY - radius;
+  // REQ-024: the surface stops a body with its centre `floatDepth` under it (the ROV floats there, its dome out of the water).
+  const ceiling = bay.surfaceY - floatDepth;
   if (p.y > ceiling) {
     p.y = ceiling;
     if (v.y > 0) v.y = 0;

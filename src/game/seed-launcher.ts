@@ -22,10 +22,15 @@ const point = new Vector3();
 /**
  * The point under the crosshair: the first frame, patch or solid thing along the camera's ray, or the far
  * end of the ray. The search starts at the ROV's depth along the ray, so nothing behind the ROV counts.
+ * REQ-024: a camera above the water looks down through the air first; the air ends a shot only once the ray has been in
+ * the water, so the aim from above the surface still finds what lies under it.
  */
 export function findAimPoint(cameraPosition: Vector3, aim: Vector3, world: ShotWorld, out = new Vector3()): Vector3 {
+  let wet = cameraPosition.y <= config.bay.surfaceY;
   for (let distance = camera.distance; distance <= seedLauncher.aimDistance; distance += seedLauncher.rayStep) {
     point.copy(cameraPosition).addScaledVector(aim, distance);
+    if (point.y <= config.bay.surfaceY) wet = true;
+    else if (!wet) continue;
     if (world.targetAt(point.x, point.y, point.z) || isSolidAt(point.x, point.y, point.z)) return out.copy(point);
   }
   return out.copy(cameraPosition).addScaledVector(aim, seedLauncher.aimDistance);

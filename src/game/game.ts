@@ -14,11 +14,11 @@ import {
 } from "three";
 import { config } from "../config";
 import { LOGBOOK_ENTRIES, type LogbookId } from "../logbook/entries";
-import { atDiveEdge, constrainToBay, rocks, setFrameColumns } from "./bay";
+import { atDiveEdge, rocks, setFrameColumns } from "./bay";
 import { Bloom } from "./bloom";
 import { caveInfo, caveLamp, caveLevel } from "./cave";
 import { createCaveView } from "./cave-model";
-import { aimDirection, followCamera, keepCameraInWater } from "./follow-camera";
+import { aimDirection, followCamera, keepCameraInWater, viewAbove } from "./follow-camera";
 import type { HudState } from "./hud-state";
 import { Input } from "./input";
 import { terrainBlocks } from "./cutter";
@@ -34,7 +34,7 @@ import { createSeaLifeView } from "./sea-life-model";
 import { naturalTargets } from "./nature";
 import { createNatureView } from "./nature-model";
 import { createRovModel, setHeadlight } from "./rov-model";
-import { createRovState, rightVector, steer, stepRov, type RovState } from "./rov";
+import { constrainRov, createRovState, rightVector, steer, stepRov, surfaceBob, type Bob, type RovState } from "./rov";
 import { ashoreSpot, canBoard, createWalker, eyePosition, lookWalker, standable, stepWalker, type AshoreSpot, type Walker } from "./land";
 import { Rescue } from "./rescue";
 import { findAimPoint, SeedLauncher } from "./seed-launcher";
@@ -96,6 +96,9 @@ export class Game implements GameView {
   // REQ-014: the cave's rock and light shaft, how dark the water is around the camera (0..1, eased), and the lamp.
   private readonly caveView = createCaveView();
   private caveDark = 0;
+  private above = false;
+  private aboveFlips = 0;
+  private readonly bob: Bob = { lift: 0, roll: 0, pitch: 0 };
   private lampLit = false;
   private lampLevel = 0;
   private readonly world: World;
@@ -227,7 +230,7 @@ export class Game implements GameView {
         // REQ-011: whether the ROV fits at a point (in open water, out of the terrain and the rocks).
         fits: (x: number, y: number, z: number) => {
           const probe = new Vector3(x, y, z);
-          constrainToBay(probe, new Vector3());
+          constrainRov(probe, new Vector3());
           return probe.distanceTo(new Vector3(x, y, z)) < 1e-6;
         },
         // REQ-012: the sites move every dive, so tests aim at them from whichever side is clear. Puts the ROV `distance`
@@ -243,7 +246,7 @@ export class Game implements GameView {
             const yaw = Math.PI + (k / 24) * Math.PI * 2;
             const at = new Vector3(x - Math.sin(yaw) * distance, y + rise, z - Math.cos(yaw) * distance);
             const probe = at.clone();
-            constrainToBay(probe, new Vector3());
+            constrainRov(probe, new Vector3());
             if (probe.distanceTo(at) > 1e-6) continue;
             let best: number | null = null;
             let bestError = Infinity;
@@ -283,7 +286,7 @@ export class Game implements GameView {
               const yaw = (k / 16) * Math.PI * 2;
               from.set(item.position.x - Math.sin(yaw) * distance, item.position.y + 1, item.position.z - Math.cos(yaw) * distance);
               const probe = from.clone();
-              constrainToBay(probe, new Vector3());
+              constrainRov(probe, new Vector3());
               if (probe.distanceTo(from) > 1e-6) continue;
               const pitch = Math.atan2(-1, distance);
               aimDirection(yaw, pitch, aim);
@@ -307,6 +310,8 @@ export class Game implements GameView {
         walker: () => (this.ashore ? { position: this.ashore.walker.position.toArray(), yaw: this.ashore.walker.yaw } : null),
         subPosition: () => (this.ashore ? this.ashore.sub : this.rov.position).toArray(),
         cameraPosition: () => this.camera.position.toArray(),
+        // REQ-024: whether the view is above the water, how often it changed since the page loaded, and the model's height.
+        view: () => ({ above: this.above, flips: this.aboveFlips, modelY: this.rovModel.position.y }),
         inTransition: () => this.transition !== null,
         // Turns (and moves) the player on foot, like placeRov for the submarine.
         placeWalker: (x: number, z: number, yaw: number, pitch: number) => {
@@ -485,17 +490,25 @@ export class Game implements GameView {
       this.orbitTitleCamera(dt);
     }
     // REQ-015: above the water the world shows the sky and daylight instead of the water's fog.
-    this.world.setAbove(this.camera.position.y > config.bay.surfaceY);
+    this.updateAbove();
+    this.world.setAbove(this.above);
     if (this.mode !== "paused") {
       this.stepCave(dt);
       this.world.update(dt, this.camera.position);
       // The surface's light rays stay out of the cave, where only its own shaft lights the dark (REQ-014 AC-2).
-      this.natureView.update(dt, this.camera.position, this.camera.position.y > config.bay.surfaceY || this.caveDark > 0.2);
+      this.natureView.update(dt, this.camera.position, this.above || this.caveDark > 0.2);
     }
 
     this.camera.lookAt(this.cameraTarget);
     if (this.mode === "playing") this.publishHud();
     this.renderer.render(this.scene, this.camera);
+  }
+
+  /** REQ-024 AC-4: whether the view is above the water, with a band around the waterline so it cannot flip every frame. */
+  private updateAbove(): void {
+    const next = viewAbove(this.above, this.camera.position.y);
+    if (next !== this.above) this.aboveFlips += 1;
+    this.above = next;
   }
 
   /**
@@ -715,13 +728,13 @@ export class Game implements GameView {
     this.rov.pitch = 0;
   }
 
-  /** Back in the submarine where it floats, just under the surface, ready to dive (REQ-015 AC-4). */
+  /** Back in the submarine where it floats at the surface, ready to dive (REQ-015 AC-4). */
   private boardSub(): void {
     const { sub } = this.ashore!;
     this.ashore = null;
-    this.rov.position.set(sub.x, config.bay.surfaceY - config.rov.radius, sub.z);
+    this.rov.position.set(sub.x, config.bay.surfaceY - config.rov.floatDepth, sub.z);
     this.rov.velocity.set(0, 0, 0);
-    constrainToBay(this.rov.position, this.rov.velocity);
+    constrainRov(this.rov.position, this.rov.velocity);
   }
 
   /** First person on the land, third person behind the submarine otherwise (D-029, D-079). */
@@ -833,15 +846,16 @@ export class Game implements GameView {
   private syncRovModel(): void {
     const { position, velocity, yaw } = this.rov;
     this.rovModel.position.copy(position);
+    // At the surface (parked, or floating there) the model rocks gently; the position stays put (REQ-024 AC-1, D-080).
+    const bob = surfaceBob(position.y, performance.now() / 1000, this.bob);
+    this.rovModel.position.y += bob.lift;
     if (this.ashore) {
-      // Parked: floating on the surface, bobbing gently (D-080).
-      this.rovModel.position.y += 0.05 * Math.sin(performance.now() / 700);
-      this.rovModel.rotation.set(0, yaw, 0.02 * Math.sin(performance.now() / 900), "YXZ");
+      this.rovModel.rotation.set(bob.pitch, yaw, bob.roll, "YXZ");
       return;
     }
     // Lean into the motion: nose up when rising, bank toward a sideways move.
     const sideways = velocity.dot(rightVector(yaw));
-    this.rovModel.rotation.set(-velocity.y * 0.06, yaw, sideways * 0.05, "YXZ");
+    this.rovModel.rotation.set(-velocity.y * 0.06 + bob.pitch, yaw, sideways * 0.05 + bob.roll, "YXZ");
   }
 
   private resize(): void {

@@ -254,6 +254,11 @@ export const config = {
     // How fast velocity approaches the input; higher feels snappier, lower floatier.
     acceleration: 3,
     mouseSensitivity: 0.0025,
+    // REQ-024: at the surface the submarine floats with its centre this far under it, so the cockpit dome (its base
+    // 0.5 m above the centre) is above the water. Near the surface it bobs gently, in the model only: the position,
+    // and with it every collision, stays still. `reach` is how far below the floating height the bobbing fades in.
+    floatDepth: 0.3,
+    bob: { amplitude: 0.05, period: 4.4, roll: 0.025, pitch: 0.015, reach: 0.4 },
     minPitch: -1.1,
     maxPitch: 0.7,
     // Near the station on the west shore, facing east into the bay (D-071).
@@ -263,9 +268,11 @@ export const config = {
     fov: 70,
     distance: 6,
     height: 2,
-    // Keeps the camera inside the water and off the floor.
-    surfaceGap: 0.3,
+    // Keeps the camera off the floor. It may rise out of the water (REQ-024 AC-3).
     floorGap: 0.5,
+    // REQ-024 AC-4: the view changes between under and above water only once the camera is this far past the waterline,
+    // and back only once it is this far past it the other way, so it cannot flicker with the camera right at the surface.
+    surfaceBand: 0.15,
     // REQ-011 AC-4: the camera stops this far short of a slope, rock or wall between it and the ROV, found by
     // stepping along that line by `step`.
     clearance: 0.4,

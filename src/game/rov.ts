@@ -2,6 +2,8 @@ import { Vector3 } from "three";
 import { config } from "../config";
 import { constrainToBay } from "./bay";
 
+const { bay } = config;
+
 const { rov } = config;
 
 /** Each axis is -1, 0 or 1. `strafe` +1 is to the ROV's right, `rise` +1 is up. */
@@ -51,5 +53,33 @@ export function stepRov(state: RovState, input: MoveInput, dt: number): void {
 
   state.velocity.lerp(desired, 1 - Math.exp(-rov.acceleration * dt));
   state.position.addScaledVector(state.velocity, dt);
-  constrainToBay(state.position, state.velocity);
+  constrainRov(state.position, state.velocity);
+}
+
+/** The ROV's limits (`constrainToBay`), with the surface letting it float with its dome out of the water (REQ-024 AC-1, AC-2). */
+export function constrainRov(position: Vector3, velocity: Vector3): void {
+  constrainToBay(position, velocity, rov.radius, rov.floatDepth);
+}
+
+/** The height of the ROV's centre when it floats at the surface. */
+export const FLOAT_Y = bay.surfaceY - rov.floatDepth;
+
+export interface Bob {
+  /** Added to the model's height. */
+  lift: number;
+  roll: number;
+  pitch: number;
+}
+
+/**
+ * REQ-024 AC-1: the slow rocking of a floating ROV, for the model only. It fades in over `bob.reach` below the floating
+ * height, so it is full at the surface and gone when diving.
+ */
+export function surfaceBob(y: number, seconds: number, out: Bob = { lift: 0, roll: 0, pitch: 0 }): Bob {
+  const weight = Math.min(1, Math.max(0, 1 - (FLOAT_Y - y) / rov.bob.reach));
+  const phase = (seconds / rov.bob.period) * Math.PI * 2;
+  out.lift = weight * rov.bob.amplitude * Math.sin(phase);
+  out.roll = weight * rov.bob.roll * Math.sin(phase * 0.7 + 1);
+  out.pitch = weight * rov.bob.pitch * Math.sin(phase * 0.5 + 2);
+  return out;
 }

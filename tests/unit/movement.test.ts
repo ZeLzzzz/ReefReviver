@@ -96,12 +96,12 @@ describe("third-person camera (REQ-001 AC-3, D-029)", () => {
     expect(target.clone().sub(position).distanceTo(aimDirection(state.yaw, state.pitch))).toBeLessThan(1e-9);
   });
 
-  it("stays under the surface when looking down near it", () => {
-    const state = rovAt(0, bay.surfaceY - rov.radius, 0);
+  it("is not held under the surface when the ROV floats there (REQ-024 AC-3)", () => {
+    const state = rovAt(0, bay.surfaceY - rov.floatDepth, 0);
     state.pitch = rov.minPitch;
     const position = new Vector3();
     followCamera(state, position, new Vector3());
-    expect(position.y).toBeLessThan(bay.surfaceY);
+    expect(position.y).toBeGreaterThan(bay.surfaceY);
   });
 
   it("stays above the floor when looking up near it", () => {
@@ -123,9 +123,9 @@ describe("bay limits (REQ-001 AC-4)", () => {
     expect(state.position.y).toBeCloseTo(floorHeight(state.position.x, state.position.z) + rov.radius, 1);
   });
 
-  it("stops at the water surface", () => {
+  it("stops at the water surface, floating with its centre floatDepth under it (REQ-024 AC-2)", () => {
     const state = fly(createRovState(), { rise: 1 }, 20);
-    expect(state.position.y).toBe(bay.surfaceY - rov.radius);
+    expect(state.position.y).toBe(bay.surfaceY - rov.floatDepth);
   });
 
   it("does not pass through rocks", () => {

@@ -160,8 +160,8 @@ test.describe("Indonesian", () => {
     await bloomNow(page);
     await page.keyboard.press("Digit4");
     await expect(page.locator(".tool-name")).toHaveText("4 Scanner");
-    // The camera is held under the surface, so over shallow water it sits almost on top of the ship: inside any sphere
-    // the meadow's target could have, which a ray starting inside cannot hit.
+    // Over shallow water the camera used to sit almost on top of the ship (REQ-024 lets it rise out of the water now): inside
+    // any sphere the meadow's target could have, which a ray starting inside cannot hit.
     const hover = async (m: Target) => reef(page, (h, t) => h.placeRov(t.x, t.y + 0.7, t.z, Math.PI / 2, -1.0), m);
     const [first, second] = await meadows(page);
     await hover(first);

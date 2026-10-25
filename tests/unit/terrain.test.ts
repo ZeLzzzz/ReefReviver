@@ -29,7 +29,8 @@ function rovAt(x: number, y: number, z: number, yaw = 0, pitch = 0): RovState {
 /** Whether the ROV's centre is legally placed: in the water and out of the floor. */
 function expectInWater(s: RovState): void {
   expect(s.position.y).toBeGreaterThanOrEqual(floorHeight(s.position.x, s.position.z) + rov.radius - 1e-6);
-  expect(s.position.y).toBeLessThanOrEqual(bay.surfaceY - rov.radius + 1e-9);
+  // REQ-024: at the surface the ROV floats with its centre `floatDepth` under it.
+  expect(s.position.y).toBeLessThanOrEqual(bay.surfaceY - rov.floatDepth + 1e-9);
 }
 
 /** Every point of the open bay on a grid: away from the dive area's edge and the shore's shelf. */
@@ -249,7 +250,8 @@ describe("the camera stays out of slopes, rocks and headlands (REQ-011 AC-4)", (
       constrainToBay(state.position, state.velocity);
       followCamera(state, position, new Vector3());
       expect(terrainSolidAt(position.x, position.y, position.z)).toBe(false);
-      expect(position.y).toBeLessThan(bay.surfaceY);
+      // REQ-024 AC-3: the surface no longer holds the camera down, so only the terrain and the floor limit it.
+      expect(position.y).toBeGreaterThan(floorHeight(position.x, position.z));
       checked++;
     }
   });

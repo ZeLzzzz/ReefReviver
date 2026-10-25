@@ -43,9 +43,12 @@ test.describe("Indonesian", () => {
     const meadowCount = targets.filter((t) => t.entry === "seagrass").length;
     expect(meadowCount).toBeGreaterThanOrEqual(10);
     expect(meadowCount).toBeLessThanOrEqual(12);
-    const meadow = targets.find((t) => t.entry === "seagrass")!;
-    await reef(page, (h, m) => h.placeRov(m.x - 10, m.y + 4, m.z, Math.PI / 2, -0.3), meadow);
+    // The deepest meadow, looked at from just above it: REQ-019 put the meadows in the shallows and REQ-024 lets the ROV
+    // float with its camera out of the water, but the rays are an underwater sight, so the camera must stay down.
+    const meadow = targets.filter((t) => t.entry === "seagrass").sort((a, b) => a.y - b.y)[0];
+    await reef(page, (h, m) => h.placeRov(m.x, m.y + 1.1, m.z, Math.PI / 2, -0.1), meadow);
     await page.waitForTimeout(500);
+    expect((await reef(page, (h) => h.view())).above).toBe(false);
     const before = (await reef(page, (h) => h.natureLook())) as Look;
     expect(new Set(before.coral)).toEqual(new Set([config.nature.pale]));
     expect(before.seagrass).toBe(config.nature.meadows.brown);

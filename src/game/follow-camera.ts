@@ -3,21 +3,21 @@ import { config } from "../config";
 import { floorHeight, terrainSolidAt } from "./bay";
 import type { RovState } from "./rov";
 
-const { camera, bay } = config;
+const { camera } = config;
 
 export function aimDirection(yaw: number, pitch: number, out = new Vector3()): Vector3 {
   return out.set(Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch));
 }
 
-const blocked = (x: number, y: number, z: number) => y > bay.surfaceY - camera.surfaceGap || terrainSolidAt(x, y, z, camera.clearance);
+const blocked = (x: number, y: number, z: number) => terrainSolidAt(x, y, z, camera.clearance);
 
 /**
- * Pulls a camera position back into open water: under the surface and above the floor, and short of any slope,
- * rock, boulder, arch or wall on the line from `from` (the ROV) to it, so the view is never inside them (REQ-011 AC-4).
+ * Pulls a camera position back out of the terrain: above the floor, and short of any slope, rock, boulder, arch,
+ * wall or cave roof on the line from `from` (the ROV) to it, so the view is never inside them (REQ-011 AC-4, REQ-014 AC-5).
+ * The water's surface does not hold it: it may rise out of the water (REQ-024 AC-3).
  */
 export function keepCameraInWater(p: Vector3, from: Vector3): void {
   p.y = Math.max(p.y, floorHeight(p.x, p.z) + camera.floorGap);
-  p.y = Math.min(p.y, bay.surfaceY - camera.surfaceGap);
   const dx = p.x - from.x;
   const dy = p.y - from.y;
   const dz = p.z - from.z;
@@ -31,6 +31,15 @@ export function keepCameraInWater(p: Vector3, from: Vector3): void {
     }
     free = Math.min(t, length);
   }
+}
+
+/**
+ * REQ-024 AC-4: whether the view is above the water, given the last answer and the camera's height. It changes only
+ * once the camera is `surfaceBand` past the waterline, so a camera hovering right at it cannot flip it every frame.
+ */
+export function viewAbove(above: boolean, cameraY: number): boolean {
+  const { surfaceY } = config.bay;
+  return above ? cameraY >= surfaceY - camera.surfaceBand : cameraY > surfaceY + camera.surfaceBand;
 }
 
 const aim = new Vector3();

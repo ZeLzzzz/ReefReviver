@@ -323,6 +323,25 @@ describe("the seed launcher (REQ-004 AC-4 to AC-6)", () => {
     expect(results).toEqual([{ kind: "coral", site: 2, planted: false }]);
   });
 
+  it("finds a shallow patch under the crosshair from a camera above the water, as when the ROV floats (REQ-024 AC-5)", () => {
+    const field = new ReefField();
+    const p = field.patches[0];
+    // The ROV floats at the surface 7 m east of the patch, looking west and down; its camera is out of the water.
+    const rov = new Vector3(p.x + 7, config.bay.surfaceY - config.rov.floatDepth, p.z);
+    for (let pitch = -0.2; pitch >= -0.9; pitch -= 0.02) {
+      const aim = aimDirection(-Math.PI / 2, pitch);
+      const cam = rov.clone().addScaledVector(aim, -config.camera.distance);
+      cam.y += config.camera.height;
+      expect(cam.y).toBeGreaterThan(config.bay.surfaceY);
+      const point = findAimPoint(cam, aim, field);
+      if (field.targetAt(point.x, point.y, point.z)?.kind !== "patch") continue;
+      // The aim went through the air and into the water before it found the patch.
+      expect(point.y).toBeLessThan(config.bay.surfaceY);
+      return;
+    }
+    throw new Error("no pitch put the crosshair on the patch");
+  });
+
   it("with nothing to hit, the aim point is the far end of the ray, and a wall right ahead falls back to the aim", () => {
     const field = new ReefField();
     const cam = new Vector3(0, -3, 20);

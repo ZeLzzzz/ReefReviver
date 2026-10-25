@@ -114,7 +114,7 @@ test.describe("Indonesian", () => {
     expect(await reef(page, (h) => h.onLand())).toBe(true);
   });
 
-  test("next to the submarine E gets back in: third person under the water, and it dives again (AC-4)", async ({ page }) => {
+  test("next to the submarine E gets back in: third person behind the submarine, and it dives again (AC-4)", async ({ page }) => {
     await startDive(page);
     await goAshore(page);
     // Away from the submarine there is no prompt, and E does nothing.
@@ -132,7 +132,11 @@ test.describe("Indonesian", () => {
     await page.keyboard.up("KeyW");
     await page.keyboard.press("KeyE");
     await expect.poll(() => reef(page, (h) => !h.onLand() && !h.inTransition())).toBe(true);
-    expect((await reef(page, (h) => h.cameraPosition()))[1]).toBeLessThan(0);
+    // Third person again (REQ-024: from the surface the camera is out of the water, above and behind the floating submarine).
+    const eye = await reef(page, (h) => h.cameraPosition());
+    const sub = await reef(page, (h) => h.rovPosition());
+    expect(eye[1]).toBeGreaterThan(sub[1] + 1);
+    expect(Math.hypot(eye[0] - sub[0], eye[2] - sub[2])).toBeGreaterThan(3);
     await expect(page.locator(".hud-tool")).toBeVisible();
     await expect(page.locator('.hud-minimap [data-kind="sub"]')).toBeHidden();
     const y = (await reef(page, (h) => h.rovPosition()))[1];
