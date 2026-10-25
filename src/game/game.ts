@@ -62,6 +62,8 @@ export interface GameView {
   onEnd(listener: (summary: SessionSummary) => void): void;
   /** REQ-027, REQ-028: what the cinematic that is playing shows, or null when none is; the app keeps the Logbook shut meanwhile (AC-4). */
   cinematic?(): CinematicHud | null;
+  /** REQ-029: called when the opening cinematic ends or is skipped; the app then shows the mission card over the stopped game. */
+  onOpeningEnd?(listener: () => void): void;
 }
 
 type Mode = "title" | "playing" | "paused";
@@ -144,6 +146,7 @@ export class Game implements GameView {
   private session = new Session(this.field.total);
   private hudListener: ((state: HudState) => void) | null = null;
   private endListener: ((summary: SessionSummary) => void) | null = null;
+  private openingEndListener: (() => void) | null = null;
   private lastHud: HudState | null = null;
   private sucking = false;
   /** REQ-026: the vacuum button was held last frame (a press on a full tank sounds the buzzer), and how far the player has walked since the last footstep. */
@@ -524,6 +527,10 @@ export class Game implements GameView {
     this.endListener = listener;
   }
 
+  onOpeningEnd(listener: () => void): void {
+    this.openingEndListener = listener;
+  }
+
   cinematic(): CinematicHud | null {
     return this.cine ? this.cine.hud() : null;
   }
@@ -815,7 +822,8 @@ export class Game implements GameView {
   /** REQ-008: counts the play time, and once the 7th entry's notice has been read, hands the summary to the end screen. */
   private stepEnd(dt: number, real: number): void {
     // REQ-027 AC-5: the play time starts after the opening. REQ-028 AC-5: it stops at the 7th entry (the Session), so the ending leaves it out.
-    this.session.addPlayTime(this.cine?.kind === "opening" ? 0 : real);
+    // REQ-029 AC-7: nor does it run in the frame where the opening ends and the mission card stops the game.
+    this.session.addPlayTime(this.cine?.kind === "opening" || this.mode !== "playing" ? 0 : real);
     if (!this.session.endDue(dt)) return;
     // REQ-028 AC-2: the ending flies over the restored bay first; the end screen follows it (or its skip).
     if (this.cinematicsOn) this.startCinematic("ending");
@@ -842,8 +850,18 @@ export class Game implements GameView {
     this.cine = null;
     this.openingShot = this.bloomShot = this.endingShot = null;
     this.input.clear();
-    // REQ-027 AC-4: at the darkest point of a skip the control is back, and the screen fades in on the player's camera.
-    if (result === "skipped" && cinematic.kind !== "ending") this.fade = { time: 0, total: config.cinematic.skipFadeSeconds / 2 };
+    // REQ-029 AC-1: the opening hands over to the mission card, which stops the game. The camera goes back to the player's
+    // view first, so the card (and the game after it) starts there and not at the point where a skip cut the path; and there
+    // is no fade to run, because the stopped game could not run it (the card comes up from the dark itself).
+    const card = cinematic.kind === "opening" ? this.openingEndListener : null;
+    if (card) {
+      this.fade = null;
+      this.placeNormalCamera();
+      card();
+    } else if (result === "skipped" && cinematic.kind !== "ending") {
+      // REQ-027 AC-4: at the darkest point of a skip the control is back, and the screen fades in on the player's camera.
+      this.fade = { time: 0, total: config.cinematic.skipFadeSeconds / 2 };
+    }
     if (cinematic.kind === "ending") this.endListener?.(this.session.summary());
   }
 

@@ -44,10 +44,18 @@ async function seek(page: Page, seconds: number) {
   await page.waitForTimeout(250);
 }
 
-/** Lets the opening go to its end without waiting for it, and waits until the player has the control. */
+/** REQ-029: the mission card that follows the opening; the player closes it with its button, and the game goes on. */
+async function closeMission(page: Page) {
+  await page.getByRole("button", { name: /^(Mulai menyelam|Start diving)$/ }).click();
+  await expect.poll(() => mode(page)).toBe("playing");
+  await expect(page.locator(".mission-screen")).toHaveCount(0);
+}
+
+/** Lets the opening go to its end without waiting for it, closes the mission card, and waits until the player has the control. */
 async function finishOpening(page: Page) {
   await seek(page, cinematic.opening.duration - 0.6);
   await expect.poll(() => cine(page), { timeout: 15_000 }).toBeNull();
+  await closeMission(page);
   await expect(page.locator(".crosshair")).toBeVisible();
 }
 
@@ -229,10 +237,11 @@ test.describe("Indonesian", () => {
     await startWithCinematics(page);
     await seek(page, 6);
     await page.mouse.click(400, 225);
-    // The screen goes dark...
-    await expect.poll(() => reef(page, (h) => h.screenFade()), { timeout: 5_000 }).toBeGreaterThan(0.3);
-    // ... and the control is back with the camera behind the submarine, and the HUD, as the fade comes up.
+    // The screen goes dark (every frame is looked at: with the mission card the dark moment is short)...
+    await page.waitForFunction(() => (window as any).__reef.screenFade() > 0.3, null, { polling: "raf", timeout: 5_000 });
+    // ... and the control is back with the camera behind the submarine; the mission card comes (REQ-029), then the HUD.
     await expect.poll(() => cine(page), { timeout: 5_000 }).toBeNull();
+    await closeMission(page);
     await expect(page.locator(".crosshair")).toBeVisible();
     await expect(page.locator(".cine")).toBeHidden();
     await expect.poll(() => reef(page, (h) => h.screenFade()), { timeout: 5_000 }).toBe(0);
@@ -254,7 +263,8 @@ test.describe("Indonesian", () => {
     await seek(page, 9);
     await page.keyboard.down("Space");
     await expect.poll(() => cine(page), { timeout: 5_000 }).toBeNull();
-    // Still held after the skip: the submarine does not rise.
+    await closeMission(page);
+    // Still held after the skip and after the mission card: the submarine does not rise.
     await page.waitForTimeout(700);
     const held = await position(page);
     expect(held[1]).toBeCloseTo(rov.start.y, 1);
@@ -274,6 +284,8 @@ test.describe("Indonesian", () => {
     await seek(page, cinematic.opening.duration - 0.3);
     expect(distance(await camera(page), expected)).toBeLessThan(1);
     await expect.poll(() => cine(page), { timeout: 10_000 }).toBeNull();
+    expect(distance(await camera(page), expected)).toBeLessThan(0.05);
+    await closeMission(page);
     await expect(page.locator(".crosshair")).toBeVisible();
     await expect(page.locator(".hud-goals")).toBeVisible();
     expect(distance(await camera(page), expected)).toBeLessThan(0.05);
@@ -413,6 +425,8 @@ test.describe("Indonesian", () => {
     await expect.poll(() => mode(page)).toBe("playing");
     await page.mouse.click(400, 225);
     await expect.poll(() => cine(page), { timeout: 5_000 }).toBeNull();
+    // REQ-029: the mission card comes between the skip and the control.
+    await closeMission(page);
     await expect(page.locator(".crosshair")).toBeVisible();
     await expect.poll(() => reef(page, (h) => h.screenFade()), { timeout: 5_000 }).toBe(0);
     expect(await position(page)).toEqual([rov.start.x, rov.start.y, rov.start.z]);
@@ -510,6 +524,7 @@ test.describe("English", () => {
     await page.screenshot({ path: "test-results/req-027-english.png" });
     await page.keyboard.press("Space");
     await expect.poll(() => cine(page), { timeout: 5_000 }).toBeNull();
+    await closeMission(page);
     await expect(page.locator(".crosshair")).toBeVisible();
   });
 });

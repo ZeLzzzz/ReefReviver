@@ -11,9 +11,10 @@ import { endScreen } from "./ui/end";
 import { createHud, type HudView } from "./ui/hud";
 import { createLoadingScreen, type LoadingView } from "./ui/loading";
 import { logbookScreen } from "./ui/logbook";
+import { missionScreen } from "./ui/mission";
 import { messageScreen, pauseMenu, titleScreen, type PauseView } from "./ui/screens";
 
-export type Screen = "loading" | "title" | "credits" | "playing" | "paused" | "logbook" | "end" | "unsupported" | "noWebgl" | "assetError";
+export type Screen = "loading" | "title" | "credits" | "playing" | "mission" | "paused" | "logbook" | "end" | "unsupported" | "noWebgl" | "assetError";
 
 export interface AppDeps {
   /** Where the screens are drawn, over the canvas. */
@@ -30,7 +31,7 @@ export interface AppDeps {
   audio?: AppAudio;
 }
 
-/** Screen flow around the game: loading, title, credits, playing, pause, the Marine Logbook, the end screen, and the messages for unsupported browsers. */
+/** Screen flow around the game: loading, title, credits, playing, the mission card, pause, the Marine Logbook, the end screen, and the messages for unsupported browsers. */
 export class App {
   screen: Screen = "title";
   lang: Lang;
@@ -82,6 +83,7 @@ export class App {
       this.hudView?.update(state);
     });
     this.game.onEnd((summary) => this.showEnd(summary));
+    this.game.onOpeningEnd?.(() => this.showMission());
     this.deps.pointerLock.onChange((locked) => this.lockChanged(locked));
     doc.defaultView!.addEventListener("keydown", (event) => this.keyDown(event));
     // Losing the cursor or the window (alt-tab, another tab) pauses the game (AC-6).
@@ -144,6 +146,22 @@ export class App {
   }
 
   /**
+   * REQ-029 AC-1: the opening cinematic is over (finished or skipped); the mission card stops the game like the pause menu
+   * and frees the cursor for its button. The screen is switched first, so the unlock does not count as a pause.
+   */
+  private showMission(): void {
+    if (this.screen !== "playing") return;
+    this.game!.pause();
+    this.show("mission");
+    this.deps.pointerLock.exit();
+  }
+
+  /** AC-4: Mulai menyelam (or Enter) locks the cursor again; once it is locked, the dive goes on with the HUD. */
+  private leaveMission(): void {
+    if (this.screen === "mission") void this.lockCursor("mission.lockFailed");
+  }
+
+  /**
    * REQ-008: the 7th entry's notice has been read; the end screen stops the game like the pause menu and frees the
    * cursor for its buttons. The screen is switched first, so the unlock does not count as a pause.
    */
@@ -173,12 +191,18 @@ export class App {
     if (!locked) return this.pause();
     if (this.screen === "title" || (this.screen === "end" && this.endChoice === "replay")) this.game!.play();
     else if (this.screen === "end") this.game!.resume();
-    else if (this.screen === "paused" || this.screen === "logbook") this.game!.resume();
+    else if (this.screen === "paused" || this.screen === "logbook" || this.screen === "mission") this.game!.resume();
     else return;
     this.show("playing");
   }
 
   private keyDown(event: KeyboardEvent): void {
+    // REQ-029 AC-4: Enter does what the card's button does (the button's own click for Enter is left out, so it counts once).
+    if (event.code === "Enter" && this.screen === "mission") {
+      event.preventDefault();
+      if (!event.repeat) this.leaveMission();
+      return;
+    }
     // REQ-026 AC-5: M mutes and unmutes all sound while playing; the HUD shows a tag while it is off.
     if (event.code === "KeyM" && !event.repeat && this.screen === "playing") {
       this.audio.setMuted(!this.audio.settings.muted);
@@ -212,8 +236,10 @@ export class App {
     const { lang, notice } = this;
     this.hudView = null;
     this.loadingView = null;
-    // REQ-026 AC-7: while paused, in the Logbook or on the end screen the ambience and effects stop and the music quietens.
-    this.audio.setPhase(this.screen === "paused" || this.screen === "logbook" || this.screen === "end" ? "quiet" : "playing");
+    // REQ-026 AC-7: while paused, in the Logbook or on the end screen the ambience and effects stop and the music quietens;
+    // REQ-029 AC-7: so it does on the mission card.
+    const quiet = this.screen === "paused" || this.screen === "logbook" || this.screen === "end" || this.screen === "mission";
+    this.audio.setPhase(quiet ? "quiet" : "playing");
     const onLanguage = (choice: Lang) => this.setLanguage(choice);
     let content: HTMLElement;
     switch (this.screen) {
@@ -244,6 +270,9 @@ export class App {
         // REQ-027: the game's cinematic now, not the last state's: a dive that has just begun has not published one yet.
         this.hudView.setCinematic(this.game?.cinematic?.() ?? null);
         content = this.hudView.element;
+        break;
+      case "mission":
+        content = missionScreen({ lang, notice, onStart: () => this.leaveMission() });
         break;
       case "paused":
         content = pauseMenu({

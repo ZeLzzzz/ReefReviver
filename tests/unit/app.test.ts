@@ -6,6 +6,7 @@ import { NetField } from "../../src/game/nets";
 import { ReefField } from "../../src/game/reef-sites";
 import { Session, type SessionSummary } from "../../src/game/session";
 import { TrashField } from "../../src/game/trash";
+import { silentAudio } from "../../src/audio/types";
 import type { StorageLike } from "../../src/i18n/i18n";
 import type { PointerLock } from "../../src/ui/pointer-lock";
 
@@ -47,7 +48,7 @@ function fakePointerLock(): FakePointerLock {
 function setup(overrides: Partial<AppDeps> = {}) {
   document.body.innerHTML = '<div id="ui"></div>';
   const ui = document.querySelector<HTMLElement>("#ui")!;
-  const game = { play: vi.fn(), pause: vi.fn(), resume: vi.fn(), onHud: vi.fn(), onEnd: vi.fn() };
+  const game = { play: vi.fn(), pause: vi.fn(), resume: vi.fn(), onHud: vi.fn(), onEnd: vi.fn(), onOpeningEnd: vi.fn() };
   const lock = fakePointerLock();
   const deps: AppDeps = {
     ui,
@@ -546,5 +547,129 @@ describe("end screen (REQ-008)", () => {
     window.dispatchEvent(new KeyboardEvent("keydown", { code: "KeyL", key: "l" }));
     await Promise.resolve();
     expect(app.screen).toBe("end");
+  });
+});
+
+describe("mission card (REQ-029)", () => {
+  const key = (code: string) => window.dispatchEvent(new KeyboardEvent("keydown", { code, key: code, cancelable: true }));
+
+  /** A dive whose opening cinematic has just ended (the game tells the app, as `stepCinematic` does). */
+  async function opened(overrides: Partial<AppDeps> = {}, mulai = "Mulai") {
+    const env = setup(overrides);
+    await clickButton(env.ui, mulai);
+    env.game.onOpeningEnd.mock.calls[0][0]();
+    return env;
+  }
+
+  it("shows in the middle when the opening ends: the game stops, the cursor is free, no HUD (AC-1)", async () => {
+    const { ui, app, game, lock } = await opened();
+    expect(app.screen).toBe("mission");
+    expect(game.pause).toHaveBeenCalledOnce();
+    expect(lock.locked).toBe(false);
+    expect(ui.querySelector(".mission-screen .panel.mission")).not.toBeNull();
+    expect(ui.querySelector(".hud")).toBeNull();
+    expect(ui.querySelector(".pause-screen")).toBeNull();
+    expect(ui.querySelector("h1")?.textContent).toBe("Misi: Pulihkan Teluk");
+    expect(buttons(ui)).toEqual(["Mulai menyelam"]);
+  });
+
+  it("Mulai menyelam locks the cursor, closes the card, shows the HUD and goes on with the same dive (AC-4)", async () => {
+    const { ui, app, game, lock } = await opened();
+    await clickButton(ui, "Mulai menyelam");
+    expect(lock.locked).toBe(true);
+    expect(app.screen).toBe("playing");
+    expect(game.resume).toHaveBeenCalledOnce();
+    expect(game.play).toHaveBeenCalledOnce();
+    expect(ui.querySelector(".mission-screen")).toBeNull();
+    expect(ui.querySelector(".hud")).not.toBeNull();
+  });
+
+  it("Enter does the same, once, and its default action (the button's click) is cancelled (AC-4)", async () => {
+    const { ui, app, game, lock } = await opened();
+    const event = new KeyboardEvent("keydown", { code: "Enter", key: "Enter", cancelable: true });
+    window.dispatchEvent(event);
+    await Promise.resolve();
+    expect(event.defaultPrevented).toBe(true);
+    expect(app.screen).toBe("playing");
+    expect(lock.requests).toBe(2); // Mulai, then the card
+    expect(game.resume).toHaveBeenCalledOnce();
+    // Enter during play does nothing (no second request, no screen change).
+    key("Enter");
+    await Promise.resolve();
+    expect(lock.requests).toBe(2);
+    expect(ui.querySelector(".hud")).not.toBeNull();
+  });
+
+  it("stays, with 'Klik tombolnya lagi', when the browser refuses the cursor (AC-4)", async () => {
+    const { ui, app, game, lock } = await opened();
+    lock.grant = false;
+    await clickButton(ui, "Mulai menyelam");
+    await Promise.resolve();
+    expect(app.screen).toBe("mission");
+    expect(game.resume).not.toHaveBeenCalled();
+    expect(ui.querySelector('[role="alert"]')?.textContent).toBe("Kursor belum terkunci ke game. Klik tombolnya lagi.");
+    lock.grant = true;
+    key("Enter");
+    await Promise.resolve();
+    expect(app.screen).toBe("playing");
+    expect(game.resume).toHaveBeenCalledOnce();
+  });
+
+  it("is in English with an English browser, with the Start diving button and its own refusal message (AC-5)", async () => {
+    const { ui, lock } = await opened({ browserLanguages: ["en-US"] }, "Start");
+    expect(ui.querySelector("h1")?.textContent).toBe("Mission: Restore the Bay");
+    expect(buttons(ui)).toEqual(["Start diving"]);
+    lock.grant = false;
+    await clickButton(ui, "Start diving");
+    await Promise.resolve();
+    expect(ui.querySelector('[role="alert"]')?.textContent).toBe("The game couldn't capture the mouse. Click the button again.");
+  });
+
+  it("only comes from the opening: Main lagi plays on without it (AC-6)", async () => {
+    const env = await opened();
+    await clickButton(env.ui, "Mulai menyelam");
+    env.game.onEnd.mock.calls[0][0]({
+      trashRemoved: 1,
+      trashTotal: 1,
+      animalsFreed: 1,
+      animalsTotal: 1,
+      framesPlanted: 1,
+      framesTotal: 1,
+      patchesPlanted: 1,
+      patchesTotal: 1,
+      seconds: 1,
+      score: 1,
+    });
+    await clickButton(env.ui, "Main lagi");
+    expect(env.app.screen).toBe("playing");
+    expect(env.ui.querySelector(".mission-screen")).toBeNull();
+    expect(env.game.onOpeningEnd).toHaveBeenCalledOnce();
+  });
+
+  it("is ignored when the player is not in the game (AC-1)", () => {
+    const env = setup();
+    env.game.onOpeningEnd.mock.calls[0][0]();
+    expect(env.app.screen).toBe("title");
+    expect(env.game.pause).not.toHaveBeenCalled();
+  });
+
+  it("Esc, L, M, the movement keys and a blur do nothing on it (AC-7)", async () => {
+    const { ui, app, game } = await opened();
+    for (const code of ["Escape", "KeyL", "KeyM", "KeyW", "KeyA", "KeyS", "KeyD", "Space", "ShiftLeft"]) key(code);
+    window.dispatchEvent(new Event("blur"));
+    await Promise.resolve();
+    expect(app.screen).toBe("mission");
+    expect(ui.querySelector(".mission-screen")).not.toBeNull();
+    expect(ui.querySelector(".pause-screen, .logbook-screen")).toBeNull();
+    expect(game.resume).not.toHaveBeenCalled();
+    expect(game.pause).toHaveBeenCalledOnce();
+  });
+
+  it("quietens the music like the pause menu, and brings it back with the dive (AC-7)", async () => {
+    const setPhase = vi.fn();
+    const { ui } = await opened({ audio: { ...silentAudio, setPhase } });
+    expect(setPhase).toHaveBeenLastCalledWith("quiet");
+    await clickButton(ui, "Mulai menyelam");
+    expect(setPhase).toHaveBeenLastCalledWith("playing");
   });
 });

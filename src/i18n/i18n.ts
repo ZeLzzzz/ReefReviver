@@ -20,6 +20,11 @@ export function t(lang: Lang, key: StringKey): string {
   return strings[lang][key];
 }
 
+/** A text with `{name}` placeholders filled in, so numbers that belong to the game come from its configuration, not from the strings (REQ-029). */
+export function format(lang: Lang, key: StringKey, values: Record<string, string | number>): string {
+  return t(lang, key).replace(/\{(\w+)\}/g, (whole, name: string) => (name in values ? String(values[name]) : whole));
+}
+
 /** Indonesian when the browser's first language is Indonesian, English otherwise (REQ-001 AC-2). */
 export function detectLanguage(browserLanguages: readonly string[]): Lang {
   const primary = (browserLanguages[0] ?? "").toLowerCase();

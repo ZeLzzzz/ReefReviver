@@ -35,6 +35,8 @@ test("the build starts from a sub-path with relative requests only, and a dive b
   // REQ-027: the build for players opens with the cinematic; Space skips it, as a player can.
   await expect(page.locator(".cine-skip")).toBeVisible();
   await page.keyboard.press("Space");
+  // REQ-029: the mission card follows the opening; a player closes it with its button.
+  await page.getByRole("button", { name: "Mulai menyelam" }).click({ timeout: 10_000 });
   await expect(page.locator(".crosshair")).toBeVisible({ timeout: 10_000 });
   await expect(page.locator(".stat-tank .stat-value")).toHaveText("0/12");
   await page.screenshot({ path: "test-results/req-009-dist-playing.png" });
@@ -82,6 +84,7 @@ test("a refresh starts a new dive with the nets and reef sites somewhere else (R
     await expect.poll(() => page.evaluate(() => document.pointerLockElement?.id)).toBe("scene");
     await expect(page.locator(".cine-skip")).toBeVisible();
     await page.keyboard.press("Space");
+    await page.getByRole("button", { name: "Mulai menyelam" }).click({ timeout: 10_000 }); // REQ-029
     await expect(page.locator(".hud-minimap")).toBeVisible({ timeout: 10_000 });
     return page.locator('.hud-minimap [data-kind="frame"], .hud-minimap [data-kind="patch"], .hud-minimap [data-kind="net"]').evaluateAll((els) => els.map((el) => el.getAttribute("transform")));
   };

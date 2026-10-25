@@ -25,6 +25,11 @@ test("the production build plays the opening on Mulai, skips with Space, and pla
 
     // Space skips it, and the player has the HUD.
     await page.keyboard.press("Space");
+    // REQ-029: the mission card comes after the opening, and the player closes it to have the HUD.
+    await expect(page.locator(".mission-screen")).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator(".crosshair")).toBeHidden();
+    await page.screenshot({ path: `test-results/req-027-dist-mission-${round}.png` });
+    await page.getByRole("button", { name: "Mulai menyelam" }).click();
     await expect(page.locator(".crosshair")).toBeVisible({ timeout: 10_000 });
     await expect(page.locator(".hud-goals")).toBeVisible();
     await expect(page.locator(".cine")).toBeHidden();

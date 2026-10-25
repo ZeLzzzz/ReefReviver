@@ -449,6 +449,9 @@ test.describe("Indonesian", () => {
     await expect.poll(async () => (await cine(page))?.kind).toBe("opening");
     await page.keyboard.press("Space");
     await expect.poll(() => cine(page), { timeout: 5_000 }).toBeNull();
+    // REQ-029: the mission card follows the opening; the player closes it to play.
+    await page.getByRole("button", { name: "Mulai menyelam" }).click();
+    await expect.poll(() => mode(page)).toBe("playing");
     await triggerBloom(page);
     await bloomCinematic(page);
     await expect.poll(() => cine(page), { timeout: 20_000 }).toBeNull();

@@ -934,6 +934,102 @@ kbd {
   }
 }
 
+/* REQ-029: the mission card after the opening, in the end screen's panel style; the panel scrolls when the window is short (AC-8). */
+.mission-screen {
+  background: rgba(10, 16, 13, 0.35);
+  animation: mission-in 0.5s ease-out;
+}
+
+@keyframes mission-in {
+  from {
+    background: rgba(5, 9, 8, 0.95);
+  }
+}
+
+.panel.mission {
+  width: min(600px, 100%);
+  max-height: 100%;
+  overflow-y: auto;
+}
+
+.panel.mission h2 {
+  margin: 8px 0 0;
+  font-size: 18px;
+}
+
+.mission-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding-left: 1.4em;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.mission-list li::marker {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.panel p.mission-controls {
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.25);
+  font-size: 14px;
+}
+
+.panel p.mission-closing {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.panel.mission > button {
+  align-self: stretch;
+}
+
+@media (max-height: 640px) {
+  .mission-screen {
+    padding: 12px;
+  }
+
+  .panel.mission {
+    width: min(680px, 100%);
+    gap: 8px;
+    padding: 16px 22px;
+  }
+
+  .panel.mission h1 {
+    font-size: 21px;
+  }
+
+  .panel.mission p,
+  .mission-list {
+    font-size: 14px;
+    line-height: 1.4;
+  }
+
+  .mission-list {
+    gap: 4px;
+  }
+
+  .panel p.mission-controls {
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+
+  .panel.mission > button {
+    flex: none;
+    min-height: 40px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mission-screen {
+    animation: none;
+  }
+}
+
 /* REQ-015: the short fade while getting out of the submarine or back in; dark blue, never a white flash. */
 .hud-fade {
   position: fixed;
