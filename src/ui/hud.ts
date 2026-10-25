@@ -2,6 +2,8 @@ import type { HudState } from "../game/hud-state";
 import { avoidRects } from "../game/marker";
 import type { ObjectiveId } from "../game/session";
 import { t, type Lang, type StringKey } from "../i18n/i18n";
+import type { CinematicHud } from "../game/cinematic";
+import { createCinematicOverlay } from "./cinematic";
 import { createMinimap } from "./minimap";
 import { h } from "./screens";
 
@@ -11,6 +13,8 @@ export interface HudView {
   update(state: HudState): void;
   /** REQ-026 AC-5: shows or hides the "Suara mati" tag. */
   setMuted(muted: boolean): void;
+  /** REQ-027, REQ-028: shows a cinematic's bars and narration and hides the HUD's own parts (null: back to normal). */
+  setCinematic(state: CinematicHud | null): void;
 }
 
 const OBJECTIVE_KEYS: Record<ObjectiveId, StringKey> = {
@@ -123,6 +127,9 @@ export function createHud(lang: Lang): HudView {
   const soundOff = h("p", { class: "sound-off", role: "status" });
   soundOff.hidden = true;
 
+  // REQ-027 AC-3, REQ-028 AC-3: the black bars, the skip hint and the narration of a cinematic.
+  const cinematic = createCinematicOverlay(lang);
+
   const element = h(
     "div",
     { class: "hud" },
@@ -135,8 +142,14 @@ export function createHud(lang: Lang): HudView {
     h("div", { class: "hud-messages" }, fullMessage, notice, prompt),
     marker,
     soundOff,
+    cinematic.element,
     fade,
   );
+
+  const setCinematic = (state: CinematicHud | null) => {
+    element.classList.toggle("cinematic", state !== null);
+    cinematic.update(state);
+  };
 
   return {
     element,
@@ -144,7 +157,9 @@ export function createHud(lang: Lang): HudView {
       setHidden(soundOff, !muted);
       setText(soundOff, muted ? t(lang, "hud.muted") : "");
     },
+    setCinematic,
     update(state) {
+      setCinematic(state.cinematic ?? null);
       const phase2 = state.reef?.phase2 ?? [];
       // REQ-005: once the Bloom is over (phase3 present) only the Phase 3 list shows.
       const phase3 = state.phase3 ?? [];

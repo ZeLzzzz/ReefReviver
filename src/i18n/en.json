@@ -155,5 +155,9 @@
   "sound.unavailable": "This browser can't play sound, so these settings have no effect.",
   "hud.muted": "Sound off",
   "controls.mute.keys": "M",
-  "controls.mute.action": "Turn sound off or on"
+  "controls.mute.action": "Turn sound off or on",
+  "cinematic.opening.1": "This bay was once full of life.",
+  "cinematic.opening.2": "Now trash, ghost nets and bleaching corals have taken over.",
+  "cinematic.opening.3": "Time to bring it back.",
+  "cinematic.skip": "Click or Space to skip"
 }

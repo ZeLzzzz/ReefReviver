@@ -943,6 +943,61 @@ kbd {
   pointer-events: none;
 }
 
+/* REQ-027, REQ-028: a cinematic. The HUD's panels, messages and crosshair are hidden (the fade stays), black bars slide in at
+   the top and bottom, the hint is in the top one and the narration in the bottom one. */
+.hud.cinematic > :not(.cine):not(.hud-fade) {
+  visibility: hidden;
+}
+
+.cine {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.cine[hidden] {
+  display: none;
+}
+
+.cine-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  background: #000;
+}
+
+.cine-bar-top {
+  top: 0;
+  justify-content: flex-end;
+  padding: 0 24px;
+}
+
+.cine-bar-bottom {
+  bottom: 0;
+  justify-content: center;
+  padding: 0 24px;
+}
+
+.cine-skip {
+  margin: 0;
+  font-size: 16px;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.cine-caption {
+  margin: 0;
+  max-width: min(90vw, 1000px);
+  text-align: center;
+  font-size: clamp(18px, 2.1vw, 28px);
+  line-height: 1.25;
+  color: var(--ink);
+  opacity: 0;
+}
+
 /* REQ-026: the Sound view's sliders, and the tag shown while M has muted the sound. */
 .slider-row {
   display: grid;

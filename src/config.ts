@@ -553,6 +553,40 @@ export const config = {
   end: {
     delay: 3,
   },
+  // REQ-027 (D-111, D-113): the opening cinematic, played on the first Mulai after the page opens. It shows black bars at the
+  // top and bottom (`letterbox`: each one's share of the screen's height, sliding in and out over `barSeconds`), hides the HUD
+  // and takes the controls away; a click or Space skips (the screen fades out and back in over `skipFadeSeconds`, and the
+  // control comes back at the darkest point). The camera merges into the follow camera over the last `blendSeconds`. A
+  // caption fades in and out over `captionFadeSeconds`.
+  cinematic: {
+    letterbox: 0.12,
+    barSeconds: 0.7,
+    skipFadeSeconds: 0.5,
+    blendSeconds: 1.4,
+    captionFadeSeconds: 0.6,
+    // The screen comes up from black over this long as the opening begins.
+    openingFadeSeconds: 0.8,
+    // The camera keeps this far (metres) from rock, the floor, the land and the buildings.
+    clearance: 0.6,
+    // The point the opening's camera looks at is this far (metres) ahead of it along its look direction.
+    lookAhead: 14,
+    // REQ-027 AC-1: about 22 s. `shots` are the seconds at which the aerial shot ends, the low glide ends and the camera
+    // reaches the surface on its way down (the dive then runs to the end). `captions` are the three lines of narration, each
+    // with the seconds it shows from and to. The group of floating trash nearest the west beach is the subject: the camera
+    // starts `aerial.back` m out to sea from its waterline at `aerial.height` m, comes down to `glide.height` m over the
+    // water `glide.pass` m from the group, and dives toward the submarine.
+    opening: {
+      duration: 22,
+      shots: { aerial: 8, glide: 15.5, surface: 17 },
+      captions: [
+        { key: "cinematic.opening.1", from: 1.2, to: 6.8 },
+        { key: "cinematic.opening.2", from: 8.6, to: 15 },
+        { key: "cinematic.opening.3", from: 16.4, to: 21.2 },
+      ],
+      aerial: { back: 72, height: 34 },
+      glide: { height: 2.4, pass: 9 },
+    },
+  },
   hud: {
     noticeSeconds: 2.5,
     // How far from the screen edge the station marker stays, in pixels.

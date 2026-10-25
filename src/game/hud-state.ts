@@ -1,4 +1,5 @@
 import type { LogbookId } from "../logbook/entries";
+import type { CinematicHud } from "./cinematic";
 import type { MarkerPlacement } from "./marker";
 import type { MinimapState } from "./minimap";
 import type { Notice, Objective } from "./session";
@@ -36,6 +37,8 @@ export interface HudState {
   minimap?: MinimapState;
   /** REQ-015: on foot or aboard, and the prompts to get out or back in. Optional so an older state still renders. */
   land?: LandHud;
+  /** REQ-027, REQ-028: the cinematic that is playing, or null: the HUD hides itself, and the bars and the narration show. */
+  cinematic?: CinematicHud | null;
 }
 
 export interface LandHud {
@@ -47,7 +50,7 @@ export interface LandHud {
   canBoard: boolean;
   /** REQ-017: on foot with the crosshair on trash within reach, so E picks it up (before depositing or boarding). */
   canPickUp?: boolean;
-  /** 0 (clear) to 1 (dark): the short fade while getting out or in. */
+  /** 0 (clear) to 1 (dark): the short fade while getting out or in, going dark after a skip, and coming up from black as the opening begins. */
   fade: number;
 }
 

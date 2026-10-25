@@ -155,5 +155,9 @@
   "sound.unavailable": "Browser ini tidak bisa memutar suara, jadi pengaturan ini tidak berpengaruh.",
   "hud.muted": "Suara mati",
   "controls.mute.keys": "M",
-  "controls.mute.action": "Matikan atau nyalakan suara"
+  "controls.mute.action": "Matikan atau nyalakan suara",
+  "cinematic.opening.1": "Teluk ini dulu penuh kehidupan.",
+  "cinematic.opening.2": "Kini sampah, jaring hantu, dan karang yang memucat menguasainya.",
+  "cinematic.opening.3": "Saatnya memulihkannya.",
+  "cinematic.skip": "Klik atau Spasi untuk melewati"
 }

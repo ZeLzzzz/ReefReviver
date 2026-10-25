@@ -32,7 +32,10 @@ test("the build starts from a sub-path with relative requests only, and a dive b
 
   await page.getByRole("button", { name: "Mulai" }).click();
   await expect.poll(() => page.evaluate(() => document.pointerLockElement?.id)).toBe("scene");
-  await expect(page.locator(".crosshair")).toBeVisible();
+  // REQ-027: the build for players opens with the cinematic; Space skips it, as a player can.
+  await expect(page.locator(".cine-skip")).toBeVisible();
+  await page.keyboard.press("Space");
+  await expect(page.locator(".crosshair")).toBeVisible({ timeout: 10_000 });
   await expect(page.locator(".stat-tank .stat-value")).toHaveText("0/12");
   await page.screenshot({ path: "test-results/req-009-dist-playing.png" });
 
@@ -75,7 +78,11 @@ test("a refresh starts a new dive with the nets and reef sites somewhere else (R
   const marks = async () => {
     await page.goto("/game/");
     await page.getByRole("button", { name: "Mulai" }).click();
-    await expect(page.locator(".hud-minimap")).toBeVisible();
+    // REQ-027: every refresh opens with the cinematic again; Space skips it.
+    await expect.poll(() => page.evaluate(() => document.pointerLockElement?.id)).toBe("scene");
+    await expect(page.locator(".cine-skip")).toBeVisible();
+    await page.keyboard.press("Space");
+    await expect(page.locator(".hud-minimap")).toBeVisible({ timeout: 10_000 });
     return page.locator('.hud-minimap [data-kind="frame"], .hud-minimap [data-kind="patch"], .hud-minimap [data-kind="net"]').evaluateAll((els) => els.map((el) => el.getAttribute("transform")));
   };
   const first = await marks();

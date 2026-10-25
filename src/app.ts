@@ -185,7 +185,8 @@ export class App {
       this.hudView?.setMuted(this.audio.settings.muted);
     }
     if (event.code === "KeyL" && !event.repeat) {
-      if (this.screen === "playing") this.openLogbook();
+      // REQ-027 AC-4: during a cinematic L does nothing.
+      if (this.screen === "playing" && !this.game?.cinematic?.()) this.openLogbook();
       else if (this.screen === "logbook") void this.closeLogbook();
     }
     if (event.code !== "Escape") return;
@@ -240,6 +241,8 @@ export class App {
         this.hudView = createHud(lang);
         this.hudView.setMuted(this.audio.settings.muted);
         if (this.hudState) this.hudView.update(this.hudState);
+        // REQ-027: the game's cinematic now, not the last state's: a dive that has just begun has not published one yet.
+        this.hudView.setCinematic(this.game?.cinematic?.() ?? null);
         content = this.hudView.element;
         break;
       case "paused":
