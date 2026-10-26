@@ -442,7 +442,7 @@ describe("the rim of the mouths (REQ-014 AC-1)", () => {
       }
     }
     expect(through.slice(0, 5), `${through.length} looks reach deep rock`).toEqual([]);
-  });
+  }, 20_000); // ~3 s alone; with every test file running at once it can pass 5 s
 });
 
 describe("the cave's meshes (REQ-014 performance)", () => {

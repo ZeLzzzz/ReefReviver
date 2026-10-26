@@ -20,6 +20,15 @@ export function t(lang: Lang, key: StringKey): string {
   return strings[lang][key];
 }
 
+/**
+ * REQ-030 AC-5: on a phone or tablet, a text that names a key or the mouse is read from its touch wording, `<key>.touch`,
+ * where it has one ("Tekan E" becomes "Ketuk E", "klik kiri" becomes "PAKAI").
+ */
+export function forTouch(key: StringKey, touch: boolean): StringKey {
+  const touchKey = `${key}.touch`;
+  return touch && touchKey in strings.id ? (touchKey as StringKey) : key;
+}
+
 /** A text with `{name}` placeholders filled in, so numbers that belong to the game come from its configuration, not from the strings (REQ-029). */
 export function format(lang: Lang, key: StringKey, values: Record<string, string | number>): string {
   return t(lang, key).replace(/\{(\w+)\}/g, (whole, name: string) => (name in values ? String(values[name]) : whole));

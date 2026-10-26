@@ -1,11 +1,12 @@
 import type { HudState } from "../game/hud-state";
 import { avoidRects } from "../game/marker";
 import type { ObjectiveId } from "../game/session";
-import { t, type Lang, type StringKey } from "../i18n/i18n";
+import { forTouch, t, type Lang, type StringKey } from "../i18n/i18n";
 import type { CinematicHud } from "../game/cinematic";
 import { createCinematicOverlay } from "./cinematic";
 import { createMinimap } from "./minimap";
 import { h } from "./screens";
+import { createTouchControls, type TouchHud } from "./touch";
 
 export interface HudView {
   element: HTMLElement;
@@ -36,8 +37,8 @@ const PHASE3_GOALS: readonly ObjectiveId[] = ["scan"];
 const TOOL_SLOT: Record<HudState["tool"], string> = { cutter: "1", vacuum: "2", seedLauncher: "3", scanner: "4" };
 
 /** The message, then the score it earned (`+100`) or the name of the Logbook entry it opened (REQ-006). */
-function noticeText(lang: Lang, notice: NonNullable<HudState["notice"]>): string {
-  let text = t(lang, notice.key);
+function noticeText(lang: Lang, notice: NonNullable<HudState["notice"]>, touch: boolean): string {
+  let text = t(lang, forTouch(notice.key, touch));
   if (notice.amount !== undefined) text += ` +${notice.amount}`;
   if (notice.entry) text += ` ${t(lang, `logbook.${notice.entry}.name`)}`;
   return text;
@@ -60,9 +61,12 @@ function stat(label: string, className: string): { row: HTMLElement; value: HTML
 /**
  * The in-game overlay for one language: crosshair, goals, tank / score / materials / cleanliness, the active
  * tool, messages and the direction marker to the recycling station. Status is never colour alone: the full
- * tank has its own text, done goals a check mark and a word for screen readers.
+ * tank has its own text, done goals a check mark and a word for screen readers. On a phone or tablet (`touch`, REQ-030) the
+ * touch controls come with it, and the texts that name a key or the mouse use their touch wording (AC-5).
  */
-export function createHud(lang: Lang): HudView {
+export function createHud(lang: Lang, touch: TouchHud | null = null): HudView {
+  const text = (key: StringKey) => t(lang, forTouch(key, touch !== null));
+  const controls = touch && createTouchControls(lang, touch);
   const goalItems = new Map<ObjectiveId, { item: HTMLElement; mark: HTMLElement; text: HTMLElement }>();
   const addGoals = (list: HTMLElement, ids: readonly ObjectiveId[]) => {
     for (const id of ids) {
@@ -128,11 +132,12 @@ export function createHud(lang: Lang): HudView {
   soundOff.hidden = true;
 
   // REQ-027 AC-3, REQ-028 AC-3: the black bars, the skip hint and the narration of a cinematic.
-  const cinematic = createCinematicOverlay(lang);
+  const cinematic = createCinematicOverlay(lang, touch !== null);
 
   const element = h(
     "div",
-    { class: "hud" },
+    { class: touch ? "hud touch-hud" : "hud" },
+    controls && controls.element,
     h("div", { class: "crosshair", "aria-hidden": "true" }),
     cutProgress,
     goalsPanel,
@@ -156,6 +161,7 @@ export function createHud(lang: Lang): HudView {
     setMuted(muted) {
       setHidden(soundOff, !muted);
       setText(soundOff, muted ? t(lang, "hud.muted") : "");
+      controls?.setMuted(muted);
     },
     setCinematic,
     update(state) {
@@ -194,9 +200,10 @@ export function createHud(lang: Lang): HudView {
       const onLand = state.land?.onLand ?? false;
       element.classList.toggle("on-land", onLand);
       setHidden(toolPanel, onLand);
+      controls?.update({ onLand, tool: state.tool });
       fade.style.opacity = (state.land?.fade ?? 0).toFixed(3);
       setText(toolName, `${TOOL_SLOT[state.tool]} ${t(lang, `tools.${state.tool}`)}`);
-      setText(toolHint, t(lang, `tools.${state.tool}.hint`));
+      setText(toolHint, text(`tools.${state.tool}.hint`));
       element.classList.toggle("sucking", state.sucking);
 
       // REQ-003: shown only while the cutter is cutting; empty again the moment it stops (AC-1, AC-4).
@@ -231,9 +238,9 @@ export function createHud(lang: Lang): HudView {
                 ? "land.ashorePrompt"
                 : null;
       setHidden(prompt, !promptKey);
-      setText(prompt, promptKey ? t(lang, promptKey) : "");
+      setText(prompt, promptKey ? text(promptKey) : "");
       setHidden(notice, !state.notice);
-      setText(notice, state.notice ? noticeText(lang, state.notice) : "");
+      setText(notice, state.notice ? noticeText(lang, state.notice, touch !== null) : "");
 
       // The marker always points to the station; it is loudest when the tank is full.
       marker.classList.toggle("urgent", state.tankFull);
@@ -248,6 +255,7 @@ export function createHud(lang: Lang): HudView {
       const half = markerWidth / 2 + 8;
       const edgeLeft = Math.min(Math.max(state.marker.left, half), Math.max(half, window.innerWidth - half));
       const panels = [goalsPanel, minimap.element, statsPanel, toolPanel, fullMessage, notice, prompt, soundOff].map((panel) => panel.getBoundingClientRect());
+      if (controls) panels.push(...controls.rects());
       const placed = avoidRects(edgeLeft, state.marker.top, markerWidth, markerHeight, panels, window.innerWidth, window.innerHeight);
       marker.style.transform = `translate(${placed.x.toFixed(1)}px, ${placed.y.toFixed(1)}px) translate(-50%, -50%)`;
       markerArrow.style.transform = `rotate(${state.marker.angle.toFixed(3)}rad)`;

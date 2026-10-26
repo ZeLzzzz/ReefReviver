@@ -88,11 +88,16 @@ describe("loading screen (REQ-009 AC-2)", () => {
     expect(app.screen).toBe("title");
   });
 
-  it("does not download anything on a phone or without WebGL 2", async () => {
+  it("does not download anything without WebGL 2", async () => {
     const load = controlledLoad();
-    await setup({ phoneOrTablet: true, loadAssets: load.loadAssets }).app.boot();
     await setup({ getWebGL2: () => null, loadAssets: load.loadAssets }).app.boot();
     expect(load.loadAssets).not.toHaveBeenCalled();
+  });
+
+  it("loads the game on a phone too, which plays it with touch controls (REQ-030)", async () => {
+    const load = controlledLoad();
+    void setup({ phoneOrTablet: true, loadAssets: load.loadAssets }).app.boot();
+    expect(load.loadAssets).toHaveBeenCalledTimes(1);
   });
 });
 

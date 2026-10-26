@@ -1,5 +1,5 @@
 import { config } from "../config";
-import { format, t, type Lang, type StringKey } from "../i18n/i18n";
+import { forTouch, format, t, type Lang, type StringKey } from "../i18n/i18n";
 import { LOGBOOK_ENTRIES } from "../logbook/entries";
 import { h } from "./screens";
 
@@ -8,6 +8,8 @@ export interface MissionProps {
   /** A message under the button, e.g. when the browser refused the cursor. */
   notice: StringKey | null;
   onStart: () => void;
+  /** REQ-030 AC-5: on a phone or tablet the line of controls names the touch controls. */
+  touch?: boolean;
 }
 
 /** A small number as a capitalised word at the start of a sentence ("Dua", "Two"); digits beyond ten. */
@@ -20,7 +22,7 @@ function sentenceNumber(lang: Lang, n: number): string {
  * REQ-029 AC-2, AC-3: the texts of the mission card. Every number comes from the game's configuration (the trash, the
  * Bloom's threshold, the frames and patches, the nets, the Logbook's entries), so the card always matches the game.
  */
-export function missionTexts(lang: Lang): { title: string; state: string; list: string; missions: string[]; controls: string; closing: string } {
+export function missionTexts(lang: Lang, touch = false): { title: string; state: string; list: string; missions: string[]; controls: string; closing: string } {
   const values = {
     trash: config.trash.count,
     nets: sentenceNumber(lang, config.phase1.nets),
@@ -34,7 +36,7 @@ export function missionTexts(lang: Lang): { title: string; state: string; list: 
     state: format(lang, "mission.state", values),
     list: t(lang, "mission.list"),
     missions: (["mission.1", "mission.2", "mission.3", "mission.4"] as const).map((key) => format(lang, key, values)),
-    controls: t(lang, "mission.controls"),
+    controls: t(lang, forTouch("mission.controls", touch)),
     closing: t(lang, "mission.closing"),
   };
 }
@@ -43,8 +45,8 @@ export function missionTexts(lang: Lang): { title: string; state: string; list: 
  * The mission card (REQ-029): after the opening cinematic, the state of the bay, the four missions in order, the main
  * controls and Mulai menyelam. In the end screen's panel style (AC-8); no character (D-114).
  */
-export function missionScreen({ lang, notice, onStart }: MissionProps): HTMLElement {
-  const text = missionTexts(lang);
+export function missionScreen({ lang, notice, onStart, touch = false }: MissionProps): HTMLElement {
+  const text = missionTexts(lang, touch);
   const start = h("button", { type: "button", class: "primary", onclick: onStart }, t(lang, "mission.start"));
   return h(
     "div",

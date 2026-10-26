@@ -1,5 +1,5 @@
 import { LOGBOOK_ENTRIES, logbookKeys, type LogbookEntry, type LogbookId } from "../logbook/entries";
-import { t, type Lang } from "../i18n/i18n";
+import { forTouch, t, type Lang } from "../i18n/i18n";
 import { h } from "./screens";
 
 export interface LogbookProps {
@@ -10,6 +10,8 @@ export interface LogbookProps {
   selected: LogbookId | null;
   onSelect: (id: LogbookId) => void;
   onClose: () => void;
+  /** REQ-030 AC-5: on a phone or tablet the hints name the buttons, not the keys. */
+  touch?: boolean;
 }
 
 const SVG = "http://www.w3.org/2000/svg";
@@ -70,11 +72,11 @@ function slot(props: LogbookProps, entry: LogbookEntry): HTMLElement {
   return h("li", {}, button);
 }
 
-function detail({ lang, unlocked, selected }: LogbookProps): HTMLElement {
+function detail({ lang, unlocked, selected, touch = false }: LogbookProps): HTMLElement {
   const entry = LOGBOOK_ENTRIES.find((candidate) => candidate.id === selected && unlocked.includes(candidate.id));
   if (!entry) {
     const empty = unlocked.length === 0 ? "logbook.none" : "logbook.pick";
-    return h("article", { class: "entry entry-empty" }, h("p", {}, t(lang, empty)));
+    return h("article", { class: "entry entry-empty" }, h("p", {}, t(lang, forTouch(empty, touch))));
   }
   const keys = logbookKeys(entry.id);
   return h(
@@ -100,7 +102,7 @@ function detail({ lang, unlocked, selected }: LogbookProps): HTMLElement {
 
 /** The Marine Logbook (REQ-006 AC-2, AC-3): seven slots, silhouettes with "???" for what is not scanned yet, and the open entry. */
 export function logbookScreen(props: LogbookProps): HTMLElement {
-  const { lang, unlocked, onClose } = props;
+  const { lang, unlocked, onClose, touch = false } = props;
   return h(
     "div",
     { class: "screen logbook-screen" },
@@ -112,7 +114,7 @@ export function logbookScreen(props: LogbookProps): HTMLElement {
         { class: "logbook-head" },
         h("h2", {}, t(lang, "logbook.title")),
         h("span", { class: "logbook-count" }, `${t(lang, "logbook.progress")} ${unlocked.length}/${LOGBOOK_ENTRIES.length}`),
-        h("span", { class: "logbook-hint" }, t(lang, "logbook.closeHint")),
+        h("span", { class: "logbook-hint" }, t(lang, forTouch("logbook.closeHint", touch))),
         h("button", { type: "button", class: "primary", onclick: onClose }, t(lang, "logbook.close")),
       ),
       h(

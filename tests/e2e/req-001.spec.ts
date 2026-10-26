@@ -113,10 +113,11 @@ test.describe("phone", () => {
     hasTouch: true,
   });
 
-  test("asks to play on a computer (AC-7)", async ({ page }) => {
+  // AC-7, changed by D-117: a phone plays with touch controls (REQ-030); held upright, it is asked to turn sideways.
+  test("held upright, asks to turn the phone sideways instead of to play on a computer (AC-7)", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("heading", { name: "Mainkan di komputer" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Mulai" })).toHaveCount(0);
+    await expect(page.getByRole("alertdialog", { name: "Putar perangkat ke posisi mendatar" })).toBeVisible();
+    await expect(page.getByText("Mainkan di komputer")).toHaveCount(0);
     await page.screenshot({ path: "test-results/req-001-phone.png" });
   });
 });

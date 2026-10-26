@@ -1,4 +1,4 @@
-import { LANGUAGES, t, type Lang, type StringKey } from "../i18n/i18n";
+import { forTouch, LANGUAGES, t, type Lang, type StringKey } from "../i18n/i18n";
 
 type Child = Node | string | null | undefined | false;
 type Attrs = Record<string, string | ((event: Event) => void)>;
@@ -78,6 +78,8 @@ export interface PauseProps {
   onView: (view: PauseView) => void;
   onLanguage: (lang: Lang) => void;
   sound: SoundProps;
+  /** REQ-030 AC-5: on a phone or tablet the Controls list names the touch controls. */
+  touch?: boolean;
 }
 
 // Only the controls that work so far; each REQ that adds a control adds its row (D-019).
@@ -96,7 +98,7 @@ function volumeSlider(lang: Lang, id: string, labelKey: StringKey, value: number
   return h("div", { class: "slider-row" }, h("label", { for: id }, t(lang, labelKey)), input, output);
 }
 
-export function pauseMenu({ lang, view, notice: noticeKey, onResume, onView, onLanguage, sound }: PauseProps): HTMLElement {
+export function pauseMenu({ lang, view, notice: noticeKey, onResume, onView, onLanguage, sound, touch = false }: PauseProps): HTMLElement {
   const back = button(t(lang, "pause.back"), () => onView("main"));
   let body: Child[];
   if (view === "controls") {
@@ -105,7 +107,7 @@ export function pauseMenu({ lang, view, notice: noticeKey, onResume, onView, onL
         "dl",
         { class: "controls" },
         ...CONTROLS.flatMap((control) => [
-          h("dt", {}, h("kbd", {}, t(lang, `controls.${control}.keys`))),
+          h("dt", {}, h("kbd", {}, t(lang, forTouch(`controls.${control}.keys`, touch)))),
           h("dd", {}, t(lang, `controls.${control}.action`)),
         ]),
       ),
@@ -133,6 +135,17 @@ export function pauseMenu({ lang, view, notice: noticeKey, onResume, onView, onL
     "div",
     { class: "screen pause-screen" },
     h("section", { class: "panel", role: "dialog", "aria-label": t(lang, "pause.title") }, h("h2", {}, t(lang, "pause.title")), ...body),
+  );
+}
+
+/** REQ-030 AC-6: over everything while a phone or tablet is held upright. */
+export function rotateMessage(lang: Lang): HTMLElement {
+  return h(
+    "div",
+    { class: "screen rotate-screen", role: "alertdialog", "aria-label": t(lang, "rotate.title") },
+    h("div", { class: "rotate-icon", "aria-hidden": "true" }),
+    h("h1", {}, t(lang, "rotate.title")),
+    h("p", {}, t(lang, "rotate.body")),
   );
 }
 

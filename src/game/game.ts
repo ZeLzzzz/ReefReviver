@@ -22,7 +22,7 @@ import { BloomShot, Cinematic, EndingShot, beachGroup, cinematicsOnByDefault, cr
 import { createCaveView } from "./cave-model";
 import { aimDirection, followCamera, keepCameraInWater, viewAbove } from "./follow-camera";
 import type { HudState } from "./hud-state";
-import { Input } from "./input";
+import { Input, type TouchInput } from "./input";
 import { terrainBlocks } from "./cutter";
 import { createCutterBeam, placeCutterBeam } from "./net-model";
 import { placeMarker } from "./marker";
@@ -64,6 +64,13 @@ export interface GameView {
   cinematic?(): CinematicHud | null;
   /** REQ-029: called when the opening cinematic ends or is skipped; the app then shows the mission card over the stopped game. */
   onOpeningEnd?(listener: () => void): void;
+  /** REQ-030: where the touch controls send the joystick, the drags and the buttons. */
+  touchInput?(): TouchInput;
+}
+
+export interface GameOptions {
+  /** REQ-030 AC-7: a phone or tablet, drawn with fewer pixels and without antialiasing. */
+  touch?: boolean;
 }
 
 type Mode = "title" | "playing" | "paused";
@@ -178,9 +185,10 @@ export class Game implements GameView {
   private titleTime = 0;
   private lastFrame: number | null = null;
 
-  constructor(canvas: HTMLCanvasElement, context: WebGL2RenderingContext, private readonly audio: GameAudio = silentAudio) {
-    this.renderer = new WebGLRenderer({ canvas, context, antialias: true });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  constructor(canvas: HTMLCanvasElement, context: WebGL2RenderingContext, private readonly audio: GameAudio = silentAudio, options: GameOptions = {}) {
+    const { touch } = config;
+    this.renderer = new WebGLRenderer({ canvas, context, antialias: options.touch ? touch.antialias : true });
+    this.renderer.setPixelRatio(options.touch ? touch.pixelRatio : Math.min(window.devicePixelRatio, 2));
     this.world = buildWorld(this.scene);
     this.scene.add(this.rovModel, createStationModel(), buildDockMesh(), this.trashView.group, this.beam, this.rescue.group, this.scanBeam);
     this.trashView.sync(this.field.items);
@@ -486,6 +494,8 @@ export class Game implements GameView {
         natureLook: () => this.natureView.look(),
         // REQ-020: how many draw calls and triangles the last frame took.
         renderInfo: () => ({ calls: this.renderer.info.render.calls, triangles: this.renderer.info.render.triangles }),
+        // REQ-030 AC-7: how many device pixels are drawn per CSS pixel, and whether the picture is antialiased.
+        render: () => ({ pixelRatio: this.renderer.getPixelRatio(), antialias: this.renderer.getContext().getContextAttributes()?.antialias ?? null }),
         naturalTargets: () => naturalTargets.map((t) => ({ ...t })),
         // REQ-021: the decoration shown this dive (after the trash rule), as plain pieces.
         decorItems: () => this.natureView.decorItems().map((d) => ({ ...d })),
@@ -533,6 +543,10 @@ export class Game implements GameView {
 
   cinematic(): CinematicHud | null {
     return this.cine ? this.cine.hud() : null;
+  }
+
+  touchInput(): TouchInput {
+    return this.input;
   }
 
   play(): void {

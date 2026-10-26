@@ -978,6 +978,17 @@ export const config = {
     // How far the player walks between two footsteps.
     footstepStride: 0.9,
   },
+  // REQ-030 (D-117, D-118): phones and tablets. The joystick's knob reaches full speed `stickRadius` CSS px from its centre
+  // and does nothing within `deadZone` of it (a fraction of the radius). A drag to steer or look counts `lookScale` mouse
+  // pixels per CSS px, so a thumb's sweep turns as far as a wide mouse move. The picture is drawn at `pixelRatio` device
+  // pixels per CSS px (the computer: up to 2) and without antialiasing, which is what a phone's GPU can keep at 30 fps.
+  touch: {
+    stickRadius: 48,
+    deadZone: 0.12,
+    lookScale: 2.2,
+    pixelRatio: 1,
+    antialias: false,
+  },
 } as const;
 
 export type Config = typeof config;

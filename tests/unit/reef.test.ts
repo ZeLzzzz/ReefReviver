@@ -452,7 +452,8 @@ describe("texts (REQ-004, G-003, G-004)", () => {
   const keys = (Object.keys(idStrings) as (keyof typeof idStrings)[]).filter((k) => /^(reef|seed|seagrass)\.|^objectives\.phase2|^tools\.seed|^controls\.seed/.test(k));
 
   it("exist in both languages", () => {
-    expect(keys).toHaveLength(14);
+    // REQ-030 added the touch wording of the frame prompt and the Seed launcher's hint.
+    expect(keys).toHaveLength(16);
     for (const key of keys) {
       expect(enStrings[key]).toBeTruthy();
       expect(idStrings[key]).toBeTruthy();

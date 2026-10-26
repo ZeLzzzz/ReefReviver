@@ -25,8 +25,9 @@ Game browser 3D low-poly: pemain mengemudikan kapal selam mini untuk membersihka
 - Minimap di pojok kanan atas (utara di atas), dengan panel statistik tepat di bawahnya. Peta menampilkan seluruh teluk: daratan di barat beserta tanjungnya, garis tipis tepi area penyelaman, dan dasar laut yang makin terang di bagian yang makin dangkal (puncak bukit), lalu arah kapal selam (atau pemain saat di darat), gudang daur ulang (kotak), dermaga (garis), titik terumbu (belah ketupat), petak lamun (lingkaran), dan jaring yang masih menjerat satwa (X). Tanda titik berubah saat rangka terpasang dan saat titik ditanami. Sisa sampah baru tampil sebagai titik setelah kebersihan mencapai 70%.
 - Layar Kredit (dari layar judul): anggota tim, aset pihak ketiga, dan kode pihak ketiga beserta lisensinya. Isinya dibaca dari `CREDITS.md` saat build.
 - Suara: di bawah air terdengar gemuruh laut dan gelembung, di atas air dan di darat ombak dan angin. Setiap aksi punya efek suara (Vacuum, sampah masuk tangki, tangki penuh, memotong jaring, satwa bebas, tembakan bibit, titik tertanam, Scanner, entri Logbook baru, setor, memungut sampah, langkah di pasir dan dermaga, keluar/masuk kapal, tombol menu, Bloom). Semua efek dibuat dengan Web Audio di kode (`src/audio/`), tanpa file. Musik latar "Underwater Ambient Pad" (isaiah658, CC0) diputar berulang: teredam sebelum Bloom, lalu jernih. Suara baru mulai setelah Mulai ditekan. M mematikan/menyalakan suara; volume musik dan efek diatur di menu jeda (awal 60% dan 80%), dan kembali ke awal setelah refresh. Saat jeda, Logbook, dan layar akhir hanya musik yang terdengar, lebih pelan. Kalau musik gagal dimuat (mis. Safari yang tidak bisa memutar OGG) atau browser tidak punya Web Audio, game tetap jalan tanpa musik atau tanpa suara.
-- Menu jeda (Esc) berisi Lanjut, Kontrol, Bahasa, dan Suara. Game juga otomatis berhenti kalau kursor lepas, misalnya karena alt-tab.
-- Di HP/tablet muncul pesan "Mainkan di komputer". Di browser tanpa WebGL 2 muncul penjelasan, bukan layar hitam.
+- Menu jeda (Esc, atau tombol jeda di HP/tablet) berisi Lanjut, Kontrol, Bahasa, dan Suara. Game juga otomatis berhenti kalau kursor lepas, misalnya karena alt-tab, atau kalau pemain pindah ke aplikasi atau tab lain.
+- Di HP dan tablet (REQ-030), game dimainkan dalam posisi mendatar dengan kontrol sentuh (lihat Kontrol). Ketukan di mana saja melewati sinematik, dan Mulai meminta layar penuh kalau browser mengizinkan (kalau ditolak, game tetap jalan di tampilan biasa). Teks yang menyebut tombol keyboard atau mouse memakai versi sentuh, misalnya "Ketuk E untuk menyetor sampah" dan "Tahan PAKAI untuk menyedot sampah". Kalau perangkat dipegang tegak, muncul pesan "Putar perangkat ke posisi mendatar" dan permainan berhenti; setelah diputar kembali, menu jeda tampil. Supaya ringan, gambar di HP/tablet dirender satu piksel perangkat per piksel CSS dan tanpa antialias. Laptop berlayar sentuh tetap memakai keyboard dan mouse.
+- Di browser tanpa WebGL 2 muncul penjelasan, bukan layar hitam.
 
 Model 3D memakai gaya low-poly; model GLB dari artist bisa menggantikan aset buatan kode. Batu besar menggunakan permukaan yang sama untuk gambar, tabrakan, dan tempat menempel biota. Karang alami memiliki dua variasi bentuk per jenis: cabang dengan percabangan tidak seragam, lempeng tipis bertumpuk dengan tepian bergelombang, bongkah berlekuk, dan jari bercabang. Koloni kecil mengisi sela di antara koloni besar; warna berkelompok dengan pangkal lebih gelap dan ujung lebih terang. Kipas laut bercabang terbuka, spons memiliki bibir tebal dan rongga gelap, dan sinar bawah air memudar lembut di tepinya.
 
@@ -47,6 +48,20 @@ Model 3D memakai gaya low-poly; model GLB dari artist bisa menggantikan aset bua
 | M | Matikan atau nyalakan suara |
 | Esc | Jeda, atau tutup Logbook |
 
+Di HP dan tablet (posisi mendatar):
+
+| Kontrol sentuh | Fungsi |
+|---|---|
+| Joystick (kiri bawah; jari di mana saja di separuh kiri layar) | Maju, mundur, geser ke samping; di darat: berjalan. Makin jauh didorong, makin cepat |
+| Geser jari di separuh kanan layar | Mengarahkan kapal selam; di darat: menengok |
+| ▲ / ▼ (tahan) | Naik / turun |
+| PAKAI (tahan) | Pakai alat; menggeser jari di atasnya sekaligus mengarahkan |
+| 1–4 di samping joystick | Pilih Cutter, Vacuum, Seed launcher, Scanner |
+| E | Sama seperti tombol E |
+| Tombol jeda, buku, dan suara di samping minimap | Jeda, buka Marine Logbook, matikan atau nyalakan suara |
+
+Di darat, ▲/▼, PAKAI, dan bilah alat disembunyikan. Selama sinematik semua tombol disembunyikan, dan ketukan di mana saja melewatinya.
+
 ## Menjalankan
 
 Butuh Node.js 22.12 atau lebih baru, versi genap (22, 24, 26): itu syarat Vitest.
@@ -57,6 +72,8 @@ npm run dev        # server pengembangan, buka alamat yang muncul di terminal
 npm run build      # cek tipe + build statis ke dist/, gagal kalau dist/ lebih dari 50 MB
 npm run preview    # coba hasil build
 ```
+
+Mencoba di HP: jalankan `npm run dev -- --host`, lalu buka alamat "Network" yang muncul di browser HP yang tersambung ke Wi-Fi yang sama. Di mode dev, `?fps` di alamat menampilkan fps (rata-rata satu detik dan frame terlama), dan `?bloom` langsung membersihkan dan menanami teluk begitu menyelam dimulai, supaya adegan terberat setelah Bloom bisa diukur dalam semenit, misalnya `http://<alamat>:5173/?fps&bloom`.
 
 Build memakai path relatif, jadi isi `dist/` bisa diunggah ke itch.io (HTML5) atau hosting statis lain, di folder mana pun. Membuka `index.html` langsung dari disk (`file://`) tidak bisa, karena browser memblokir module script di sana. Untuk mencoba build dari sub-folder seperti di hosting: `node scripts/serve-dist.mjs` (melayani `dist/` di `/game/`).
 
@@ -74,6 +91,8 @@ Diukur 2026-10-23 setelah peta diperluas (REQ-011), saat adegan terberat (setela
 
 Setelah revisi visual 2026-10-24 (batu tak beraturan, ±3.300 koloni karang dengan dua variasi bentuk per jenis, hiasan baru), satu layar bisa berisi ±1 juta segitiga dan ±370 draw call; diukur setelah Bloom di titik mulai, di sabuk karang terpadat, dan di atas padang lamun, 1280×720 dan 1920×1080: Chromium NVIDIA dan Chromium AMD terintegrasi tetap 60 fps, dan di darat 60 fps. Build 1,42 MB.
 
+Di HP dan tablet (REQ-030) gambar dirender satu piksel perangkat per piksel CSS dan tanpa antialias. Diukur 2026-10-26 di HP Android lewat server dev: 90 fps stabil (sama dengan refresh layarnya) sebelum Bloom, dan setelah Bloom di titik mulai, sabuk karang, padang lamun, dan di darat.
+
 ## Tes
 
 ```sh
@@ -82,7 +101,7 @@ npm run test:e2e   # tes di Chromium sungguhan (Playwright)
 npm run test:e2e:dist   # build, lalu mainkan hasil build dari sub-folder /game/
 ```
 
-Sebelum `test:e2e` pertama kali, pasang Chromium-nya dengan `npx playwright install chromium`. Tes e2e merender WebGL di GPU lewat ANGLE Vulkan. Di komputer tanpa GPU yang bisa dipakai, jalankan dengan `E2E_SWIFTSHADER=1` supaya WebGL dirender CPU lewat SwiftShader; cara ini jauh lebih lambat dan membuat CPU sibuk penuh selama tes. Tes menunggu ROV bergerak, bukan mengukur waktu. Server dev untuk tes e2e memakai seed tetap (`VITE_TEST_SEED=1`), jadi susunan jaring, titik tanam, dan sampah sama di setiap run. Paling banyak 4 browser berjalan bersamaan; lebih dari itu, halaman peta besar jadi terlalu lambat untuk tes yang menunggu waktu.
+Sebelum `test:e2e` pertama kali, pasang Chromium-nya dengan `npx playwright install chromium`. Tes e2e merender WebGL di GPU lewat ANGLE Vulkan. Di komputer tanpa GPU yang bisa dipakai, jalankan dengan `E2E_SWIFTSHADER=1` supaya WebGL dirender CPU lewat SwiftShader; cara ini jauh lebih lambat dan membuat CPU sibuk penuh selama tes. Tes menunggu ROV bergerak, bukan mengukur waktu. Server dev untuk tes e2e memakai seed tetap (`VITE_TEST_SEED=1`), jadi susunan jaring, titik tanam, dan sampah sama di setiap run. Paling banyak 4 browser berjalan bersamaan; lebih dari itu, halaman peta besar jadi terlalu lambat untuk tes yang menunggu waktu. Tes kontrol sentuh (`req-030.spec.ts`) memainkan game sebagai Pixel 7 mendatar dan mengirim sentuhan, satu jari atau lebih, lewat DevTools Protocol.
 
 ## Struktur
 
@@ -91,7 +110,7 @@ Sebelum `test:e2e` pertama kali, pasang Chromium-nya dengan `npx playwright inst
 | `src/config.ts` | Semua angka yang bisa disetel saat playtest (ukuran dan bentuk teluk: bukit, lembah, pantai, dinding, batu besar, lengkungan; kecepatan kapal selam, kabut, kamera, daratan dan cara berjalan, Bloom, satwa yang kembali, scanner, minimap) |
 | `src/i18n/id.json`, `en.json` | Semua teks di game. Kedua file harus punya kunci yang sama |
 | `src/logbook/entries.ts` | Data tujuh entri Marine Logbook: nama ilmiah, target SDG 14, dan sumber tiap fakta. Teksnya ada di file string (`logbook.*`) |
-| `src/app.ts`, `src/ui/` | Alur layar: loading, judul, kredit, bermain (HUD dan minimap), jeda, Marine Logbook, pesan perangkat/WebGL/gagal muat |
+| `src/app.ts`, `src/ui/` | Alur layar: loading, judul, kredit, bermain (HUD dan minimap), jeda, Marine Logbook, pesan WebGL/gagal muat/putar perangkat. Kontrol sentuh untuk HP dan tablet ada di `src/ui/touch.ts`, dan angkanya di `config.touch` |
 | `src/assets.ts`, `public/assets/manifest.json` | Pemuat model artist dan daftar filenya |
 | `src/audio/`, `public/assets/audio/` | Suara (REQ-026): mesin Web Audio, resep efek dan suasana yang dibuat kode, dan file musik latar. Volume dan nada tiap efek ada di `config.audio` |
 | `CREDITS.md` | Sumber layar Kredit: tim, aset pihak ketiga, kode pihak ketiga dan teks lisensinya |

@@ -4,6 +4,7 @@ import type { HudState } from "./game/hud-state";
 import type { SessionSummary } from "./game/session";
 import type { LogbookId } from "./logbook/entries";
 import { initialLanguage, saveLanguage, type Lang, type StorageLike, type StringKey } from "./i18n/i18n";
+import type { Orientation } from "./platform";
 import type { PointerLock } from "./ui/pointer-lock";
 import { credits } from "./credits";
 import { creditsScreen } from "./ui/credits";
@@ -12,16 +13,20 @@ import { createHud, type HudView } from "./ui/hud";
 import { createLoadingScreen, type LoadingView } from "./ui/loading";
 import { logbookScreen } from "./ui/logbook";
 import { missionScreen } from "./ui/mission";
-import { messageScreen, pauseMenu, titleScreen, type PauseView } from "./ui/screens";
+import { messageScreen, pauseMenu, rotateMessage, titleScreen, type PauseView } from "./ui/screens";
+import type { TouchHud } from "./ui/touch";
 
-export type Screen = "loading" | "title" | "credits" | "playing" | "mission" | "paused" | "logbook" | "end" | "unsupported" | "noWebgl" | "assetError";
+export type Screen = "loading" | "title" | "credits" | "playing" | "mission" | "paused" | "logbook" | "end" | "noWebgl" | "assetError";
 
 export interface AppDeps {
   /** Where the screens are drawn, over the canvas. */
   ui: HTMLElement;
   browserLanguages: readonly string[];
   storage: StorageLike | null;
+  /** REQ-030: a phone or tablet, played with touch controls (its `pointerLock` asks for the full screen instead). */
   phoneOrTablet: boolean;
+  /** REQ-030 AC-6: the screen's orientation on a phone or tablet; held upright, a message covers the game and it pauses. */
+  orientation?: Orientation;
   getWebGL2: () => WebGL2RenderingContext | null;
   createGame: (context: WebGL2RenderingContext) => GameView;
   pointerLock: PointerLock;
@@ -31,7 +36,7 @@ export interface AppDeps {
   audio?: AppAudio;
 }
 
-/** Screen flow around the game: loading, title, credits, playing, the mission card, pause, the Marine Logbook, the end screen, and the messages for unsupported browsers. */
+/** Screen flow around the game: loading, title, credits, playing, the mission card, pause, the Marine Logbook, the end screen, and the messages for unsupported browsers and for a phone held upright. */
 export class App {
   screen: Screen = "title";
   lang: Lang;
@@ -59,7 +64,8 @@ export class App {
   async boot(): Promise<void> {
     const doc = this.deps.ui.ownerDocument;
     doc.documentElement.lang = this.lang;
-    if (this.deps.phoneOrTablet) return this.show("unsupported");
+    doc.documentElement.classList.toggle("touch", this.deps.phoneOrTablet);
+    this.deps.orientation?.onChange(() => this.orientationChanged());
     const context = this.deps.getWebGL2();
     if (!context) return this.show("noWebgl");
 
@@ -114,6 +120,32 @@ export class App {
     saveLanguage(this.deps.storage, lang);
     this.deps.ui.ownerDocument.documentElement.lang = lang;
     this.render();
+  }
+
+  /** AC-6: turned upright the game pauses under the message; turned back, the pause menu is there to resume from (D-118). */
+  private orientationChanged(): void {
+    if (this.deps.orientation?.portrait()) this.pause();
+    this.render();
+  }
+
+  /** REQ-026 AC-5: M (or the sound button, REQ-030) mutes and unmutes all sound while playing; the HUD shows a tag while it is off. */
+  private toggleMute(): void {
+    this.audio.setMuted(!this.audio.settings.muted);
+    this.hudView?.setMuted(this.audio.settings.muted);
+  }
+
+  /** REQ-030: the touch controls drive the game's input; their menu buttons do what Esc, L and M do (AC-4). Null on a computer. */
+  private touchHud(): TouchHud | null {
+    const input = this.game?.touchInput?.();
+    if (!this.deps.phoneOrTablet || !input) return null;
+    return {
+      input,
+      onPause: () => this.pause(),
+      onLogbook: () => {
+        if (!this.game?.cinematic?.()) this.openLogbook();
+      },
+      onMute: () => this.toggleMute(),
+    };
   }
 
   pause(): void {
@@ -203,11 +235,7 @@ export class App {
       if (!event.repeat) this.leaveMission();
       return;
     }
-    // REQ-026 AC-5: M mutes and unmutes all sound while playing; the HUD shows a tag while it is off.
-    if (event.code === "KeyM" && !event.repeat && this.screen === "playing") {
-      this.audio.setMuted(!this.audio.settings.muted);
-      this.hudView?.setMuted(this.audio.settings.muted);
-    }
+    if (event.code === "KeyM" && !event.repeat && this.screen === "playing") this.toggleMute();
     if (event.code === "KeyL" && !event.repeat) {
       // REQ-027 AC-4: during a cinematic L does nothing.
       if (this.screen === "playing" && !this.game?.cinematic?.()) this.openLogbook();
@@ -234,6 +262,7 @@ export class App {
 
   private render(): void {
     const { lang, notice } = this;
+    const touch = this.deps.phoneOrTablet;
     this.hudView = null;
     this.loadingView = null;
     // REQ-026 AC-7: while paused, in the Logbook or on the end screen the ambience and effects stop and the music quietens;
@@ -264,7 +293,7 @@ export class App {
         break;
       case "playing":
         // The HUD is rebuilt for the current language and shows the latest state at once.
-        this.hudView = createHud(lang);
+        this.hudView = createHud(lang, this.touchHud());
         this.hudView.setMuted(this.audio.settings.muted);
         if (this.hudState) this.hudView.update(this.hudState);
         // REQ-027: the game's cinematic now, not the last state's: a dive that has just begun has not published one yet.
@@ -272,13 +301,14 @@ export class App {
         content = this.hudView.element;
         break;
       case "mission":
-        content = missionScreen({ lang, notice, onStart: () => this.leaveMission() });
+        content = missionScreen({ lang, notice, touch, onStart: () => this.leaveMission() });
         break;
       case "paused":
         content = pauseMenu({
           lang,
           notice,
           view: this.pauseView,
+          touch,
           onResume: () => this.lockCursor("pause.lockFailed"),
           onView: (view) => this.showPauseView(view),
           onLanguage,
@@ -306,15 +336,13 @@ export class App {
           lang,
           unlocked: this.hudState?.unlocked ?? [],
           selected: this.logbookEntry,
+          touch,
           onSelect: (id) => {
             this.logbookEntry = id;
             this.render();
           },
           onClose: () => void this.closeLogbook(),
         });
-        break;
-      case "unsupported":
-        content = messageScreen(lang, "unsupported.title", "unsupported.body");
         break;
       case "noWebgl":
         content = messageScreen(lang, "noWebgl.title", "noWebgl.body", "noWebgl.reload");
@@ -323,6 +351,8 @@ export class App {
         content = messageScreen(lang, "assetError.title", "assetError.body", "assetError.reload");
         break;
     }
-    this.deps.ui.replaceChildren(content);
+    // REQ-030 AC-6: held upright, the message covers whatever screen is up.
+    if (touch && this.deps.orientation?.portrait()) this.deps.ui.replaceChildren(content, rotateMessage(lang));
+    else this.deps.ui.replaceChildren(content);
   }
 }

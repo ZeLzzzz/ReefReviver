@@ -99,8 +99,9 @@ export function lookWalker(walker: Walker, dx: number, dy: number): void {
 }
 
 /**
- * Walks along the ground: WASD at walking speed, no running or jumping (D-084). A step that would end in deep water,
- * on a cliff, in a tree or a rock is tried along x and along z alone, so the player slides along what stops them.
+ * Walks along the ground: WASD at walking speed, no running or jumping (D-084); a joystick pushed part of the way walks
+ * slower (REQ-030 AC-2). A step that would end in deep water, on a cliff, in a tree or a rock is tried along x and along z
+ * alone, so the player slides along what stops them.
  */
 export function stepWalker(walker: Walker, input: MoveInput, dt: number): void {
   const fx = Math.sin(walker.yaw);
@@ -110,8 +111,9 @@ export function stepWalker(walker: Walker, input: MoveInput, dt: number): void {
   let dz = fz * input.forward + fx * input.strafe;
   const length = Math.hypot(dx, dz);
   if (length > 0) {
-    dx = (dx / length) * land.walkSpeed * dt;
-    dz = (dz / length) * land.walkSpeed * dt;
+    const speed = (Math.min(length, 1) / length) * land.walkSpeed * dt;
+    dx *= speed;
+    dz *= speed;
     const { x, z } = walker.position;
     if (standable(x + dx, z + dz)) walker.position.set(x + dx, 0, z + dz);
     else if (dx !== 0 && standable(x + dx, z)) walker.position.set(x + dx, 0, z);

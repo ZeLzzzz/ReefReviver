@@ -293,19 +293,12 @@ describe("losing the cursor (REQ-001 AC-6)", () => {
   });
 });
 
-describe("phones and tablets (REQ-001 AC-7)", () => {
-  it("shows 'Mainkan di komputer' and does not start the game", () => {
+describe("phones and tablets (REQ-001 AC-7, changed by D-117)", () => {
+  it("open on the title screen, no longer 'Mainkan di komputer' (REQ-030 AC-1; more in touch.test.ts)", () => {
     const { ui, app, deps } = setup({ phoneOrTablet: true });
-    expect(app.screen).toBe("unsupported");
-    expect(ui.querySelector("h1")?.textContent).toBe("Mainkan di komputer");
-    expect(deps.createGame).not.toHaveBeenCalled();
-    expect(buttons(ui)).toEqual([]);
-  });
-
-  it("uses the chosen language", () => {
-    expect(setup({ phoneOrTablet: true, browserLanguages: ["en-US"] }).ui.querySelector("h1")?.textContent).toBe(
-      "Play on a computer",
-    );
+    expect(app.screen).toBe("title");
+    expect(deps.createGame).toHaveBeenCalledTimes(1);
+    expect(buttons(ui)).toContain("Mulai");
   });
 });
 

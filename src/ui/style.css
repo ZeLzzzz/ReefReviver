@@ -1041,7 +1041,8 @@ kbd {
 
 /* REQ-027, REQ-028: a cinematic. The HUD's panels, messages and crosshair are hidden (the fade stays), black bars slide in at
    the top and bottom, the hint is in the top one and the narration in the bottom one. */
-.hud.cinematic > :not(.cine):not(.hud-fade) {
+.hud.cinematic > :not(.cine):not(.hud-fade):not(.touch),
+.hud.cinematic .touch > :not(.touch-surface) {
   visibility: hidden;
 }
 
@@ -1125,4 +1126,266 @@ kbd {
 
 .sound-off[hidden] {
   display: none;
+}
+
+/* REQ-030: phones and tablets. No pinch or double-tap zoom over the game, and no tap flash on the buttons. */
+html.touch {
+  touch-action: pan-x pan-y;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* The touch HUD: the stats move beside the minimap, with the pause, Logbook and sound buttons between them, so the bottom
+   corners are free for the joystick and the buttons. Panels are tighter, the text stays at 16 px. */
+.touch-hud {
+  --map-size: clamp(96px, 28vh, 200px);
+  --stick: 112px;
+  --use: 84px;
+  --pad: 52px;
+}
+
+.touch-hud .hud-panel:not(.hud-minimap) {
+  padding: 8px 12px;
+  gap: 4px;
+}
+
+.touch-hud .hud-stats {
+  top: 16px;
+  right: calc(16px + var(--map-size) + 10px + 8px + 44px + 8px);
+  min-width: 0;
+  width: 176px;
+}
+
+/* The goals get what the stats, the menu buttons and the minimap leave, so their lines do not wrap down onto the joystick. */
+.touch-hud .hud-goals {
+  max-width: min(300px, calc(100vw - var(--map-size) - 286px));
+}
+
+/* Wide enough for "Kebersihan teluk" on one line once the screen has the room. */
+@media (min-width: 720px) {
+  .touch-hud .hud-stats {
+    width: 214px;
+  }
+
+  .touch-hud .stat-label {
+    white-space: nowrap;
+  }
+
+  .touch-hud .hud-goals {
+    max-width: min(300px, calc(100vw - var(--map-size) - 324px));
+  }
+}
+
+/* On a phone's short screen the tank's bar goes (its number stays), so the stats end above the messages. */
+@media (max-height: 480px) {
+  .touch-hud .tank-meter {
+    display: none;
+  }
+}
+
+.touch-hud .hud-tool {
+  left: calc(16px + var(--stick) + 16px);
+  bottom: calc(16px + 48px + 8px);
+  flex-wrap: wrap;
+  row-gap: 0;
+  max-width: calc(100vw - var(--stick) - var(--use) - var(--pad) - 80px);
+}
+
+.touch-hud .tool-label {
+  display: none;
+}
+
+.touch-hud .hud-messages {
+  bottom: calc(16px + 48px + 8px + 52px + 8px);
+  width: min(560px, calc(100vw - 2 * (16px + var(--use) + 12px + var(--pad) + 8px)));
+}
+
+.touch {
+  position: absolute;
+  inset: 0;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* The whole picture takes touches: the left half holds the joystick, the right half steers, a tap skips a cinematic. */
+.touch-surface {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.stick {
+  position: absolute;
+  left: calc(16px + var(--stick) / 2);
+  top: calc(100% - 16px - var(--stick) / 2);
+  width: var(--stick);
+  height: var(--stick);
+  border: 2px solid var(--line);
+  border-radius: 50%;
+  background: rgba(16, 26, 22, 0.32);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.stick.active {
+  background: rgba(16, 26, 22, 0.5);
+}
+
+.stick-knob {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 52px;
+  height: 52px;
+  margin: -26px 0 0 -26px;
+  border-radius: 50%;
+  background: rgba(241, 243, 236, 0.6);
+}
+
+.touch-control,
+.touch-menu-button {
+  pointer-events: auto;
+  touch-action: none;
+  min-height: 0;
+  padding: 0;
+  font-weight: 700;
+}
+
+.touch-actions .touch-control {
+  position: absolute;
+  border-radius: 50%;
+}
+
+.touch-control[hidden] {
+  display: none;
+}
+
+.touch-control.held {
+  border-color: transparent;
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.touch-use {
+  right: 16px;
+  bottom: 16px;
+  width: var(--use);
+  height: var(--use);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.touch-interact {
+  right: calc(16px + (var(--use) - 56px) / 2);
+  bottom: calc(16px + var(--use) + 10px);
+  width: 56px;
+  height: 56px;
+  font-size: 20px;
+}
+
+.touch-rise,
+.touch-dive {
+  right: calc(16px + var(--use) + 12px);
+  width: var(--pad);
+  height: var(--pad);
+}
+
+.touch-rise {
+  bottom: calc(16px + var(--pad) + 10px);
+}
+
+.touch-dive {
+  bottom: 16px;
+}
+
+.touch-tools {
+  position: absolute;
+  left: calc(16px + var(--stick) + 16px);
+  bottom: 16px;
+  display: flex;
+  gap: 8px;
+}
+
+.touch-tools[hidden] {
+  display: none;
+}
+
+.touch-slot {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+}
+
+.touch-slot[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.touch-menu {
+  position: absolute;
+  top: 16px;
+  right: calc(16px + var(--map-size) + 10px + 8px);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.touch-menu-button {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+}
+
+.touch-icon {
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* REQ-030 AC-6: held upright, a message covers everything until the device is turned sideways. */
+.rotate-screen {
+  z-index: 10;
+  background: #0e1813;
+  text-align: center;
+}
+
+.rotate-screen h1 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.rotate-screen p {
+  max-width: 320px;
+  margin: 0;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.rotate-icon {
+  width: 44px;
+  height: 72px;
+  border: 3px solid var(--ink);
+  border-radius: 10px;
+  transform: rotate(-90deg);
+}
+
+/* Development only: the frame rate (`?fps`, REQ-030 AC-7). */
+.fps {
+  position: fixed;
+  left: 50%;
+  bottom: 4px;
+  z-index: 20;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.6);
+  font: 14px/1.4 ui-monospace, monospace;
+  color: #fff;
+  transform: translateX(-50%);
+  pointer-events: none;
 }

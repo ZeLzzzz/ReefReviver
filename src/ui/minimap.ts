@@ -13,7 +13,7 @@ const NS = "http://www.w3.org/2000/svg";
 const { icon } = config.minimap;
 
 /** Builds an SVG element; the HUD's own `h` only makes HTML. */
-function svg<K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string, string | number> = {}, ...children: SVGElement[]): SVGElementTagNameMap[K] {
+export function svg<K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string, string | number> = {}, ...children: SVGElement[]): SVGElementTagNameMap[K] {
   const element = document.createElementNS(NS, tag);
   for (const [name, value] of Object.entries(attrs)) element.setAttribute(name, String(value));
   element.append(...children);
