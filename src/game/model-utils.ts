@@ -1,4 +1,4 @@
-import { BufferGeometry, Group, Mesh, Object3D, Uint16BufferAttribute, type Material } from "three";
+import { BufferGeometry, Color, Float32BufferAttribute, Group, Mesh, Object3D, Uint16BufferAttribute, type Material } from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 
 /** True when `root` is a Group containing at least one Mesh. */
@@ -8,6 +8,20 @@ export function hasMesh(root: Object3D | null): root is Group {
     if (child instanceof Mesh) found = true;
   });
   return found;
+}
+
+/**
+ * Gives every vertex of `geometry` the colour `hex`, so parts of many colours can share one `vertexColors` material and
+ * compactGroup() merges them into a single draw call.
+ */
+export function colored(geometry: BufferGeometry, hex: number): BufferGeometry {
+  const color = new Color(hex);
+  const count = geometry.attributes.position.count;
+  const values = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) color.toArray(values, i * 3);
+  geometry.setAttribute("color", new Float32BufferAttribute(values, 3));
+  geometry.deleteAttribute("uv");
+  return geometry;
 }
 
 function ensureIndexed(geometry: BufferGeometry): BufferGeometry {

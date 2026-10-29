@@ -1,4 +1,4 @@
-import { Mesh, Vector3 } from "three";
+import { Mesh, Vector3, type MeshStandardMaterial } from "three";
 import { describe, expect, it } from "vitest";
 import { config } from "../../src/config";
 import { floorHeight } from "../../src/game/bay";
@@ -166,6 +166,24 @@ describe("the coastal timber house (REQ-031 AC-5)", () => {
       expect(Math.abs(p.z)).toBeLessThanOrEqual(station.halfZ + 0.5);
     }
     expect(checked).toBeGreaterThan(1000);
+  });
+
+  it("has a low-poly attendant behind the counter, facing out through the hatch, drawn in one call (D-137)", () => {
+    const attendant = buildStationMesh().getObjectByName("station-attendant")!;
+    const parts: Mesh[] = [];
+    attendant.traverse((node) => {
+      if (node instanceof Mesh) parts.push(node);
+    });
+    expect(parts).toHaveLength(1);
+    const [body] = parts;
+    expect(body.geometry.index!.count / 3).toBeLessThanOrEqual(1100);
+    const material = body.material as MeshStandardMaterial;
+    expect(material.flatShading).toBe(true);
+    expect(material.roughness).toBeGreaterThanOrEqual(0.8);
+    // Inside the walls, by the counter on the east wall, looking east.
+    expect(attendant.position.x).toBeLessThan(station.halfX);
+    expect(attendant.position.x).toBeGreaterThan(station.halfX - 1);
+    expect(new Vector3(0, 0, 1).applyQuaternion(attendant.quaternion).x).toBeGreaterThan(0.99);
   });
 
   it("raises the beacon's mast to the lantern, clear above the roof", () => {

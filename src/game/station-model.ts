@@ -19,6 +19,7 @@ import { compactGroup, hasMesh } from "./model-utils";
 import { posts } from "./bay";
 import { groundHeight } from "./land";
 import { counterPosition, stationPosition } from "./station";
+import { buildStationAttendant } from "./station-attendant-model";
 
 const { station } = config;
 
@@ -66,7 +67,10 @@ export function buildStationMesh(): Group {
 
   box(halfX * 2 + 0.24, base, halfZ * 2 + 0.24, stone, 0, base / 2, 0);
   box(halfX * 2 + 0.12, 0.09, halfZ * 2 + 0.12, cream, 0, base, 0);
-  box(halfX * 2 - 0.36, height, halfZ * 2 - 0.2, recess, 0, base + height / 2, 0);
+  const interiorFront = halfX - 1.2;
+  const interiorBack = -halfX + 0.18;
+  box(interiorFront - interiorBack, height, halfZ * 2 - 0.2, recess,
+    (interiorFront + interiorBack) / 2, base + height / 2, 0);
 
   // Individual clapboards leave shallow seams; the front is cut around a recessed service hatch.
   const courses = 14;
@@ -209,10 +213,15 @@ export function buildStationMesh(): Group {
       halfX + 0.03, (hatchBottom + base) / 2, (plank - 4) * 0.28);
   }
   box(0.1, 0.09, hatchHalf * 2 + 0.1, timber, halfX + 0.08, base + 0.07, 0);
-  box(0.12, 0.08, hatchHalf * 2 - 0.2, wood, halfX - 0.16, hatchBottom + 0.49, 0);
+  box(0.3, 0.08, hatchHalf * 2 - 0.2, wood, interiorFront + 0.12, hatchBottom + 0.49, 0);
   for (let i = 0; i < 3; i++) {
-    box(0.12, 0.19 + i * 0.035, 0.24, i === 1 ? wood : paleTeal, halfX - 0.13, hatchBottom + 0.64, -0.7 + i * 0.7);
+    box(0.18, 0.19 + i * 0.035, 0.24, i === 1 ? wood : paleTeal, interiorFront + 0.13, hatchBottom + 0.64, -0.7 + i * 0.7);
   }
+
+  const attendant = buildStationAttendant();
+  attendant.position.set(halfX - 0.42, base + 0.045, 0);
+  attendant.rotation.y = Math.PI / 2;
+  group.add(attendant);
 
   // Wall brackets support the awning above head height, leaving the approach free of new collision obstacles.
   const canopyDepth = 1.65;

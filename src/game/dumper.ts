@@ -236,7 +236,7 @@ export class Dumper {
         const [across, along] = DECK_SPOTS[i % DECK_SPOTS.length];
         const cos = Math.cos(this.yaw), sin = Math.sin(this.yaw);
         person.position.set(this.position.x + cos * across + sin * along, this.position.y, this.position.z - sin * across + cos * along);
-        person.yaw = this.yaw + (i % 2 === 0 ? Math.PI / 2 : -Math.PI / 2);
+        person.yaw = this.yaw + (i % 2 === 0 ? -Math.PI / 2 : 0);
         return;
       }
       if (person.phase === "clinging" && person.seconds >= crew.clingSeconds) {
