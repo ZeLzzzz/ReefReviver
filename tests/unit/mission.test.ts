@@ -19,6 +19,7 @@ describe("the mission card's texts (REQ-029 AC-2, AC-3, AC-5)", () => {
         "Pasang 3 rangka terumbu, tembakkan fragmen koral ke rangka, dan tanam biji lamun di 2 petak.",
         "Setelah teluk jernih kembali, pindai 7 satwa dan biota untuk Marine Logbook.",
       ],
+      dumper: "Sesekali kapal pembuang sampah datang. Balikkan dengan Cutter supaya sampahnya tidak terus bertambah.",
       controls: "WASD bergerak · Mouse mengarahkan · Spasi/Shift naik/turun · Klik kiri pakai alat · 1–4 pilih alat · E berinteraksi",
       closing: "Bisakah kamu memulihkan teluk ini?",
     });
@@ -36,6 +37,7 @@ describe("the mission card's texts (REQ-029 AC-2, AC-3, AC-5)", () => {
         "Set up 3 reef frames, shoot coral fragments onto them, and plant seagrass seeds in 2 patches.",
         "Once the bay is clear again, scan 7 kinds of sea life for the Marine Logbook.",
       ],
+      dumper: "Now and then a boat comes to dump trash. Capsize it with the Cutter before the trash piles up.",
       controls: "WASD move · Mouse steer · Space/Shift up/down · Left click use tool · 1–4 choose tool · E interact",
       closing: "Can you bring this bay back to life?",
     });
@@ -102,6 +104,13 @@ describe("the mission card screen (REQ-029 AC-8)", () => {
     expect([...element.querySelectorAll("ol > li")].map((li) => li.textContent)).toEqual(missionTexts("id").missions);
     expect(element.querySelector("button.primary")?.textContent).toBe("Mulai menyelam");
     expect(element.querySelector('[role="alert"]')).toBeNull();
+  });
+
+  it("warns of the dumping boat right after the missions (REQ-037 AC-6)", () => {
+    const element = missionScreen({ lang: "id", notice: null, onStart: () => {} });
+    const warning = element.querySelector(".mission-dumper")!;
+    expect(warning.previousElementSibling?.matches("ol.mission-list")).toBe(true);
+    expect(warning.textContent).toBe(missionTexts("id").dumper);
   });
 
   it("shows the notice under the button when there is one", () => {

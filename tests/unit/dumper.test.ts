@@ -205,7 +205,7 @@ describe("the dumping boat on the HUD and the minimap (REQ-036 AC-1, AC-4)", () 
     expect(alert.hidden).toBe(true);
     hud.update(state({ dumper: { active: true, atBoat: false } }));
     expect(alert.hidden).toBe(false);
-    expect(alert.textContent).toBe("!Balikkan kapal pembuang sampah");
+    expect(alert.querySelector(".goal-alert-text")!.textContent).toBe("Balikkan kapal pembuang sampah");
     hud.update(state({ dumper: { active: true, atBoat: true }, cutProgress: 0.5 }));
     expect(hud.element.querySelector(".cut-label")!.textContent).toBe("Membalikkan kapal 50%");
     hud.update(state({ cutProgress: 0.5 }));

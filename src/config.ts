@@ -711,6 +711,8 @@ export const config = {
     markerBottomMargin: 190,
     // REQ-033 AC-3: the tool's name and hint stay over the hotbar this long after the tool changed or the hotbar came back.
     toolCaptionSeconds: 4,
+    // REQ-037: the dumping boat's marker points at this height above its waterline, over the crew's heads.
+    dumperMarkerHeight: 3,
   },
   // REQ-010: the minimap in the HUD (D-031, D-032). Drawn in map units: the bay fits a square `size` wide.
   minimap: {

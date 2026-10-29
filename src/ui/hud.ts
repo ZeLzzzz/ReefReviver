@@ -84,6 +84,7 @@ export function createHud(lang: Lang, touch: TouchHud | null = null): HudView {
   const phase3List = h("ul", { class: "goal-list goal-list-phase3" });
   phase3List.hidden = true;
   // REQ-036 AC-1: while a dumping boat is in the bay, an urgent goal tops the list (marked "!" and said in words).
+  // REQ-037 AC-5: under it, how to turn the boat over.
   const dumperGoal = h(
     "ul",
     { class: "goal-alert-list" },
@@ -91,7 +92,12 @@ export function createHud(lang: Lang, touch: TouchHud | null = null): HudView {
       "li",
       { class: "goal-alert", "data-goal": "dumper" },
       h("span", { class: "goal-alert-mark", "aria-hidden": "true" }, "!"),
-      h("span", { class: "goal-alert-text" }, t(lang, "objectives.dumper")),
+      h(
+        "span",
+        { class: "goal-alert-body" },
+        h("span", { class: "goal-alert-text" }, t(lang, "objectives.dumper")),
+        h("span", { class: "goal-alert-hint" }, text("dumper.hint")),
+      ),
     ),
   );
   dumperGoal.hidden = true;
@@ -114,6 +120,18 @@ export function createHud(lang: Lang, touch: TouchHud | null = null): HudView {
   const markerArrow = h("span", { class: "marker-arrow", "aria-hidden": "true" }, "▲");
   const markerLabel = h("span", { class: "marker-label" });
   const marker = h("div", { class: "station-marker" }, markerArrow, markerLabel);
+
+  // REQ-037: the marker to the dumping boat, shaped like the station's (its own classes, so the station's stay its own),
+  // with a blinking "!" before the boat's name and distance.
+  const dumperArrow = h("span", { class: "dumper-marker-arrow", "aria-hidden": "true" }, "▲");
+  const dumperDistance = h("span", {});
+  const dumperMarker = h(
+    "div",
+    { class: "dumper-marker" },
+    dumperArrow,
+    h("span", { class: "dumper-marker-label" }, h("span", { class: "dumper-marker-mark", "aria-hidden": "true" }, "!"), dumperDistance),
+  );
+  dumperMarker.hidden = true;
 
   // REQ-003: a ring around the crosshair that fills while the cutter cuts a net, with the percentage in words.
   // REQ-006: the scanner fills the same ring, with its own word.
@@ -155,6 +173,7 @@ export function createHud(lang: Lang, touch: TouchHud | null = null): HudView {
     statsPanel,
     h("div", { class: "hud-bottom" }, h("div", { class: "hud-messages" }, fullMessage, notice, prompt), hotbar.element),
     marker,
+    dumperMarker,
     soundOff,
     cinematic.element,
     fade,
@@ -277,6 +296,22 @@ export function createHud(lang: Lang, touch: TouchHud | null = null): HudView {
       const placed = avoidRects(edgeLeft, state.marker.top, markerWidth, markerHeight, panels, window.innerWidth, window.innerHeight);
       marker.style.transform = `translate(${placed.x.toFixed(1)}px, ${placed.y.toFixed(1)}px) translate(-50%, -50%)`;
       markerArrow.style.transform = `rotate(${state.marker.angle.toFixed(3)}rad)`;
+
+      // REQ-037: the boat's marker is placed the same way, and off the station's marker too (AC-3).
+      const boat = state.dumper?.active ? (state.dumper.marker ?? null) : null;
+      setHidden(dumperMarker, !boat);
+      if (boat) {
+        dumperMarker.classList.toggle("on-screen", boat.onScreen);
+        setText(dumperDistance, `${t(lang, "dumper.marker")} · ${state.dumper?.distance ?? 0} m`);
+        const boatWidth = dumperMarker.offsetWidth;
+        const boatHeight = dumperMarker.offsetHeight;
+        const boatHalf = boatWidth / 2 + 8;
+        const boatLeft = Math.min(Math.max(boat.left, boatHalf), Math.max(boatHalf, window.innerWidth - boatHalf));
+        const around = [...panels, marker.getBoundingClientRect()];
+        const spot = avoidRects(boatLeft, boat.top, boatWidth, boatHeight, around, window.innerWidth, window.innerHeight);
+        dumperMarker.style.transform = `translate(${spot.x.toFixed(1)}px, ${spot.y.toFixed(1)}px) translate(-50%, -50%)`;
+        dumperArrow.style.transform = `rotate(${boat.angle.toFixed(3)}rad)`;
+      }
     },
   };
 }

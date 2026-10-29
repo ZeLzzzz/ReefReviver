@@ -401,6 +401,18 @@ kbd {
   display: none;
 }
 
+/* REQ-037 AC-5: how to turn the boat over, under its goal; plain weight and colour, at the HUD's text size (DESIGN). */
+.goal-alert-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.goal-alert-hint {
+  font-weight: 400;
+  color: var(--ink);
+}
+
 .goal.done .goal-mark {
   color: var(--accent);
   font-weight: 800;
@@ -604,7 +616,8 @@ kbd {
   font-weight: 700;
 }
 
-.station-marker {
+.station-marker,
+.dumper-marker {
   position: absolute;
   top: 0;
   left: 0;
@@ -616,13 +629,15 @@ kbd {
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
 }
 
-.marker-arrow {
+.marker-arrow,
+.dumper-marker-arrow {
   font-size: 22px;
   line-height: 1;
   color: var(--ink);
 }
 
-.marker-label {
+.marker-label,
+.dumper-marker-label {
   padding: 2px 10px;
   border-radius: 6px;
   background: var(--panel);
@@ -638,9 +653,46 @@ kbd {
   border: 1px solid var(--accent);
 }
 
-/* In view, the marker hangs a pointer over the station instead of an arrow to the side. */
-.station-marker.on-screen .marker-arrow {
+/* In view, the marker hangs a pointer over the station (or the boat) instead of an arrow to the side. */
+.station-marker.on-screen .marker-arrow,
+.dumper-marker.on-screen .dumper-marker-arrow {
   transform: rotate(180deg) !important;
+}
+
+/* REQ-037: the dumping boat's marker, in the accent colour like its goal, with a "!" that blinks once a second (AC-2). */
+.dumper-marker[hidden] {
+  display: none;
+}
+
+.dumper-marker-arrow,
+.dumper-marker-label {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.dumper-marker-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--accent);
+}
+
+.dumper-marker-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 1.3em;
+  height: 1.3em;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  text-shadow: none;
+  animation: dumper-blink 1s steps(1, end) infinite;
+}
+
+@keyframes dumper-blink {
+  50% {
+    opacity: 0.15;
+  }
 }
 
 /* REQ-003: the cut progress ring around the crosshair, and its words above it. */
@@ -1165,7 +1217,8 @@ kbd {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .mission-screen {
+  .mission-screen,
+  .dumper-marker-mark {
     animation: none;
   }
 }

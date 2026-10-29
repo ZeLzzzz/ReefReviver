@@ -22,7 +22,7 @@ function sentenceNumber(lang: Lang, n: number): string {
  * REQ-029 AC-2, AC-3: the texts of the mission card. Every number comes from the game's configuration (the trash, the
  * Bloom's threshold, the frames and patches, the nets, the Logbook's entries), so the card always matches the game.
  */
-export function missionTexts(lang: Lang, touch = false): { title: string; state: string; list: string; missions: string[]; controls: string; closing: string } {
+export function missionTexts(lang: Lang, touch = false): { title: string; state: string; list: string; missions: string[]; dumper: string; controls: string; closing: string } {
   const values = {
     trash: config.trash.count,
     nets: sentenceNumber(lang, config.phase1.nets),
@@ -36,6 +36,8 @@ export function missionTexts(lang: Lang, touch = false): { title: string; state:
     state: format(lang, "mission.state", values),
     list: t(lang, "mission.list"),
     missions: (["mission.1", "mission.2", "mission.3", "mission.4"] as const).map((key) => format(lang, key, values)),
+    // REQ-037 AC-6: the dumping boat that comes now and then.
+    dumper: t(lang, "mission.dumper"),
     controls: t(lang, forTouch("mission.controls", touch)),
     closing: t(lang, "mission.closing"),
   };
@@ -58,6 +60,7 @@ export function missionScreen({ lang, notice, onStart, touch = false }: MissionP
       h("p", {}, text.state),
       h("h2", {}, text.list),
       h("ol", { class: "mission-list" }, ...text.missions.map((mission) => h("li", {}, mission))),
+      h("p", { class: "mission-dumper" }, text.dumper),
       h("p", { class: "mission-controls" }, text.controls),
       h("p", { class: "mission-closing" }, text.closing),
       start,

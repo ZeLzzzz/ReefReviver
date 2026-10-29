@@ -25,7 +25,7 @@ import type { HudState } from "./hud-state";
 import { Input, type TouchInput } from "./input";
 import { terrainBlocks } from "./cutter";
 import { createCutterBeam, placeCutterBeam } from "./net-model";
-import { placeMarker } from "./marker";
+import { placeMarker, type MarkerPlacement } from "./marker";
 import { buildMinimap } from "./minimap";
 import { chooseLayout, type Layout } from "./layout";
 import { createReefView, createShotView } from "./reef-model";
@@ -129,6 +129,9 @@ export class Game implements GameView {
   private readonly aim = new Vector3();
   private readonly stationAnchor = new Vector3(stationPosition.x, stationPosition.y + STATION_MARKER_HEIGHT, stationPosition.z);
   private readonly viewPoint = new Vector3();
+  // REQ-037: the dumping boat's marker points a little above the boat.
+  private readonly dumperAnchor = new Vector3();
+  private readonly dumperViewPoint = new Vector3();
   // REQ-004: reef sites, frames, coral and seagrass, and the seed launcher.
   private readonly reef = new ReefField();
   private reefView = createReefView(this.reef);
@@ -1128,6 +1131,14 @@ export class Game implements GameView {
     this.camera.updateMatrixWorld();
     this.viewPoint.copy(this.stationAnchor).applyMatrix4(this.camera.matrixWorldInverse);
     const tanHalfFov = Math.tan((config.camera.fov * Math.PI) / 360);
+    // REQ-037: the marker to the dumping boat while it is in the bay and upright, from the submarine or the player ashore.
+    const from = this.ashore ? this.ashore.walker.position : this.rov.position;
+    let dumperMarker: MarkerPlacement | null = null;
+    if (this.dumper.active) {
+      this.dumperAnchor.copy(this.dumper.position).setY(this.dumper.position.y + config.hud.dumperMarkerHeight);
+      this.dumperViewPoint.copy(this.dumperAnchor).applyMatrix4(this.camera.matrixWorldInverse);
+      dumperMarker = placeMarker(this.dumperViewPoint, tanHalfFov, window.innerWidth, window.innerHeight, config.hud.markerMargin, config.hud.markerBottomMargin);
+    }
     const state: HudState = {
       tool: session.tool,
       tank: session.tank,
@@ -1139,11 +1150,17 @@ export class Game implements GameView {
       objectives: session.objectives,
       notice: session.currentNotice,
       inStationZone: this.ashore !== null && inStationZone(this.ashore.walker.position),
-      stationDistance: Math.round(distanceToStation(this.ashore ? this.ashore.walker.position : this.rov.position)),
+      stationDistance: Math.round(distanceToStation(from)),
       marker: placeMarker(this.viewPoint, tanHalfFov, window.innerWidth, window.innerHeight, config.hud.markerMargin, config.hud.markerBottomMargin),
       sucking: this.sucking,
       cutProgress: this.rescue.progress, // REQ-003
-      dumper: { active: this.dumper.active, atBoat: this.rescue.atBoat }, // REQ-036
+      // REQ-036, REQ-037
+      dumper: {
+        active: this.dumper.active,
+        atBoat: this.rescue.atBoat,
+        marker: dumperMarker,
+        distance: Math.round(Math.hypot(this.dumper.position.x - from.x, this.dumper.position.z - from.z)),
+      },
       scanProgress: this.scanner.progress, // REQ-006
       unlocked: LOGBOOK_ENTRIES.filter((entry) => session.unlocked.has(entry.id)).map((entry) => entry.id),
       reef: {

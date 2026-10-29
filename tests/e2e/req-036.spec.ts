@@ -36,7 +36,7 @@ test.describe("Indonesian", () => {
     await reef(page, (h) => h.summonDumper(40, 10));
     await expect(page.locator(".message-notice")).toHaveText("Kapal membuang sampah di teluk! Balikkan dengan Cutter");
     await expect(page.locator(".goal-alert-list")).toBeVisible();
-    await expect(page.locator(".goal-alert-list")).toHaveText("!Balikkan kapal pembuang sampah");
+    await expect(page.locator(".goal-alert-text")).toHaveText("Balikkan kapal pembuang sampah");
     await expect(page.locator(".mm-icon[data-kind='dumper']")).toBeVisible();
     await expect.poll(async () => (await boat(page)).phase, { timeout: 30_000 }).toBe("dumping");
 
@@ -125,6 +125,6 @@ test.describe("English", () => {
     await startDive(page);
     await reef(page, (h) => h.summonDumper(40, 10));
     await expect(page.locator(".message-notice")).toHaveText("A boat is dumping trash in the bay! Capsize it with the Cutter");
-    await expect(page.locator(".goal-alert-list")).toHaveText("!Capsize the dumping boat");
+    await expect(page.locator(".goal-alert-text")).toHaveText("Capsize the dumping boat");
   });
 });
