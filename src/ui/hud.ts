@@ -4,6 +4,7 @@ import type { ObjectiveId } from "../game/session";
 import { forTouch, t, type Lang, type StringKey } from "../i18n/i18n";
 import type { CinematicHud } from "../game/cinematic";
 import { createCinematicOverlay } from "./cinematic";
+import { createHotbar } from "./hotbar";
 import { createMinimap } from "./minimap";
 import { h } from "./screens";
 import { createTouchControls, type TouchHud } from "./touch";
@@ -33,8 +34,6 @@ const PHASE1_GOALS: readonly ObjectiveId[] = ["clean", "free", "deposit"];
 const PHASE2_GOALS: readonly ObjectiveId[] = ["frames", "coral", "seagrass"];
 // REQ-005: after the Bloom the Phase 3 list replaces the Phase 1 and 2 lists (D-049).
 const PHASE3_GOALS: readonly ObjectiveId[] = ["scan"];
-
-const TOOL_SLOT: Record<HudState["tool"], string> = { cutter: "1", vacuum: "2", seedLauncher: "3", scanner: "4" };
 
 /** The message, then the score it earned (`+100`) or the name of the Logbook entry it opened (REQ-006). */
 function noticeText(lang: Lang, notice: NonNullable<HudState["notice"]>, touch: boolean): string {
@@ -93,9 +92,8 @@ export function createHud(lang: Lang, touch: TouchHud | null = null): HudView {
   const meterFill = h("div", { class: "tank-meter-fill" });
   meter.append(meterFill);
 
-  const toolName = h("strong", { class: "tool-name" });
-  const toolHint = h("span", { class: "tool-hint" });
-  const toolPanel = h("section", { class: "hud-panel hud-tool" }, h("span", { class: "tool-label" }, t(lang, "hud.tool")), toolName, toolHint);
+  // REQ-033: the tools as a hotbar at the bottom centre, under the messages.
+  const hotbar = createHotbar(lang, touch?.input ?? null);
 
   const fullMessage = h("p", { class: "message message-full", role: "status" });
   const prompt = h("p", { class: "message message-prompt" });
@@ -143,8 +141,7 @@ export function createHud(lang: Lang, touch: TouchHud | null = null): HudView {
     goalsPanel,
     minimap.element,
     statsPanel,
-    toolPanel,
-    h("div", { class: "hud-messages" }, fullMessage, notice, prompt),
+    h("div", { class: "hud-bottom" }, h("div", { class: "hud-messages" }, fullMessage, notice, prompt), hotbar.element),
     marker,
     soundOff,
     cinematic.element,
@@ -196,14 +193,22 @@ export function createHud(lang: Lang, touch: TouchHud | null = null): HudView {
       setText(score.value, String(state.score));
       setText(cleanliness.value, `${state.cleanliness}%`);
 
-      // REQ-015 AC-2: on the land there are no tools, so their panel is hidden.
+      // REQ-015 AC-2: on the land there are no tools, so the hotbar is hidden; so it is during a cinematic (REQ-033 AC-5).
       const onLand = state.land?.onLand ?? false;
       element.classList.toggle("on-land", onLand);
-      setHidden(toolPanel, onLand);
-      controls?.update({ onLand, tool: state.tool });
+      controls?.update({ onLand });
       fade.style.opacity = (state.land?.fade ?? 0).toFixed(3);
-      setText(toolName, `${TOOL_SLOT[state.tool]} ${t(lang, `tools.${state.tool}`)}`);
-      setText(toolHint, text(`tools.${state.tool}.hint`));
+      hotbar.update(
+        {
+          tool: state.tool,
+          // REQ-006: the Phase 3 list is there once the Bloom is over, and so is the Scanner.
+          scannerOpen: (state.phase3 ?? []).length > 0,
+          working: state.sucking || state.cutProgress > 0 || (state.scanProgress ?? 0) > 0,
+          hidden: onLand || (state.cinematic ?? null) !== null,
+          hint: text(`tools.${state.tool}.hint`),
+        },
+        performance.now() / 1000,
+      );
       element.classList.toggle("sucking", state.sucking);
 
       // REQ-003: shown only while the cutter is cutting; empty again the moment it stops (AC-1, AC-4).
@@ -254,7 +259,7 @@ export function createHud(lang: Lang, touch: TouchHud | null = null): HudView {
       // message (REQ-016 AC-5).
       const half = markerWidth / 2 + 8;
       const edgeLeft = Math.min(Math.max(state.marker.left, half), Math.max(half, window.innerWidth - half));
-      const panels = [goalsPanel, minimap.element, statsPanel, toolPanel, fullMessage, notice, prompt, soundOff].map((panel) => panel.getBoundingClientRect());
+      const panels = [goalsPanel, minimap.element, statsPanel, hotbar.element, fullMessage, notice, prompt, soundOff].map((panel) => panel.getBoundingClientRect());
       if (controls) panels.push(...controls.rects());
       const placed = avoidRects(edgeLeft, state.marker.top, markerWidth, markerHeight, panels, window.innerWidth, window.innerHeight);
       marker.style.transform = `translate(${placed.x.toFixed(1)}px, ${placed.y.toFixed(1)}px) translate(-50%, -50%)`;

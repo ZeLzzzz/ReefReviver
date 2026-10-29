@@ -32,7 +32,7 @@ describe("Cutter in the HUD (REQ-003 AC-1, AC-4)", () => {
   it("shows the Cutter as tool 1 with its hint", () => {
     const hud = createHud("id");
     hud.update(state({ tool: "cutter" }));
-    expect(q(hud.element, ".tool-name").textContent).toBe("1 Cutter");
+    expect(q(hud.element, ".tool-name").textContent).toBe("Cutter");
     expect(q(hud.element, ".tool-hint").textContent).toBe("Tahan klik kiri pada jaring untuk memotongnya");
   });
 
@@ -69,7 +69,7 @@ describe("Cutter in the HUD (REQ-003 AC-1, AC-4)", () => {
     const hud = createHud("en");
     hud.update(state({ tool: "cutter", cutProgress: 0.25 }));
     expect(q(hud.element, ".cut-label").textContent).toBe("Cutting the net 25%");
-    expect(q(hud.element, ".tool-name").textContent).toBe("1 Cutter");
+    expect(q(hud.element, ".tool-name").textContent).toBe("Cutter");
   });
 });
 

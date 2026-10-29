@@ -113,7 +113,7 @@ describe("Scanner in the HUD (REQ-006 AC-1, AC-6, AC-7)", () => {
   it("shows the Scanner as tool 4 with its hint", () => {
     const hud = createHud("id");
     hud.update(state({ tool: "scanner" }));
-    expect(text(hud.element, ".tool-name")).toBe("4 Scanner");
+    expect(text(hud.element, ".tool-name")).toBe("Scanner");
     expect(text(hud.element, ".tool-hint")).toBe("Tahan klik kiri pada satwa, karang, atau lamun untuk memindainya");
   });
 

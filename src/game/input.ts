@@ -2,7 +2,7 @@ import type { MoveInput } from "./rov";
 
 /**
  * REQ-030: what the touch controls feed into, the same state the keyboard and mouse drive. Keys are the codes the keyboard
- * would send (▲ is "Space", ▼ is "ShiftLeft", E is "KeyE", the tool bar's slots are "Digit1".."Digit4").
+ * would send (▲ is "Space", ▼ is "ShiftLeft", E is "KeyE", the hotbar's slots are "Digit1".."Digit4").
  */
 export interface TouchInput {
   /** The joystick: `x` to the right, `y` forward, each -1..1 (0, 0 when let go). */

@@ -648,8 +648,10 @@ export const config = {
     noticeSeconds: 2.5,
     // How far from the screen edge the station marker stays, in pixels.
     markerMargin: 56,
-    // At the bottom the marker stays above the tool panel and the notices.
+    // At the bottom the marker stays above the hotbar and the notices.
     markerBottomMargin: 190,
+    // REQ-033 AC-3: the tool's name and hint stay over the hotbar this long after the tool changed or the hotbar came back.
+    toolCaptionSeconds: 4,
   },
   // REQ-010: the minimap in the HUD (D-031, D-032). Drawn in map units: the bay fits a square `size` wide.
   minimap: {

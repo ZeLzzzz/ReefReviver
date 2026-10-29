@@ -49,6 +49,8 @@
   "hud.depositPrompt": "Press E to deposit trash",
   "hud.diveEdge": "Edge of the dive area",
   "hud.tool": "Tool",
+  "hotbar.inHand": "in hand",
+  "hotbar.locked": "locked",
   "tools.vacuum": "Vacuum",
   "tools.vacuum.hint": "Hold left click to suck up trash",
   "station.name": "Recycling shed",

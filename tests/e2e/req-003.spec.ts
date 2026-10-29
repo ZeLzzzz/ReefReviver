@@ -80,12 +80,12 @@ test.describe("Indonesian", () => {
   test("key 1 selects the Cutter and the pause controls list it", async ({ page }) => {
     test.setTimeout(90_000);
     await startDive(page);
-    await expect(page.locator(".tool-name")).toHaveText("2 Vacuum");
+    await expect(page.locator(".tool-name")).toHaveText("Vacuum");
     await page.keyboard.press("Digit1");
-    await expect(page.locator(".tool-name")).toHaveText("1 Cutter");
+    await expect(page.locator(".tool-name")).toHaveText("Cutter");
     await expect(page.locator(".tool-hint")).toHaveText("Tahan klik kiri pada jaring untuk memotongnya");
     await page.keyboard.press("Digit2");
-    await expect(page.locator(".tool-name")).toHaveText("2 Vacuum");
+    await expect(page.locator(".tool-name")).toHaveText("Vacuum");
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Kontrol" }).click();
     const rows = await page.locator(".controls dt").evaluateAll((els) => els.map((el) => `${el.textContent} = ${el.nextElementSibling?.textContent}`));
@@ -284,7 +284,7 @@ test.describe("English", () => {
     test.setTimeout(90_000);
     await startDive(page);
     await page.keyboard.press("Digit1");
-    await expect(page.locator(".tool-name")).toHaveText("1 Cutter");
+    await expect(page.locator(".tool-name")).toHaveText("Cutter");
     await expect(page.locator(".tool-hint")).toHaveText("Hold left click on a net to cut it");
     await aimAtNet(page, 0);
     await page.mouse.down();

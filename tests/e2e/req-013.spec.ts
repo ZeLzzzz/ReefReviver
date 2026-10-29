@@ -70,7 +70,7 @@ test.describe("Indonesian", () => {
     await startDive(page);
     await bloomNow(page);
     await page.keyboard.press("Digit4");
-    await expect(page.locator(".tool-name")).toHaveText("4 Scanner");
+    await expect(page.locator(".tool-name")).toHaveText("Scanner");
     const targets = (await reef(page, (h) => h.naturalTargets())) as Target[];
     await scan(page, targets.find((t) => t.entry === "coral" && t.y < -10)!, "coral");
     await expect(page.locator(".message-notice")).toHaveText("Entri baru: Karang");

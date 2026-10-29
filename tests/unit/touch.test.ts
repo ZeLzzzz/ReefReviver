@@ -188,28 +188,23 @@ describe("the buttons (AC-3, AC-4)", () => {
     expect(input.looks).toEqual([[-10 * lookScale, 0]]);
   });
 
-  it("holds ▲ and ▼ as Space and Shift, taps E and the tool slots as their keys", () => {
-    const { calls, find, view } = controls();
+  it("holds ▲ and ▼ as Space and Shift and taps E as its key (the tool slots are the HUD's hotbar, REQ-033)", () => {
+    const { calls, find } = controls();
     for (const selector of [".touch-rise", ".touch-dive"]) {
       pointer(find(selector), "pointerdown", 4);
       pointer(find(selector), "pointerup", 4);
     }
     pointer(find(".touch-interact"), "pointerdown", 5);
     pointer(find(".touch-interact"), "pointerup", 5);
-    const slots = [...view.element.querySelectorAll<HTMLElement>(".touch-slot")];
-    expect(slots.map((slot) => slot.textContent)).toEqual(["1", "2", "3", "4"]);
-    pointer(slots[2], "pointerdown", 6);
-    expect(calls).toEqual(["down Space", "up Space", "down ShiftLeft", "up ShiftLeft", "tap KeyE", "tap Digit3"]);
+    expect(calls).toEqual(["down Space", "up Space", "down ShiftLeft", "up ShiftLeft", "tap KeyE"]);
   });
 
-  it("marks the tool in hand, and on the land hides ▲/▼, PAKAI and the tool bar but keeps E", () => {
+  it("on the land hides ▲/▼ and PAKAI but keeps E", () => {
     const { view, find } = controls();
-    view.update({ onLand: false, tool: "seedLauncher" });
-    expect(find(".touch-slot[aria-pressed='true']").textContent).toBe("3");
-    view.update({ onLand: true, tool: "seedLauncher" });
-    for (const selector of [".touch-rise", ".touch-dive", ".touch-use", ".touch-tools"]) expect(find(selector).hidden).toBe(true);
+    view.update({ onLand: true });
+    for (const selector of [".touch-rise", ".touch-dive", ".touch-use"]) expect(find(selector).hidden).toBe(true);
     expect(find(".touch-interact").hidden).toBe(false);
-    view.update({ onLand: false, tool: "seedLauncher" });
+    view.update({ onLand: false });
     expect(find(".touch-use").hidden).toBe(false);
   });
 

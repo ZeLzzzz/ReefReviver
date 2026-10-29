@@ -17,7 +17,7 @@ export interface MarkerPlacement {
 
 /**
  * Where to draw the marker for a target: on the target when it is in view, otherwise clamped to the screen
- * edge (inset by `margin`, and by `bottomMargin` at the bottom, where the tool panel and notices sit) in the
+ * edge (inset by `margin`, and by `bottomMargin` at the bottom, where the hotbar and notices sit) in the
  * target's direction, with an angle for the arrow.
  */
 export function placeMarker(

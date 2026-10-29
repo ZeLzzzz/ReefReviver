@@ -138,9 +138,9 @@ test.describe("Indonesian", () => {
     await page.keyboard.up("Space");
 
     for (const [key, name] of [
-      ["Digit1", "1 Cutter"],
-      ["Digit3", "3 Seed launcher"],
-      ["Digit2", "2 Vacuum"],
+      ["Digit1", "Cutter"],
+      ["Digit3", "Seed launcher"],
+      ["Digit2", "Vacuum"],
     ]) {
       await page.keyboard.press(key);
       await expect(page.locator(".tool-name")).toHaveText(name);
@@ -175,7 +175,7 @@ test.describe("Indonesian", () => {
     });
     await expect.poll(() => reef(page, (h) => h.bloom().state), { timeout: 90_000 }).toBe("done");
     await page.keyboard.press("Digit4");
-    await expect(page.locator(".tool-name")).toHaveText("4 Scanner");
+    await expect(page.locator(".tool-name")).toHaveText("Scanner");
     const meadows = ((await reef(page, (h) => h.naturalTargets())) as Target[]).filter((t) => t.entry === "seagrass");
     meadows.sort((a, b) => b.y - a.y);
     // Floating right above the shallowest meadow, the camera above the water, looking down at it.

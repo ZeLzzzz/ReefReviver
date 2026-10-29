@@ -49,6 +49,8 @@
   "hud.depositPrompt": "Tekan E untuk menyetor sampah",
   "hud.diveEdge": "Batas area penyelaman",
   "hud.tool": "Alat",
+  "hotbar.inHand": "dipegang",
+  "hotbar.locked": "terkunci",
   "tools.vacuum": "Vacuum",
   "tools.vacuum.hint": "Tahan klik kiri untuk menyedot sampah",
   "station.name": "Gudang daur ulang",

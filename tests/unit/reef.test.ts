@@ -443,7 +443,7 @@ describe("HUD for reef work (REQ-004 AC-7, E prompt)", () => {
     s.select("seedLauncher");
     const hud = createHud("id");
     hud.update(hudState(s));
-    expect(hud.element.querySelector(".tool-name")!.textContent).toBe("3 Seed launcher");
+    expect(hud.element.querySelector(".tool-name")!.textContent).toBe("Seed launcher");
     expect(hud.element.querySelector(".tool-hint")!.textContent).toBe("Klik kiri untuk menembak bibit ke rangka atau petak lamun");
   });
 });

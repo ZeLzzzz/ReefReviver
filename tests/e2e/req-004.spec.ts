@@ -87,7 +87,7 @@ async function shootUntil(page: Page, done: () => Promise<boolean>) {
 
 async function pressDigit3(page: Page) {
   await page.keyboard.press("Digit3");
-  await expect(page.locator(".tool-name")).toHaveText("3 Seed launcher");
+  await expect(page.locator(".tool-name")).toHaveText("Seed launcher");
 }
 
 test.describe("Indonesian", () => {
@@ -317,7 +317,7 @@ test.describe("English", () => {
     await page.keyboard.press("KeyE");
     await expect(page.locator(".message-notice")).toHaveText("You need 5 materials. Deposit trash at the shed.");
     await page.keyboard.press("Digit3");
-    await expect(page.locator(".tool-name")).toHaveText("3 Seed launcher");
+    await expect(page.locator(".tool-name")).toHaveText("Seed launcher");
     await expect(page.locator(".tool-hint")).toHaveText("Left click to shoot seeds at a frame or a seagrass patch");
   });
 });

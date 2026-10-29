@@ -22,7 +22,8 @@ Game browser 3D low-poly: pemain mengemudikan kapal selam mini untuk membersihka
 - Marine Logbook (L): permainan berhenti, entri yang belum dipindai tampil sebagai siluet "???", dan entri yang terbuka berisi nama, fakta, kaitan dengan target SDG 14, serta sumbernya (tautan dibuka di tab baru). L atau Esc menutupnya.
 - Sinematik penutup (±18,5 detik), sekitar 3 detik setelah entri ketujuh: kamera terbang di atas terumbu yang pulih, kawanan ikan, pari manta, dan lumba-lumba, lalu naik ke permukaan memperlihatkan pantai, dengan kalimat "Teluk ini hidup kembali." Klik atau Spasi langsung ke layar akhir.
 - Layar akhir: setelah sinematik penutup (yang dimulai sekitar 3 detik setelah entri ketujuh terpindai), tampil ringkasan sesi (sampah terangkat, satwa diselamatkan, rangka koral dan petak lamun yang ditanami, waktu bermain, skor). Waktu bermain dihitung dari Mulai sampai entri ketujuh, tanpa waktu jeda dan saat Logbook terbuka. Main lagi memulai sesi baru dengan bahasa yang sama; Lanjut menjelajah kembali ke teluk yang sudah pulih.
-- HUD berisi tangki, bahan, skor, kebersihan teluk, alat aktif, daftar tujuan Fase 1, dan daftar tujuan Fase 2 setelah setoran pertama. Setelah Bloom, kedua daftar itu diganti tujuan Fase 3 (Pindai 0/7).
+- HUD berisi tangki, bahan, skor, kebersihan teluk, hotbar alat, daftar tujuan Fase 1, dan daftar tujuan Fase 2 setelah setoran pertama. Setelah Bloom, kedua daftar itu diganti tujuan Fase 3 (Pindai 0/7).
+- Hotbar alat (REQ-033) di tengah bawah layar: empat slot bergambar dengan angkanya (1 Cutter, 2 Vacuum, 3 Seed launcher, 4 Scanner). Alat yang dipegang berbingkai oranye, dan slotnya terisi oranye selama alat bekerja. Nama dan petunjuk alat muncul di atas hotbar saat alat berganti, saat menyelam dimulai, saat kembali masuk kapal, dan setelah jeda, lalu memudar setelah ±4 detik; selama ada pesan, keduanya menyingkir dan pesan tampil tepat di atas hotbar. Sebelum Bloom, slot Scanner redup bergembok. Di HP dan tablet hotbar ada di samping joystick, dan slotnya diketuk untuk memilih alat. Di darat dan selama sinematik hotbar disembunyikan.
 - Minimap di pojok kanan atas (utara di atas), dengan panel statistik tepat di bawahnya. Peta menampilkan seluruh teluk: daratan di barat beserta tanjungnya, garis tipis tepi area penyelaman, dan dasar laut yang makin terang di bagian yang makin dangkal (puncak bukit), lalu arah kapal selam (atau pemain saat di darat), gudang daur ulang (kotak), dermaga (garis), titik terumbu (belah ketupat), petak lamun (lingkaran), dan jaring yang masih menjerat satwa (X). Tanda titik berubah saat rangka terpasang dan saat titik ditanami. Sisa sampah baru tampil sebagai titik setelah kebersihan mencapai 70%.
 - Layar Kredit (dari layar judul): anggota tim, aset pihak ketiga, dan kode pihak ketiga beserta lisensinya. Isinya dibaca dari `CREDITS.md` saat build.
 - Suara: di bawah air terdengar gemuruh laut dan gelembung, di atas air dan di darat ombak dan angin. Setiap aksi punya efek suara (Vacuum, sampah masuk tangki, tangki penuh, memotong jaring, satwa bebas, tembakan bibit, titik tertanam, Scanner, entri Logbook baru, setor, memungut sampah, langkah di pasir dan dermaga, keluar/masuk kapal, tombol menu, Bloom). Semua efek dibuat dengan Web Audio di kode (`src/audio/`), tanpa file. Musik latar "Underwater Ambient Pad" (isaiah658, CC0) diputar berulang: teredam sebelum Bloom, lalu jernih. Suara baru mulai setelah Mulai ditekan. M mematikan/menyalakan suara; volume musik dan efek diatur di menu jeda (awal 60% dan 80%), dan kembali ke awal setelah refresh. Saat jeda, Logbook, dan layar akhir hanya musik yang terdengar, lebih pelan. Kalau musik gagal dimuat (mis. Safari yang tidak bisa memutar OGG) atau browser tidak punya Web Audio, game tetap jalan tanpa musik atau tanpa suara.
@@ -57,11 +58,11 @@ Di HP dan tablet (posisi mendatar):
 | Geser jari di separuh kanan layar | Mengarahkan kapal selam; di darat: menengok |
 | ▲ / ▼ (tahan) | Naik / turun |
 | PAKAI (tahan) | Pakai alat; menggeser jari di atasnya sekaligus mengarahkan |
-| 1–4 di samping joystick | Pilih Cutter, Vacuum, Seed launcher, Scanner |
+| Slot hotbar 1–4 di samping joystick | Pilih Cutter, Vacuum, Seed launcher, Scanner |
 | E | Sama seperti tombol E |
 | Tombol jeda, buku, dan suara di samping minimap | Jeda, buka Marine Logbook, matikan atau nyalakan suara |
 
-Di darat, ▲/▼, PAKAI, dan bilah alat disembunyikan. Selama sinematik semua tombol disembunyikan, dan ketukan di mana saja melewatinya.
+Di darat, ▲/▼, PAKAI, dan hotbar disembunyikan. Selama sinematik semua tombol disembunyikan, dan ketukan di mana saja melewatinya.
 
 ## Menjalankan
 

@@ -191,7 +191,7 @@ test.describe("Indonesian", () => {
 
     // Plant coral on it, then seagrass on a patch: the marks change again and show the check.
     await page.keyboard.press("Digit3");
-    await expect(page.locator(".tool-name")).toHaveText("3 Seed launcher");
+    await expect(page.locator(".tool-name")).toHaveText("Seed launcher");
     const s = await sites(page);
     await aimAtPoint(page, [s.frames[0].x, s.frames[0].y + 1, s.frames[0].z]);
     await shootUntil(page, async () => (await sites(page)).frames[0].fragments >= 3);

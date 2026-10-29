@@ -134,7 +134,7 @@ test.describe("Indonesian", () => {
     await startDive(page);
     await bloomNow(page);
     await page.keyboard.press("Digit4");
-    await expect(page.locator(".tool-name")).toHaveText("4 Scanner");
+    await expect(page.locator(".tool-name")).toHaveText("Scanner");
     const targets = ((await reef(page, (h) => h.naturalTargets())) as Target[]).filter((t) => t.entry === "coral");
     const near = (x: number, z: number) => targets.find((t) => Math.hypot(t.x - x, t.z - z) < 1)!;
     const hill = reefs.find((r) => r.host === "hill")!;

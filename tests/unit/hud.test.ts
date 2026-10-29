@@ -52,7 +52,7 @@ describe("HUD (REQ-002 AC-1, AC-6)", () => {
     expect(text(hud.element, ".stat-score")).toBe("Skor0");
     expect(text(hud.element, ".stat-materials")).toBe("Bahan0");
     expect(text(hud.element, ".stat-cleanliness")).toBe("Kebersihan teluk0%");
-    expect(text(hud.element, ".tool-name")).toBe("2 Vacuum");
+    expect(text(hud.element, ".tool-name")).toBe("Vacuum");
   });
 
   it("lists the Phase 1 goals when the dive starts", () => {

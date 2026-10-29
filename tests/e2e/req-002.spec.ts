@@ -48,7 +48,7 @@ test.describe("Indonesian", () => {
     await startDive(page);
     await expect(page.locator(".goal-text")).toHaveText(["Bersihkan teluk 0%/80%", "Bebaskan satwa 0/2", "Setor sampah ke gudang"]);
     await expect(page.locator(".goal.done")).toHaveCount(0);
-    await expect(page.locator(".tool-name")).toHaveText("2 Vacuum");
+    await expect(page.locator(".tool-name")).toHaveText("Vacuum");
     await expect(stat(page, "tank")).toHaveText("0/12");
     await page.screenshot({ path: "test-results/req-002-start.png" });
   });
@@ -157,7 +157,7 @@ test.describe("Indonesian", () => {
   test("key 4 does nothing yet; the pause controls list the new controls", async ({ page }) => {
     await startDive(page);
     for (const key of ["Digit4", "Digit2"]) await page.keyboard.press(key);
-    await expect(page.locator(".tool-name")).toHaveText("2 Vacuum");
+    await expect(page.locator(".tool-name")).toHaveText("Vacuum");
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Kontrol" }).click();
     const rows = await page.locator(".controls dt").evaluateAll((els) => els.map((el) => `${el.textContent} = ${el.nextElementSibling?.textContent}`));

@@ -1,6 +1,5 @@
 import { config } from "../config";
 import type { TouchInput } from "../game/input";
-import type { ToolId } from "../game/tools";
 import { t, type Lang } from "../i18n/i18n";
 import { svg } from "./minimap";
 import { h } from "./screens";
@@ -15,20 +14,12 @@ export interface TouchHud {
 
 export interface TouchControlsView {
   element: HTMLElement;
-  /** On the land there is no ▲/▼, PAKAI or tool bar (AC-3); the slot of the tool in hand is marked. */
-  update(state: { onLand: boolean; tool: ToolId }): void;
+  /** On the land there is no ▲/▼ or PAKAI (AC-3). The tools are in the HUD's hotbar (REQ-033). */
+  update(state: { onLand: boolean }): void;
   setMuted(muted: boolean): void;
   /** Where the controls are, so the station marker keeps off them. */
   rects(): DOMRect[];
 }
-
-// The tool bar's slots, the keys they stand for (D-019).
-const SLOTS: readonly { tool: ToolId; code: string; label: string }[] = [
-  { tool: "cutter", code: "Digit1", label: "1" },
-  { tool: "vacuum", code: "Digit2", label: "2" },
-  { tool: "seedLauncher", code: "Digit3", label: "3" },
-  { tool: "scanner", code: "Digit4", label: "4" },
-];
 
 /** A 24 × 24 line icon for the menu buttons. */
 function icon(...paths: string[]): SVGSVGElement {
@@ -91,8 +82,8 @@ function dragLook(input: TouchInput) {
 /**
  * REQ-030 (D-117): the touch controls over the game. A finger that lands on the left half of the picture holds the joystick,
  * which jumps under it and goes home when it is lifted; a finger on the right half steers (or looks around on the land);
- * any touch on the picture skips a cinematic. ▲/▼, E and PAKAI sit in the bottom-right corner, the tool bar next to the
- * joystick, and pause, Logbook and sound beside the minimap.
+ * any touch on the picture skips a cinematic. ▲/▼, E and PAKAI sit in the bottom-right corner, and pause, Logbook and
+ * sound beside the minimap. The tool slots are the HUD's hotbar (REQ-033), between the joystick and the buttons.
  */
 export function createTouchControls(lang: Lang, hud: TouchHud): TouchControlsView {
   const { input } = hud;
@@ -183,21 +174,13 @@ export function createTouchControls(lang: Lang, hud: TouchHud): TouchControlsVie
   hold(interact, () => input.tap("KeyE"), () => {});
   const actions = h("div", { class: "touch-actions" }, rise, dive, interact, use);
 
-  // The tool bar: a tap on a slot picks its tool, as its number key does.
-  const slots = SLOTS.map(({ tool, code, label }) => {
-    const slot = control("touch-slot", `${label} ${t(lang, `tools.${tool}`)}`, label);
-    hold(slot, () => input.tap(code), () => {});
-    return { tool, slot };
-  });
-  const tools = h("div", { class: "touch-tools", role: "group", "aria-label": t(lang, "hud.tool") }, ...slots.map(({ slot }) => slot));
-
   // The menu buttons are ordinary buttons: they open a menu, with its click sound.
   const pause = h("button", { type: "button", class: "touch-menu-button", "aria-label": t(lang, "touch.pause"), onclick: () => hud.onPause() }, icon(...PAUSE_ICON));
   const logbook = h("button", { type: "button", class: "touch-menu-button", "aria-label": t(lang, "logbook.title"), onclick: () => hud.onLogbook() }, icon(...BOOK_ICON));
   const sound = h("button", { type: "button", class: "touch-menu-button", onclick: () => hud.onMute() });
   const menu = h("div", { class: "touch-menu" }, pause, logbook, sound);
 
-  const element = h("div", { class: "touch" }, surface, stick, tools, actions, menu);
+  const element = h("div", { class: "touch" }, surface, stick, actions, menu);
   // A long press must not open the browser's menu over a held button.
   element.addEventListener("contextmenu", (event) => event.preventDefault());
 
@@ -209,22 +192,17 @@ export function createTouchControls(lang: Lang, hud: TouchHud): TouchControlsVie
   setMuted(false);
 
   let onLand: boolean | null = null;
-  let current: ToolId | null = null;
   return {
     element,
     setMuted,
     update(state) {
       if (state.onLand !== onLand) {
         onLand = state.onLand;
-        for (const part of [tools, rise, dive, use]) part.hidden = onLand;
-      }
-      if (state.tool !== current) {
-        current = state.tool;
-        for (const { tool, slot } of slots) slot.setAttribute("aria-pressed", String(tool === current));
+        for (const part of [rise, dive, use]) part.hidden = onLand;
       }
     },
     rects() {
-      return [menu, tools, rise, dive, interact, use, stick].filter((part) => !part.hidden).map((part) => part.getBoundingClientRect());
+      return [menu, rise, dive, interact, use, stick].filter((part) => !part.hidden).map((part) => part.getBoundingClientRect());
     },
   };
 }

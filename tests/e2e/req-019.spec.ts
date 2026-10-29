@@ -113,7 +113,7 @@ test.describe("Indonesian", () => {
     expect(await reef(page, (h, m) => h.fits(m.x, m.floor + 1, m.z), { x: meadow.x, z: meadow.z, floor })).toBe(true);
     // A seed that lands on the meadow plants nothing.
     await page.keyboard.press("Digit3");
-    await expect(page.locator(".tool-name")).toHaveText("3 Seed launcher");
+    await expect(page.locator(".tool-name")).toHaveText("Seed launcher");
     expect(await reef(page, (h, t) => h.aimAtPoint(t.x, t.y, t.z, 8, 2, 1), { x: meadow.x, y: floor, z: meadow.z })).toBe(true);
     await page.mouse.down();
     await page.waitForTimeout(2500);
@@ -137,7 +137,7 @@ test.describe("Indonesian", () => {
     await startDive(page);
     await bloomNow(page);
     await page.keyboard.press("Digit4");
-    await expect(page.locator(".tool-name")).toHaveText("4 Scanner");
+    await expect(page.locator(".tool-name")).toHaveText("Scanner");
     const meadow = (await meadows(page))[2];
     const aim = async () => expect(await reef(page, (h, t) => h.aimAtPoint(t.x, t.y, t.z, 9, 1.2, 1), meadow)).toBe(true);
     await aim();
@@ -159,7 +159,7 @@ test.describe("Indonesian", () => {
     await startDive(page);
     await bloomNow(page);
     await page.keyboard.press("Digit4");
-    await expect(page.locator(".tool-name")).toHaveText("4 Scanner");
+    await expect(page.locator(".tool-name")).toHaveText("Scanner");
     // Over shallow water the camera used to sit almost on top of the ship (REQ-024 lets it rise out of the water now): inside
     // any sphere the meadow's target could have, which a ray starting inside cannot hit.
     const hover = async (m: Target) => reef(page, (h, t) => h.placeRov(t.x, t.y + 0.7, t.z, Math.PI / 2, -1.0), m);

@@ -143,10 +143,10 @@ test.describe("phone, Indonesian", () => {
     await expect.poll(async () => (await hud(page)).tank, { timeout: 15_000 }).toBeGreaterThan(0);
     await touch.lift(1);
 
-    await tapButton(page, touch, ".touch-slot >> nth=0");
+    await tapButton(page, touch, ".hotbar-slot >> nth=0");
     await expect.poll(async () => (await hud(page)).tool).toBe("cutter");
-    await expect(page.locator(".touch-slot").first()).toHaveAttribute("aria-pressed", "true");
-    await tapButton(page, touch, ".touch-slot >> nth=1");
+    await expect(page.locator(".hotbar-slot").first()).toHaveAttribute("aria-pressed", "true");
+    await tapButton(page, touch, ".hotbar-slot >> nth=1");
 
     await reef(page, (h) => {
       let x = -100;
@@ -157,7 +157,7 @@ test.describe("phone, Indonesian", () => {
     await expect(page.locator(".message-prompt")).toHaveText("Ketuk E untuk naik ke darat");
     await tapButton(page, touch, ".touch-interact");
     await expect.poll(() => reef(page, (h) => h.onLand() && !h.inTransition())).toBe(true);
-    for (const hidden of [".touch-use", ".touch-rise", ".touch-dive", ".touch-tools"]) await expect(page.locator(hidden)).toBeHidden();
+    for (const hidden of [".touch-use", ".touch-rise", ".touch-dive", ".hotbar"]) await expect(page.locator(hidden)).toBeHidden();
     await expect(page.locator(".touch-interact")).toBeVisible();
 
     // The joystick walks.

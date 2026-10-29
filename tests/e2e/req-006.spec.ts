@@ -133,10 +133,10 @@ test.describe("Indonesian", () => {
     await installHelpers(page);
 
     // AC-4: key 4 gives the message and selects nothing; the Vacuum stays.
-    await expect(page.locator(".tool-name")).toHaveText("2 Vacuum");
+    await expect(page.locator(".tool-name")).toHaveText("Vacuum");
     await page.keyboard.press("Digit4");
     await expect(page.locator(".message-notice")).toHaveText("Scanner aktif setelah laut pulih");
-    await expect(page.locator(".tool-name")).toHaveText("2 Vacuum");
+    await expect(page.locator(".tool-name")).toHaveText("Vacuum");
 
     // AC-2: L opens the Logbook. The game stops, the cursor is free, the HUD and the minimap are gone.
     await expect(page.locator(".hud-minimap")).toBeVisible();
@@ -208,7 +208,7 @@ test.describe("Indonesian", () => {
 
     // Key 4 now selects the Scanner, and the goal reads "Pindai 0/7".
     await page.keyboard.press("Digit4");
-    await expect(page.locator(".tool-name")).toHaveText("4 Scanner");
+    await expect(page.locator(".tool-name")).toHaveText("Scanner");
     await expect(goals(page)).toHaveText(["Pindai 0/7"]);
 
     // AC-7: the trapped turtle gives the message and nothing is scanned, however long the aim stays.
