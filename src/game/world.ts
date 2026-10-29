@@ -29,6 +29,7 @@ import { waterAt } from "./bloom";
 import { createBeachView, type BeachView } from "./beach-model";
 import { buildPalmMesh } from "./palm-model";
 import { createLandBackdrop } from "./backdrop-model";
+import { createShipsView, type ShipsView } from "./ship-model";
 import { compactGroup, hasMesh } from "./model-utils";
 import { createSky, createSkyUniforms, sunDirection, underwaterSunDirection, type SkyUniforms, type SkyView } from "./sky";
 import { createSeaUniforms, mirrorAt, shadeSea, type SeaUniforms } from "./sea-surface";
@@ -344,6 +345,8 @@ export interface World {
   beach: BeachView;
   /** REQ-023: the sky over the bay, drawn above the water only. */
   sky: SkyView;
+  /** REQ-035: the ships passing far out at sea. */
+  ships: ShipsView;
   /** REQ-023: for the tests, the sea surface's material and what its shader mirrors of the sky. */
   sea: { material: MeshBasicMaterial; look(): { mirror: number; time: number } };
 }
@@ -365,6 +368,8 @@ export function buildWorld(scene: Scene): World {
   const crowns = addLand(scene);
   const backdrop = createLandBackdrop();
   scene.add(backdrop);
+  const ships = createShipsView();
+  scene.add(ships.group);
   const beach = createBeachView();
   scene.add(beach.group);
   const skyUniforms = createSkyUniforms();
@@ -383,6 +388,7 @@ export function buildWorld(scene: Scene): World {
     const look = waterAt(clarity);
     snow.points.visible = !above;
     backdrop.visible = above;
+    ships.group.visible = above;
     surf.visible = above;
     sky.setVisible(above);
     if (above) {
@@ -419,6 +425,7 @@ export function buildWorld(scene: Scene): World {
   return {
     beach,
     sky,
+    ships,
     sea: { material: surface, look: () => ({ mirror: seaUniforms.uMirror.value, time: skyUniforms.uTime.value }) },
     update(dt, around) {
       snow.update(dt, around);
@@ -430,6 +437,7 @@ export function buildWorld(scene: Scene): World {
         crown.rotation.z = Math.sin(phase * 0.83 + 0.6) * 0.024;
       });
       if (above) sky.update(around);
+      ships.update(dt, around, above);
     },
     setClarity(value) {
       clarity = value;

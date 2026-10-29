@@ -156,6 +156,8 @@ export class Game implements GameView {
   private openingEndListener: (() => void) | null = null;
   private lastHud: HudState | null = null;
   private sucking = false;
+  /** REQ-035: ship horns played since the page opened (for the tests). */
+  private horns = 0;
   /** REQ-026: the vacuum button was held last frame (a press on a full tank sounds the buzzer), and how far the player has walked since the last footstep. */
   private vacuumHeld = false;
   private stride = 0;
@@ -400,6 +402,10 @@ export class Game implements GameView {
         cameraPosition: () => this.camera.position.toArray(),
         // REQ-024: whether the view is above the water, how often it changed since the page loaded, and the model's height.
         view: () => ({ above: this.above, flips: this.aboveFlips, modelY: this.rovModel.position.y }),
+        // REQ-035: the ships at sea and whether they are drawn, the horns played, and a way to bring the next horn sooner.
+        ships: () => ({ visible: this.world.ships.group.visible, list: this.world.ships.shown() }),
+        horns: () => this.horns,
+        hurryHorn: (seconds: number) => this.world.ships.hurryHorn(seconds),
         // REQ-032 AC-3: how far each propeller has turned (radians; left, right).
         propellers: () => ["propeller-left", "propeller-right"].map((name) => this.rovModel.getObjectByName(name)?.rotation.z ?? null),
         inTransition: () => this.transition !== null,
@@ -559,7 +565,9 @@ export class Game implements GameView {
     this.transition = null;
     // REQ-012: every dive puts the nets, the reef sites, the seagrass patches and the trash somewhere else.
     this.dives += 1;
-    const layout = chooseLayout(TEST_SEED !== null ? TEST_SEED + this.dives : Math.floor(Math.random() * 2 ** 31));
+    const seed = TEST_SEED !== null ? TEST_SEED + this.dives : Math.floor(Math.random() * 2 ** 31);
+    const layout = chooseLayout(seed);
+    this.world.ships.reset(seed); // REQ-035 AC-4: a ship is already out at sea
     this.session = new Session(this.field.total);
     this.field.reset(layout.trashSeed);
     this.trashView.sync(this.field.items);
@@ -640,6 +648,11 @@ export class Game implements GameView {
       this.trashView.sync(this.field.items, performance.now() / 1000); // REQ-025 AC-2: the floating items bob
       this.world.update(dt, this.camera.position);
       updateRovPropellers(this.rovModel, dt, this.mode === "playing" && !this.ashore ? this.rov.velocity.length() : 0);
+      // REQ-035 AC-5: a ship's horn now and then, heard above the water only (the world counts only then).
+      if (this.world.ships.takeHorn() && this.mode === "playing") {
+        this.audio.play("shipHorn");
+        this.horns += 1;
+      }
       // The surface's light rays stay out of the cave, where only its own shaft lights the dark (REQ-014 AC-2).
       this.natureView.update(dt, this.camera.position, this.above || this.caveDark > 0.2);
     }

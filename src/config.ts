@@ -644,6 +644,29 @@ export const config = {
       climb: { fromX: -60, fromY: -5, fromZ: 30, toX: -118, toY: 11, toZ: 8, lookX: -146, lookY: 6 },
     },
   },
+  // REQ-035 (D-130, D-131): ships passing far out at sea, seen and heard above the water only. Their lanes move with the
+  // camera, as the sky does, so they always look far away and cannot be reached. A lane runs square to a line `lane` m
+  // long from the camera, pointing `bearing` degrees from north toward east (the open sea); a ship comes out of the haze
+  // at one end (`end` m from the camera, past `land.hazeFar`) and goes back into it at the other, where it is removed.
+  ships: {
+    bearing: [80, 100],
+    end: 440,
+    maxShips: 2,
+    // Seconds until the next ship, counted while there is room for one.
+    spawn: [45, 75],
+    // A new dive starts with one ship already out at sea, at most this share of the way from the middle of its lane.
+    startAlong: 0.3,
+    // A horn sounds every `interval` seconds while the camera is above the water and a ship is closer than `sight` m.
+    horn: { interval: [40, 90], sight: 390 },
+    // `length` is the model's length in metres (a big ship is far smaller than real, and as near as `lane`, so it looks like
+    // a real one a few kilometres away); `speed` is in m/s along the lane.
+    kinds: {
+      container: { weight: 0.3, length: 44, lane: [190, 230], speed: 3.8 },
+      tanker: { weight: 0.25, length: 38, lane: [190, 230], speed: 3.6 },
+      cruise: { weight: 0.2, length: 42, lane: [200, 240], speed: 4.4 },
+      fishing: { weight: 0.25, length: 8, lane: [130, 150], speed: 8 },
+    },
+  },
   hud: {
     noticeSeconds: 2.5,
     // How far from the screen edge the station marker stays, in pixels.
@@ -928,6 +951,12 @@ export const config = {
         { kind: "tone", wave: "triangle", from: 1600, dur: 0.08, at: 0.14, gain: 0.3 },
         { kind: "tone", wave: "triangle", from: 2000, dur: 0.14, at: 0.2, gain: 0.3 },
         { kind: "noise", filter: "lowpass", from: 1200, dur: 0.3, gain: 0.2 },
+      ] },
+      // REQ-035 AC-5: a ship's horn far out at sea: a low, soft tone that swells and dies away.
+      shipHorn: { gap: 20, layers: [
+        { kind: "tone", wave: "triangle", from: 104, to: 100, dur: 2.8, attack: 0.4, gain: 0.16 },
+        { kind: "tone", wave: "triangle", from: 156, to: 150, dur: 2.6, attack: 0.45, gain: 0.07 },
+        { kind: "tone", wave: "sawtooth", from: 104, to: 100, dur: 2.4, attack: 0.5, gain: 0.025 },
       ] },
       pickup: { gap: 0.1, jitter: 0.05, layers: [
         { kind: "noise", filter: "bandpass", from: 1800, q: 1, dur: 0.08, gain: 0.3 },
