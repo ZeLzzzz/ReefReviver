@@ -241,6 +241,8 @@ test.describe("phone, English", () => {
 // goals at their longest (Phase 1 and Phase 2, after the first deposit).
 for (const size of [
   { width: 640, height: 360 },
+  // REQ-034 AC-3: the user's Android, with the smaller phone HUD.
+  { width: 765, height: 360 },
   { width: 1366, height: 1024 },
 ]) {
   test.describe(`phone ${size.width}×${size.height}`, () => {

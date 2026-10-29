@@ -1,4 +1,5 @@
-/* Temporary UI styling until the artist sets the palette (DESIGN: Token). Text is at least 16 px. */
+/* Temporary UI styling until the artist sets the palette (DESIGN: Token). Text is at least 16 px, except the phone HUD
+   (13 px, REQ-034). */
 :root {
   --murk: #55695c;
   --ink: #f1f3ec;
@@ -313,7 +314,7 @@ kbd {
   white-space: nowrap;
 }
 
-/* HUD panels: semi-transparent, text at least 16 px (D-030). */
+/* HUD panels: semi-transparent, text at least 16 px (D-030); 13 px on a phone held sideways (REQ-034, D-127). */
 .hud-panel {
   position: absolute;
   display: flex;
@@ -1244,12 +1245,16 @@ html.touch {
 }
 
 /* The touch HUD: the stats move beside the minimap, with the pause, Logbook and sound buttons between them, so the bottom
-   corners are free for the joystick and the buttons. Panels are tighter, the text stays at 16 px. */
+   corners are free for the joystick and the buttons. Panels are tighter, the text stays at 16 px
+   (on a phone everything is smaller still, REQ-034, at the end of this section). */
 .touch-hud {
   --map-size: clamp(96px, 28vh, 200px);
   --stick: 112px;
+  --knob: 52px;
   --use: 84px;
   --pad: 52px;
+  --act: 56px;
+  --menu: 44px;
 }
 
 .touch-hud .hud-panel:not(.hud-minimap) {
@@ -1259,7 +1264,7 @@ html.touch {
 
 .touch-hud .hud-stats {
   top: 16px;
-  right: calc(16px + var(--map-size) + 10px + 8px + 44px + 8px);
+  right: calc(16px + var(--map-size) + 10px + 8px + var(--menu) + 8px);
   min-width: 0;
   width: 176px;
 }
@@ -1355,9 +1360,9 @@ html.touch {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 52px;
-  height: 52px;
-  margin: -26px 0 0 -26px;
+  width: var(--knob);
+  height: var(--knob);
+  margin: calc(var(--knob) / -2) 0 0 calc(var(--knob) / -2);
   border-radius: 50%;
   background: rgba(241, 243, 236, 0.6);
 }
@@ -1396,10 +1401,10 @@ html.touch {
 }
 
 .touch-interact {
-  right: calc(16px + (var(--use) - 56px) / 2);
+  right: calc(16px + (var(--use) - var(--act)) / 2);
   bottom: calc(16px + var(--use) + 10px);
-  width: 56px;
-  height: 56px;
+  width: var(--act);
+  height: var(--act);
   font-size: 20px;
 }
 
@@ -1430,8 +1435,8 @@ html.touch {
 .touch-menu-button {
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
+  width: var(--menu);
+  height: var(--menu);
 }
 
 .touch-icon {
@@ -1442,6 +1447,97 @@ html.touch {
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+/* REQ-034 (D-127): on a phone held sideways (a touch screen at most 480 px high) the HUD is about a fifth smaller: 13 px
+   text, tighter panels, and smaller buttons and minimap, so more of the sea shows. Tablets keep the sizes above. */
+@media (max-height: 480px) {
+  .touch-hud {
+    --map-size: clamp(84px, 26vh, 200px);
+    --stick: 96px;
+    --knob: 44px;
+    --use: 68px;
+    --pad: 44px;
+    --act: 46px;
+    --menu: 36px;
+    font-size: 13px;
+  }
+
+  .touch-hud .hud-panel:not(.hud-minimap) {
+    padding: 6px 10px;
+    gap: 2px;
+    border-radius: 8px;
+  }
+
+  .touch-hud .hud-panel h2 {
+    font-size: 13px;
+  }
+
+  .touch-hud .goal {
+    gap: 6px;
+  }
+
+  .touch-hud .goal-list {
+    gap: 2px;
+  }
+
+  /* "Kebersihan teluk" or "Bay cleanliness" and a four-digit number on one line (AC-4). */
+  .touch-hud .hud-stats {
+    width: 162px;
+  }
+
+  .touch-hud .stat-label {
+    white-space: nowrap;
+  }
+
+  .touch-hud .hud-goals {
+    max-width: min(260px, calc(100vw - var(--map-size) - var(--menu) - 162px - 82px));
+  }
+
+  .touch-hud .touch-menu {
+    gap: 4px;
+  }
+
+  .touch-hud .touch-icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .touch-hud .touch-interact {
+    font-size: 17px;
+  }
+
+  .touch-hud .message {
+    padding: 6px 12px;
+  }
+
+  .touch-hud .hotbar {
+    --slot: 40px;
+  }
+
+  .touch-hud .hotbar-slots {
+    gap: 4px;
+    padding: 4px;
+  }
+
+  .touch-hud .hotbar-slot.held {
+    border-width: 3px;
+  }
+
+  .touch-hud .hotbar-key {
+    top: 0;
+    left: 3px;
+    font-size: 12px;
+  }
+
+  .touch-hud .hotbar-lock {
+    width: 15px;
+    height: 15px;
+  }
+
+  .touch-hud .hotbar-caption {
+    padding: 4px 10px;
+  }
 }
 
 /* REQ-030 AC-6: held upright, a message covers everything until the device is turned sideways. */
