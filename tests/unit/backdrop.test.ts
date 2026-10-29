@@ -87,7 +87,8 @@ describe("the coast's inland backdrop", () => {
     });
     expect(trees).toBe(forestTrees.length);
     expect(meshes).toBeLessThanOrEqual(30);
-    expect(triangles).toBeLessThan(250_000);
+    // D-125: six-sided crowns, so the forest reads as large facets like the cliffs (Codex's had 191,100).
+    expect(triangles).toBeLessThan(120_000);
   });
 
   it("shows the backdrop above water and culls it again when diving, before and after Bloom", () => {

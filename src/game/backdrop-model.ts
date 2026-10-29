@@ -19,7 +19,10 @@ function painted(geometry: BufferGeometry, color: Color): BufferGeometry {
   return geometry;
 }
 
-/** Flattened, scalloped crowns and visible forked branches, in a one-metre tree that instances scale up. */
+/**
+ * Flattened, scalloped crowns and visible forked branches, in a one-metre tree that instances scale up. The crowns
+ * are six-sided with one colour per facet, so from the beach they read as large facets like the cliffs.
+ */
 function treeGeometry(variant: number): BufferGeometry {
   const parts: BufferGeometry[] = [];
   const bark = new Color(0x66533b);
@@ -28,16 +31,17 @@ function treeGeometry(variant: number): BufferGeometry {
     const geometry = new CylinderGeometry(radius * 0.48, radius, direction.length(), 5);
     geometry.applyQuaternion(new Quaternion().setFromUnitVectors(UP, direction.normalize()));
     geometry.translate((a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2);
-    parts.push(painted(geometry, bark));
+    // The crowns carry one colour per facet, so every part is merged unindexed.
+    parts.push(painted(geometry.toNonIndexed(), bark));
   };
   const dark = new Color(0x304c31), light = new Color(0x789953);
   const shade = new Color();
   const crown = (cx: number, cy: number, cz: number, radius: number, height: number, phase: number) => {
-    const geometry = new BufferGeometry();
+    const indexed = new BufferGeometry();
     const points: number[] = [], colors: number[] = [], indices: number[] = [];
-    const sides = 12;
-    const widths = [0.38, 0.96, 1, 0.67, 0.06];
-    const levels = [0, 0.18, 0.42, 0.8, 1];
+    const sides = 6;
+    const widths = [0.4, 1, 0.62, 0.06];
+    const levels = [0, 0.28, 0.75, 1];
     for (let ring = 0; ring < widths.length; ring++) {
       for (let side = 0; side < sides; side++) {
         const angle = side * Math.PI * 2 / sides;
@@ -60,9 +64,18 @@ function treeGeometry(variant: number): BufferGeometry {
       const top = (widths.length - 1) * sides;
       indices.push(top, top + side + 1, top + side);
     }
-    geometry.setAttribute("position", new Float32BufferAttribute(points, 3));
-    geometry.setAttribute("color", new Float32BufferAttribute(colors, 3));
-    geometry.setIndex(indices);
+    indexed.setAttribute("position", new Float32BufferAttribute(points, 3));
+    indexed.setAttribute("color", new Float32BufferAttribute(colors, 3));
+    indexed.setIndex(indices);
+    const geometry = indexed.toNonIndexed();
+    indexed.dispose();
+    const faceColors = geometry.getAttribute("color");
+    for (let i = 0; i < faceColors.count; i += 3) {
+      for (let channel = 0; channel < 3; channel++) {
+        const mean = (faceColors.getComponent(i, channel) + faceColors.getComponent(i + 1, channel) + faceColors.getComponent(i + 2, channel)) / 3;
+        for (let corner = i; corner < i + 3; corner++) faceColors.setComponent(corner, channel, mean);
+      }
+    }
     geometry.computeVertexNormals();
     parts.push(geometry);
   };

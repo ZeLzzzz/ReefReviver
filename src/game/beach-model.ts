@@ -43,9 +43,10 @@ export function beachGeometry(kind: BeachKind): BufferGeometry {
     triangle(c, b, d, colour);
   };
 
+  // Few, large facets like the rest of the bay (D-125): 8 sides and 2 rings for the scallop and clam, a five-sided spiral.
   if (kind === "scallop") {
-    const sides = 24;
-    const rings = 5;
+    const sides = 8;
+    const rings = 2;
     const point = (ring: number, side: number) => {
       const r = ring / rings;
       const angle = -1.35 + 2.7 * side / sides;
@@ -57,7 +58,7 @@ export function beachGeometry(kind: BeachKind): BufferGeometry {
     };
     for (let ring = 0; ring < rings; ring++) {
       for (let side = 0; side < sides; side++) {
-        shade.copy(ivory).lerp(groove, (side % 2 ? 0.08 : 0.29) + (ring === 3 ? 0.14 : 0));
+        shade.copy(ivory).lerp(groove, (side % 2 ? 0.08 : 0.29) + (ring === rings - 1 ? 0.14 : 0));
         if (ring === 0) triangle(point(0, 0), point(1, side + 1), point(1, side), shade);
         else quad(point(ring, side), point(ring + 1, side), point(ring, side + 1), point(ring + 1, side + 1), shade);
       }
@@ -65,8 +66,8 @@ export function beachGeometry(kind: BeachKind): BufferGeometry {
     triangle(new Vector3(-0.14, 0.016, -0.35), new Vector3(-0.1, 0.018, -0.2), new Vector3(0, 0.024, -0.34), pink);
     triangle(new Vector3(0, 0.024, -0.34), new Vector3(0.1, 0.018, -0.2), new Vector3(0.14, 0.016, -0.35), ivory);
   } else if (kind === "clam") {
-    const sides = 20;
-    const rings = 5;
+    const sides = 8;
+    const rings = 2;
     const point = (ring: number, side: number) => {
       const r = ring / rings;
       const angle = side * Math.PI * 2 / sides;
@@ -80,8 +81,8 @@ export function beachGeometry(kind: BeachKind): BufferGeometry {
       else quad(point(ring, side), point(ring + 1, side), point(ring, side + 1), point(ring + 1, side + 1), shade);
     }
   } else if (kind === "spiral") {
-    const steps = 26;
-    const sides = 8;
+    const steps = 12;
+    const sides = 5;
     const point = (step: number, side: number, inset = 0) => {
       const t = step / steps;
       const angle = t * Math.PI * 4.5;

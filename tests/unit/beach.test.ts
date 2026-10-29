@@ -1,7 +1,7 @@
 import { Box3, InstancedMesh, Matrix4, Mesh, Raycaster, Scene, Vector3 } from "three";
 import { describe, expect, it } from "vitest";
 import { config } from "../../src/config";
-import { beachItems, beachItemsClearOf, generateBeachItems } from "../../src/game/beach";
+import { beachItems, beachItemsClearOf, generateBeachItems, type BeachItem } from "../../src/game/beach";
 import { beachGeometry, createBeachView } from "../../src/game/beach-model";
 import { buildPalmMesh } from "../../src/game/palm-model";
 import { createWalker, insideShed, onDock, standable, stepWalker } from "../../src/game/land";
@@ -99,6 +99,18 @@ describe("the sandy beach", () => {
     }
   });
 
+  it("keeps the shells and coconuts low-poly like the rest of the bay (D-125)", () => {
+    const triangles = (kind: BeachItem["kind"]) => {
+      const geometry = beachGeometry(kind);
+      return (geometry.index?.count ?? geometry.getAttribute("position").count) / 3;
+    };
+    for (const kind of ["scallop", "clam", "spiral", "fragment", "coconut", "green-coconut"] as const) {
+      expect(triangles(kind), kind).toBeLessThanOrEqual(150);
+    }
+    // Codex's smooth shells came to 169,310 for the whole beach.
+    expect(beachItems.reduce((sum, item) => sum + triangles(item.kind), 0)).toBeLessThan(40_000);
+  });
+
   it("removes the grass and keeps coastal props through the Bloom and world updates", () => {
     const scene = new Scene();
     const world = buildWorld(scene);
@@ -135,7 +147,8 @@ describe("the redesigned coconut palms", () => {
         triangles += (node.geometry.index?.count ?? node.geometry.getAttribute("position").count) / 3;
       });
       expect(meshes).toBeLessThanOrEqual(3);
-      expect(triangles).toBeLessThan(7000);
+      // D-125: low-poly like the rest of the bay (Codex's feathered palm had 4,596).
+      expect(triangles).toBeLessThan(2000);
     }
   });
 });
