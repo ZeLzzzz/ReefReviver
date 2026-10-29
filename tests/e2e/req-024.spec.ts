@@ -32,7 +32,7 @@ async function openWater(page: Page, y = -6) {
 test.describe("Indonesian", () => {
   test.use({ locale: "id-ID" });
 
-  test("holding Space brings the submarine to the surface, where it floats with its dome above the water and bobs, and goes no higher (AC-1, AC-2)", async ({ page }) => {
+  test("holding Space brings the submarine to the surface, where it floats with its deck above the water and bobs, and goes no higher (AC-1, AC-2; REQ-032 AC-4)", async ({ page }) => {
     test.setTimeout(120_000);
     await startDive(page);
     await openWater(page);
@@ -49,8 +49,8 @@ test.describe("Indonesian", () => {
       expect(y).toBeGreaterThan(FLOAT_Y - 0.01);
       const { modelY } = await view(page);
       models.push(modelY);
-      // The dome's base is 0.5 m over the model's origin: above the water at every moment of the bobbing.
-      expect(modelY + 0.5).toBeGreaterThan(bay.surfaceY);
+      // The deck hatch is over 0.4 m above the origin, clear of the water throughout the bobbing.
+      expect(modelY + 0.4).toBeGreaterThan(bay.surfaceY);
       expect(modelY).toBeLessThan(bay.surfaceY + 0.2);
       await page.waitForTimeout(250);
     }

@@ -131,18 +131,15 @@ describe("the minimap on foot (REQ-015 AC-6)", () => {
   });
 });
 
-describe("the crewed mini submarine (REQ-015 AC-7, D-070, D-082)", () => {
-  it("has a glass cockpit dome with a pilot inside", () => {
+describe("the mini submarine (REQ-015 AC-7, REQ-032 AC-1, D-123)", () => {
+  it("has an opaque deck hatch without a cockpit dome or visible pilot", () => {
     const model = buildRovMesh();
-    const dome = model.getObjectByName("cockpit-dome") as Mesh;
-    const pilot = model.getObjectByName("pilot") as Mesh;
-    expect(dome).toBeInstanceOf(Mesh);
-    expect(pilot).toBeInstanceOf(Mesh);
-    const glass = dome.material as MeshStandardMaterial;
-    expect(glass.transparent).toBe(true);
-    expect(glass.opacity).toBeLessThan(0.6);
-    // The pilot sits inside the dome, under its top.
-    expect(pilot.position.distanceTo(dome.position)).toBeLessThan(0.34);
+    const hatch = model.getObjectByName("deck-hatch") as Mesh;
+    expect(hatch).toBeInstanceOf(Mesh);
+    expect(model.getObjectByName("cockpit-dome")).toBeUndefined();
+    expect(model.getObjectByName("pilot")).toBeUndefined();
+    expect(model.getObjectByName("pilot-suit")).toBeUndefined();
+    expect((hatch.material as MeshStandardMaterial).transparent).toBe(false);
   });
 
   it("is never called ROV in the game's texts, in either language", () => {

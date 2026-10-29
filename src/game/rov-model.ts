@@ -1,131 +1,147 @@
 import {
-  BoxGeometry,
-  ConeGeometry,
-  CylinderGeometry,
-  Group,
-  Mesh,
-  MeshStandardMaterial,
-  Object3D,
-  SphereGeometry,
-  SpotLight,
-  TorusGeometry,
+  BoxGeometry, CylinderGeometry, DoubleSide, Group, LatheGeometry, Mesh, MeshStandardMaterial, Object3D,
+  SphereGeometry, SpotLight, TorusGeometry, Vector2, Vector3, type BufferGeometry,
 } from "three";
 import { assets } from "../assets";
 import { compactGroup, hasMesh } from "./model-utils";
 
 /**
- * Low-poly mini submarine facing +Z (D-022, D-029, D-070). Built so the rear thrusters, top buoyancy hull, the
- * glass cockpit with its pilot (D-082), landing skids, viewport dome and tool bay read clearly from the third-person
- * camera. In the code it is still called the ROV.
+ * Low-poly mini submarine facing +Z (D-022, D-029, D-070): a closed round hull with a deck hatch instead of a cockpit
+ * (D-123), side buoyancy tanks, two rear ducted thrusters whose propellers spin with the speed, landing skids and the
+ * three tools at the front. It keeps the old vehicle's footprint, and its few large facets (at most 10 sides, no
+ * part thinner than ±2 cm) match the rest of the world. In the code it is still called the ROV.
  */
 export function buildRovMesh(): Group {
-  const hull = new MeshStandardMaterial({ color: 0xf2b134, flatShading: true, roughness: 0.55 });
-  const accent = new MeshStandardMaterial({ color: 0xe06d1a, flatShading: true, roughness: 0.6 });
-  const frame = new MeshStandardMaterial({ color: 0x2f3a40, flatShading: true, roughness: 0.85 });
-  const steel = new MeshStandardMaterial({ color: 0x647580, flatShading: true, roughness: 0.5, metalness: 0.35 });
-  const lens = new MeshStandardMaterial({ color: 0x9fd3e6, emissive: 0x1d3c48, flatShading: true, roughness: 0.25 });
-  const lamp = new MeshStandardMaterial({ color: 0xfff4d6, emissive: 0xfff4d6, emissiveIntensity: 1.5, flatShading: true });
-  const strobe = new MeshStandardMaterial({ color: 0x6ff2ff, emissive: 0x2ab8cc, flatShading: true });
-  const cutterTip = new MeshStandardMaterial({ color: 0xff2d95, emissive: 0x7a1044, flatShading: true });
-
+  const matte = (color: number, roughness = 0.85, metalness = 0.05) =>
+    new MeshStandardMaterial({ color, roughness, metalness, flatShading: true });
+  const yellow = matte(0xe9b746, 0.8), teal = matte(0x315d5a);
+  const rubber = matte(0x25363b, 0.95), steel = matte(0x879894, 0.6, 0.3);
+  const orange = matte(0xc87842);
+  const pipeInside = matte(0x172d32, 0.95);
+  pipeInside.side = DoubleSide;
+  const lamp = matte(0xffedbd, 0.25);
+  lamp.emissive.setHex(0xffe0a1);
+  lamp.emissiveIntensity = 1.2;
+  const display = matte(0x7bc7c5, 0.3);
+  display.emissive.setHex(0x245c61);
+  display.emissiveIntensity = 0.5;
+  const cutter = matte(0xd65678);
+  cutter.emissive.setHex(0x691d40);
   const model = new Group();
   model.name = "rov";
-  const add = (mesh: Mesh, x: number, y: number, z: number, rx = 0, ry = 0, rz = 0) => {
+  const add = (geometry: BufferGeometry, material: MeshStandardMaterial, x: number, y: number, z: number, parent: Object3D = model) => {
+    const mesh = new Mesh(geometry, material);
     mesh.position.set(x, y, z);
-    mesh.rotation.set(rx, ry, rz);
-    model.add(mesh);
+    parent.add(mesh);
     return mesh;
   };
-
-  // Main syntactic foam hull and bevelled top canopy.
-  add(new Mesh(new BoxGeometry(0.96, 0.42, 1.36), hull), 0, 0.12, 0.02);
-  const canopy = new CylinderGeometry(0.34, 0.48, 1.24, 6);
-  canopy.rotateX(Math.PI / 2);
-  canopy.scale(1.05, 0.45, 1);
-  add(new Mesh(canopy, hull), 0, 0.34, 0.0);
-
-  // Vertical dorsal thruster tunnel and top grab handle.
-  add(new Mesh(new CylinderGeometry(0.18, 0.18, 0.48, 8), frame), 0, 0.16, -0.02);
-  add(new Mesh(new CylinderGeometry(0.13, 0.13, 0.5, 8), steel), 0, 0.16, -0.02);
-  add(new Mesh(new BoxGeometry(0.46, 0.05, 0.06), frame), 0, 0.46, -0.32);
-  for (const side of [-1, 1]) {
-    add(new Mesh(new BoxGeometry(0.05, 0.14, 0.06), frame), side * 0.2, 0.39, -0.32);
+  const box = (w: number, h: number, d: number, material: MeshStandardMaterial, x: number, y: number, z: number, parent: Object3D = model) =>
+    add(new BoxGeometry(w, h, d), material, x, y, z, parent);
+  const oval = (rx: number, ry: number, rz: number, material: MeshStandardMaterial, x: number, y: number, z: number) => {
+    const mesh = add(new SphereGeometry(1, 8, 6), material, x, y, z);
+    mesh.scale.set(rx, ry, rz);
+    return mesh;
+  };
+  const tube = (from: Vector3, to: Vector3, radius: number, material: MeshStandardMaterial, parent: Object3D = model) => {
+    const direction = to.clone().sub(from), center = from.clone().add(to).multiplyScalar(0.5);
+    const mesh = add(new CylinderGeometry(radius, radius, direction.length(), 6), material, center.x, center.y, center.z, parent);
+    mesh.quaternion.setFromUnitVectors(new Vector3(0, 1, 0), direction.normalize());
+  };
+  // Rings around the Z axis, with their 8 corners where the tanks' and ducts' corners are.
+  const ring = (radius: number, thickness: number, material: MeshStandardMaterial, x: number, y: number, z: number) =>
+    add(new TorusGeometry(radius, thickness, 4, 8), material, x, y, z);
+  const barrel = (radius: number, length: number, material: MeshStandardMaterial, x: number, y: number, z: number, open = false) => {
+    const geometry = new CylinderGeometry(radius, radius, length, 8, 1, open);
+    geometry.rotateX(Math.PI / 2);
+    return add(geometry, material, x, y, z);
+  };
+  // The hull: a yellow upper half over a dark teal belly.
+  for (const [theta, height, rings, material] of [[0, 0.41, 4, yellow], [Math.PI / 2, 0.29, 3, teal]] as const) {
+    const shell = new SphereGeometry(1, 10, rings, 0, Math.PI * 2, theta, Math.PI / 2);
+    shell.scale(0.49, height, 0.8);
+    add(shell, material, 0, 0.04, 0.02);
   }
 
-  // Rear telemetry beacon. (A crewed submarine has no tether, so there is no umbilical boot.)
-  add(new Mesh(new SphereGeometry(0.07, 6, 5), strobe), 0, 0.42, -0.52);
+  const hatch = add(new CylinderGeometry(0.18, 0.205, 0.065, 8), teal, 0, 0.432, 0.03);
+  hatch.scale.z = 1.25;
+  hatch.name = "deck-hatch";
+  for (const side of [-1, 1]) box(0.03, 0.03, 0.03, steel, side * 0.075, 0.478, 0.03);
+  box(0.18, 0.03, 0.03, steel, 0, 0.5, 0.03);
 
-  // D-082: the glass cockpit dome on top of the hull, with the pilot's head and shoulders inside, so it reads as crewed.
-  const pilot = new Mesh(new SphereGeometry(0.11, 8, 6), new MeshStandardMaterial({ color: 0x2b3440, flatShading: true, roughness: 0.7 }));
-  pilot.name = "pilot";
-  add(pilot, 0, 0.66, 0.16);
-  const shoulders = new Mesh(new SphereGeometry(0.16, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2), new MeshStandardMaterial({ color: 0xe06d1a, flatShading: true, roughness: 0.7 }));
-  shoulders.name = "pilot-suit";
-  add(shoulders, 0, 0.5, 0.16);
-  const glass = new MeshStandardMaterial({ color: 0xbfe8f5, transparent: true, opacity: 0.38, roughness: 0.08, metalness: 0.2, depthWrite: false });
-  const dome = new Mesh(new SphereGeometry(0.34, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), glass);
-  dome.name = "cockpit-dome";
-  add(dome, 0, 0.5, 0.16);
+  const vent = new Group();
+  vent.position.set(0, 0.377, -0.43);
+  vent.rotation.x = -0.34;
+  model.add(vent);
+  add(new CylinderGeometry(0.15, 0.16, 0.025, 8), rubber, 0, 0, 0, vent).scale.z = 1.25;
+  for (let i = 0; i < 3; i++) box(0.18, 0.025, 0.035, steel, 0, 0.02, (i - 1) * 0.08, vent);
+  const beacon = oval(0.042, 0.022, 0.05, display, 0, 0.291, -0.61);
+  beacon.rotation.x = -0.8;
 
-  // Lower equipment chassis tray.
-  add(new Mesh(new BoxGeometry(1.12, 0.08, 1.48), frame), 0, -0.16, 0);
-
-  // Side buoyancy sponsons, landing skids, rear ducted thrusters and forward LED pods.
-  const sponsonGeo = new CylinderGeometry(0.16, 0.18, 1.38, 6);
-  sponsonGeo.rotateX(Math.PI / 2);
-  const bandGeo = new CylinderGeometry(0.185, 0.185, 0.14, 6);
-  bandGeo.rotateX(Math.PI / 2);
-  const shroudGeo = new CylinderGeometry(0.2, 0.22, 0.36, 8);
-  shroudGeo.rotateX(Math.PI / 2);
-  const ringGeo = new TorusGeometry(0.2, 0.025, 6, 8);
-
+  const ductProfile = [[0.18, -0.14], [0.205, -0.11], [0.205, 0.11], [0.18, 0.14], [0.15, 0.12], [0.15, -0.12], [0.18, -0.14]];
   for (const side of [-1, 1]) {
-    // Side sponson with orange hazard bands.
-    add(new Mesh(sponsonGeo, hull), side * 0.52, 0.16, 0.02);
-    add(new Mesh(bandGeo, accent), side * 0.52, 0.16, 0.42);
-    add(new Mesh(bandGeo, accent), side * 0.52, 0.16, -0.36);
-
-    // Bottom landing skid runner and vertical struts.
-    add(new Mesh(new BoxGeometry(0.1, 0.09, 1.54), frame), side * 0.46, -0.34, 0);
-    add(new Mesh(new BoxGeometry(0.1, 0.08, 0.22), accent), side * 0.46, -0.31, 0.82, -0.35, 0, 0);
-    add(new Mesh(new BoxGeometry(0.08, 0.18, 0.1), frame), side * 0.46, -0.25, 0.46);
-    add(new Mesh(new BoxGeometry(0.08, 0.18, 0.1), frame), side * 0.46, -0.25, -0.46);
-
-    // Rear ducted thruster with hub and rotor blades.
-    add(new Mesh( new BoxGeometry(0.16, 0.08, 0.14), frame), side * 0.56, 0.04, -0.42);
-    add(new Mesh(shroudGeo, frame), side * 0.68, 0.04, -0.48);
-    add(new Mesh(ringGeo, accent), side * 0.68, 0.04, -0.66);
-    add(new Mesh(new ConeGeometry(0.065, 0.24, 6), steel), side * 0.68, 0.04, -0.5, -Math.PI / 2, 0, 0);
-    for (let b = 0; b < 4; b++) {
-      const angle = (b * Math.PI) / 2 + 0.4;
-      add(
-        new Mesh(new BoxGeometry(0.16, 0.025, 0.07), steel),
-        side * 0.68 + Math.cos(angle) * 0.08,
-        0.04 + Math.sin(angle) * 0.08,
-        -0.48,
-        0.35,
-        0,
-        angle,
-      );
+    // A side tank, its ends pointing fore and aft.
+    const tank = new SphereGeometry(1, 8, 6);
+    tank.rotateX(Math.PI / 2);
+    tank.scale(0.145, 0.185, 0.63);
+    add(tank, yellow, side * 0.55, 0.04, -0.03);
+    for (const z of [-0.3, 0.28]) {
+      ring(0.15, 0.025, teal, side * 0.55, 0.04, z).scale.y = 1.18;
+      box(0.15, 0.05, 0.09, steel, side * 0.46, 0.07, z);
     }
-
-    // Forward LED floodlight housing and glowing lens.
-    add(new Mesh(new BoxGeometry(0.18, 0.13, 0.14), frame), side * 0.36, 0.29, 0.7);
-    add(new Mesh(new BoxGeometry(0.14, 0.09, 0.04), lamp), side * 0.36, 0.29, 0.77);
+    tube(new Vector3(side * 0.42, -0.08, -0.37), new Vector3(side * 0.45, -0.34, -0.4), 0.031, steel);
+    tube(new Vector3(side * 0.42, -0.08, 0.37), new Vector3(side * 0.45, -0.34, 0.4), 0.031, steel);
+    tube(new Vector3(side * 0.45, -0.35, -0.62), new Vector3(side * 0.45, -0.35, 0.58), 0.043, rubber);
+    tube(new Vector3(side * 0.45, -0.35, 0.58), new Vector3(side * 0.45, -0.25, 0.75), 0.043, rubber);
+    oval(0.045, 0.045, 0.045, rubber, side * 0.45, -0.35, -0.62);
+    box(0.17, 0.08, 0.15, teal, side * 0.5, -0.01, -0.48);
+    const duct = new LatheGeometry(ductProfile.map(([r, z]) => new Vector2(r, z)), 8);
+    duct.rotateX(Math.PI / 2);
+    add(duct, rubber, side * 0.59, 0, -0.62);
+    ring(0.19, 0.03, yellow, side * 0.59, 0, -0.76);
+    const rotor = new Group();
+    rotor.name = side < 0 ? "propeller-left" : "propeller-right";
+    rotor.position.set(side * 0.59, 0, -0.65);
+    model.add(rotor);
+    add(new SphereGeometry(0.05, 6, 4), steel, 0, 0, 0, rotor).scale.z = 1.4;
+    for (let i = 0; i < 3; i++) {
+      const angle = i * Math.PI * 2 / 3;
+      box(0.12, 0.06, 0.02, steel, Math.cos(angle) * 0.085, Math.sin(angle) * 0.085, 0, rotor).rotation.set(0.35, side * 0.4, angle);
+    }
+    for (let i = 0; i < 3; i++) {
+      const angle = i * Math.PI * 2 / 3;
+      tube(new Vector3(side * 0.59, 0, -0.72), new Vector3(side * 0.59 + Math.cos(angle) * 0.15, Math.sin(angle) * 0.15, -0.72), 0.02, teal);
+    }
+    barrel(0.1, 0.12, teal, side * 0.34, 0.15, 0.64);
+    oval(0.075, 0.075, 0.024, lamp, side * 0.34, 0.15, 0.7);
+    box(0.03, 0.1, 0.26, teal, side * 0.7, 0.06, -0.03).rotation.z = side * -0.1;
   }
-
-  // Front acrylic camera dome, bezel ring and internal lens.
-  add(new Mesh(new TorusGeometry(0.24, 0.035, 6, 10), frame), 0, 0.06, 0.68);
-  add(new Mesh(new CylinderGeometry(0.09, 0.11, 0.14, 8), steel), 0, 0.06, 0.68, Math.PI / 2, 0, 0);
-  add(new Mesh(new SphereGeometry(0.23, 10, 8), lens), 0, 0.06, 0.72);
-
-  // Lower multi-tool manifold: vacuum intake (centre), cutter emitter (left), seed tube (right).
-  add(new Mesh(new CylinderGeometry(0.13, 0.08, 0.26, 8), steel), 0, -0.24, 0.74, Math.PI / 2, 0, 0);
-  add(new Mesh(new CylinderGeometry(0.045, 0.055, 0.28, 6), steel), -0.3, -0.22, 0.74, Math.PI / 2, 0, 0);
-  add(new Mesh(new SphereGeometry(0.045, 6, 4), cutterTip), -0.3, -0.22, 0.88);
-  add(new Mesh(new CylinderGeometry(0.065, 0.075, 0.28, 6), accent), 0.3, -0.22, 0.74, Math.PI / 2, 0, 0);
-
+  barrel(0.11, 0.05, rubber, 0, 0.07, 0.8);
+  oval(0.085, 0.085, 0.036, display, 0, 0.07, 0.825);
+  box(0.49, 0.09, 0.19, teal, 0, -0.19, 0.61);
+  // The tools, as seen from behind: the Vacuum's intake in the middle, the Cutter on the right (-X) and the Seed
+  // launcher's tube on the left.
+  barrel(0.102, 0.21, steel, 0, -0.2, 0.77, true);
+  barrel(0.086, 0.19, pipeInside, 0, -0.2, 0.77, true);
+  ring(0.104, 0.025, rubber, 0, -0.2, 0.88);
+  barrel(0.086, 0.02, rubber, 0, -0.2, 0.69);
+  barrel(0.04, 0.22, steel, -0.23, -0.19, 0.75);
+  oval(0.036, 0.036, 0.02, cutter, -0.23, -0.19, 0.87);
+  barrel(0.055, 0.22, orange, 0.23, -0.19, 0.75, true);
+  barrel(0.042, 0.21, pipeInside, 0.23, -0.19, 0.75, true);
   return compactGroup(model);
+}
+
+const rotors = new WeakMap<Object3D, (Object3D | undefined)[]>();
+
+/** Named rotor groups survive GLB export; cache them once for either loaded or procedural models. */
+export function updateRovPropellers(model: Object3D, dt: number, speed: number): void {
+  let pair = rotors.get(model);
+  if (!pair) {
+    pair = [model.getObjectByName("propeller-left"), model.getObjectByName("propeller-right")];
+    rotors.set(model, pair);
+  }
+  const turn = dt * (speed > 0.05 ? 5 + Math.min(speed, 6) * 3 : 0);
+  pair.forEach((rotor, i) => { if (rotor) rotor.rotation.z = (rotor.rotation.z + turn * (i ? -1 : 1)) % (Math.PI * 2); });
 }
 
 /** Sets how bright the model's headlight is, 0 (off) to `full` (the lamp at full power). */
@@ -134,7 +150,7 @@ export function setHeadlight(model: Object3D, level: number, full: number): void
   if (light instanceof SpotLight) light.intensity = full * level;
 }
 
-/** The submarine's model with its forward headlight; uses the loaded GLB from `assets` when available (D-022). */
+/** The loaded GLB, or the procedural sub, with its cave headlight attached at runtime. */
 export function createRovModel(): Group {
   const loaded = assets.model("rov");
   const model = new Group();
@@ -147,6 +163,5 @@ export function createRovModel(): Group {
   target.position.set(0, -1.5, 8);
   light.target = target;
   model.add(light, target);
-
   return model;
 }

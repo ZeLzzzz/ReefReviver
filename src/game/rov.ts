@@ -56,7 +56,7 @@ export function stepRov(state: RovState, input: MoveInput, dt: number): void {
   constrainRov(state.position, state.velocity);
 }
 
-/** The ROV's limits (`constrainToBay`), with the surface letting it float with its dome out of the water (REQ-024 AC-1, AC-2). */
+/** The ROV's limits (`constrainToBay`), with the surface letting it float with its deck out of the water (REQ-024 AC-1, AC-2). */
 export function constrainRov(position: Vector3, velocity: Vector3): void {
   constrainToBay(position, velocity, rov.radius, rov.floatDepth);
 }

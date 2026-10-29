@@ -35,7 +35,7 @@ import { SeaLife } from "./sea-life";
 import { createSeaLifeView } from "./sea-life-model";
 import { naturalTargets } from "./nature";
 import { createNatureView } from "./nature-model";
-import { createRovModel, setHeadlight } from "./rov-model";
+import { createRovModel, setHeadlight, updateRovPropellers } from "./rov-model";
 import { FLOAT_Y, constrainRov, createRovState, rightVector, steer, stepRov, surfaceBob, type Bob, type RovState } from "./rov";
 import { ashoreSpot, canBoard, createWalker, eyePosition, lookWalker, onDock, standable, stepWalker, type AshoreSpot, type Walker } from "./land";
 import { Rescue } from "./rescue";
@@ -400,6 +400,8 @@ export class Game implements GameView {
         cameraPosition: () => this.camera.position.toArray(),
         // REQ-024: whether the view is above the water, how often it changed since the page loaded, and the model's height.
         view: () => ({ above: this.above, flips: this.aboveFlips, modelY: this.rovModel.position.y }),
+        // REQ-032 AC-3: how far each propeller has turned (radians; left, right).
+        propellers: () => ["propeller-left", "propeller-right"].map((name) => this.rovModel.getObjectByName(name)?.rotation.z ?? null),
         inTransition: () => this.transition !== null,
         // REQ-027, REQ-028: the browser tests start with the cinematics off (see cinematicsOnByDefault); a test that is about
         // them turns them on before Mulai. `cinematic()` is the one playing (its kind, seconds, shot, whether a skip is under
@@ -637,6 +639,7 @@ export class Game implements GameView {
       this.stepCave(dt);
       this.trashView.sync(this.field.items, performance.now() / 1000); // REQ-025 AC-2: the floating items bob
       this.world.update(dt, this.camera.position);
+      updateRovPropellers(this.rovModel, dt, this.mode === "playing" && !this.ashore ? this.rov.velocity.length() : 0);
       // The surface's light rays stay out of the cave, where only its own shaft lights the dark (REQ-014 AC-2).
       this.natureView.update(dt, this.camera.position, this.above || this.caveDark > 0.2);
     }

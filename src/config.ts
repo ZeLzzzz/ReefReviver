@@ -258,8 +258,8 @@ export const config = {
     // How fast velocity approaches the input; higher feels snappier, lower floatier.
     acceleration: 3,
     mouseSensitivity: 0.0025,
-    // REQ-024: at the surface the submarine floats with its centre this far under it, so the cockpit dome (its base
-    // 0.5 m above the centre) is above the water. Near the surface it bobs gently, in the model only: the position,
+    // REQ-024: at the surface the submarine floats with its centre this far under it, so the deck hatch
+    // (over 0.4 m above the centre) is above the water. Near the surface it bobs gently, in the model only: the position,
     // and with it every collision, stays still. `reach` is how far below the floating height the bobbing fades in.
     floatDepth: 0.3,
     bob: { amplitude: 0.05, period: 4.4, roll: 0.025, pitch: 0.015, reach: 0.4 },

@@ -38,15 +38,15 @@ describe("floating at the surface (REQ-024 AC-1, AC-2)", () => {
     expect(state.position.y).toBe(FLOAT_Y);
   });
 
-  it("floats with the cockpit dome above the water, through the whole bobbing", () => {
+  it("floats with the deck hatch above the water, through the whole bobbing (REQ-032 AC-4)", () => {
     const model = buildRovMesh();
-    const dome = model.getObjectByName("cockpit-dome") as Mesh;
+    const hatch = model.getObjectByName("deck-hatch") as Mesh;
     for (let t = 0; t < 20; t += 0.05) {
       const bob = surfaceBob(FLOAT_Y, t);
       model.position.set(0, FLOAT_Y + bob.lift, 0);
       model.rotation.set(bob.pitch, 0, bob.roll, "YXZ");
       model.updateMatrixWorld(true);
-      const box = new Box3().setFromObject(dome);
+      const box = new Box3().setFromObject(hatch);
       expect(box.min.y, `t ${t}`).toBeGreaterThan(bay.surfaceY);
     }
   });

@@ -363,7 +363,7 @@ export function constrainToBay(p: Vector3, v: Vector3, radius: number = config.r
   for (const arch of arches) pushOutOfArch(p, v, arch, radius);
   keepInDeepEnoughWater(p, v, radius);
 
-  // REQ-024: the surface stops a body with its centre `floatDepth` under it (the ROV floats there, its dome out of the water).
+  // REQ-024: the surface stops a body with its centre `floatDepth` under it (the ROV floats there, its deck hatch out of the water).
   const ceiling = bay.surfaceY - floatDepth;
   if (p.y > ceiling) {
     p.y = ceiling;
