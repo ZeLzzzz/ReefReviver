@@ -6,7 +6,7 @@ import type { AnimalSpecies } from "./nets";
 import type { ScanEvent } from "./scanner";
 import { START_TOOL, type ToolId } from "./tools";
 
-const { tank, rewards, phase1, hud, nets, reef, end } = config;
+const { tank, rewards, phase1, hud, nets, reef, end, dumper } = config;
 
 export type ObjectiveId = "clean" | "free" | "deposit" | "frames" | "coral" | "seagrass" | "scan";
 
@@ -73,7 +73,7 @@ export class Session {
   private notice: Notice | null = null;
   private noticeLeft = 0;
 
-  constructor(readonly totalTrash: number) {}
+  constructor(public totalTrash: number) {}
 
   get entriesScanned(): number {
     return this.unlocked.size;
@@ -123,6 +123,17 @@ export class Session {
     this.materials += deposited * rewards.materialPerTrash;
     this.say({ key: "hud.deposited", amount: deposited * rewards.materialPerTrash });
     return { deposited };
+  }
+
+  /** REQ-036 AC-2: the dumping boat threw a piece of trash overboard: there is more to clean, so cleanliness drops. */
+  addTrash(count: number): void {
+    this.totalTrash += count;
+  }
+
+  /** REQ-036 AC-4: the Cutter capsized the dumping boat. */
+  capsizedBoat(): void {
+    this.score += dumper.score;
+    this.say({ key: "dumper.capsized", amount: dumper.score });
   }
 
   /** REQ-003: a net was cut and its animal is free. +100 score, counts for cleanliness and the "free" goal (AC-2). */

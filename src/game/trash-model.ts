@@ -165,6 +165,11 @@ export function createTrashView(items: readonly TrashItem[]): TrashView {
     group,
     sync(current, seconds = 0) {
       for (const item of current) {
+        // REQ-036: trash the dumping boat drops gets its model the first time it shows.
+        if (!models[item.id]) {
+          models[item.id] = createModel(item.kind, item.id);
+          group.add(models[item.id]);
+        }
         const model = models[item.id];
         model.visible = item.state !== "collected";
         if (!model.visible) continue;
@@ -181,6 +186,8 @@ export function createTrashView(items: readonly TrashItem[]): TrashView {
         }
         model.scale.setScalar((item.floating ? config.trash.surface.displayScale : DISPLAY_SCALE) * (1 - 0.7 * item.pull));
       }
+      // Dropped trash of an earlier dive is gone.
+      for (let id = current.length; id < models.length; id++) models[id].visible = false;
     },
   };
 }

@@ -92,6 +92,19 @@ export function aimedNet(origin: Vector3, dir: Vector3, rov: Vector3, nets: read
   return { net, point };
 }
 
+/**
+ * REQ-036 AC-4: where the crosshair's ray meets the dumping boat's hull, if it does before anything solid and within the
+ * cutter's range of the ROV, and nearer than `nearer` (a net the ray also meets). Floating trash never hides the boat.
+ */
+export function aimedHull(origin: Vector3, dir: Vector3, rov: Vector3, hull: { center: Vector3; radii: Vector3; yaw: number }, nearer = Infinity): Vector3 | null {
+  const t = rayEllipsoid(origin, dir, hull.center, hull.radii, hull.yaw, false);
+  if (t === null || t >= nearer) return null;
+  const point = new Vector3().copy(dir).multiplyScalar(t).add(origin);
+  if (point.distanceTo(rov) > cutter.range) return null;
+  if (terrainBlocks(origin, dir, t)) return null;
+  return point;
+}
+
 /** Whether the floor, a rock, a boulder or an arch lies on the ray before `distance` (shared by the cutter and the scanner). */
 export function terrainBlocks(origin: Vector3, dir: Vector3, distance: number): boolean {
   for (let t = FLOOR_STEP; t < distance; t += FLOOR_STEP) {

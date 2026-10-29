@@ -644,6 +644,40 @@ export const config = {
       climb: { fromX: -60, fromY: -5, fromZ: 30, toX: -118, toY: 11, toZ: 8, lookX: -146, lookY: 6 },
     },
   },
+  // REQ-036 (D-134, D-135): now and then a small boat comes into the bay, stops and dumps trash overboard until the player
+  // capsizes it with the Cutter. The crew swims to the beach.
+  dumper: {
+    // Seconds of play (no cinematic, no pause) before the first boat, and after one is capsized before the next. None comes
+    // once the Bloom has begun, and a boat still dumping then leaves.
+    firstAfter: 120,
+    nextAfter: [180, 240],
+    // It stops at a good spot on the water (`surfaceSpotOk`) at least `clearOfPlayer` m from the player, coming in from
+    // `arriveFrom` m out to sea at `speed` m/s, and leaves the same way.
+    clearOfPlayer: 40,
+    // Its coming is told for longer than other notices.
+    noticeSeconds: 6,
+    arriveFrom: 80,
+    speed: 6,
+    // Stopped, it drops a piece of trash after `firstDrop` s and then every `dumpEvery` s, at most `maxDrops`, `dropRadius` m
+    // from its middle; every other piece sinks to the floor at `sinkSpeed` m/s (the rest float).
+    firstDrop: 2,
+    dumpEvery: 15,
+    maxDrops: 20,
+    dropRadius: [1.5, 4],
+    sinkSpeed: 1,
+    // The hull as the Cutter sees it: an ellipsoid of these half-sizes around the boat's middle at the waterline. Holding
+    // the Cutter on it as long as on a net (`cutter.seconds`) capsizes it.
+    hull: { halfWidth: 1.3, height: 1.1, halfLength: 3.1 },
+    score: 100,
+    // Capsized, it rolls over, floats keel up, then sinks away.
+    rollSeconds: 1.2,
+    floatSeconds: 8,
+    sinkSeconds: 6,
+    sinkDepth: 3,
+    leaveSeconds: 20,
+    // The crew holds on to the hull, then swims to the beach and is gone at the waterline (or after `maxSwimSeconds`).
+    crew: { count: 2, clingSeconds: 3, swimSpeed: 1.5, maxSwimSeconds: 150 },
+  },
   // REQ-035 (D-130, D-133): ships passing far out at sea, seen and heard above the water only. Each sails a lane fixed out
   // at sea, `lane` m from the middle of the bay, `bearing` degrees from north toward east (the open sea), and runs along it
   // until it is `end` m away, deep in the haze, where it is removed. As the haze and the camera's reach end within 450 m,
@@ -953,6 +987,12 @@ export const config = {
         { kind: "tone", wave: "triangle", from: 1600, dur: 0.08, at: 0.14, gain: 0.3 },
         { kind: "tone", wave: "triangle", from: 2000, dur: 0.14, at: 0.2, gain: 0.3 },
         { kind: "noise", filter: "lowpass", from: 1200, dur: 0.3, gain: 0.2 },
+      ] },
+      // REQ-036 AC-4: the dumping boat turns over: a heavy splash with a low thump.
+      capsize: { gap: 1, layers: [
+        { kind: "noise", filter: "lowpass", from: 1400, to: 180, dur: 1.4, attack: 0.03, gain: 0.45 },
+        { kind: "tone", wave: "sine", from: 90, to: 38, dur: 0.6, gain: 0.35 },
+        { kind: "noise", filter: "bandpass", from: 2400, to: 900, q: 0.8, dur: 0.9, at: 0.15, gain: 0.18 },
       ] },
       // REQ-035 AC-5: a ship's horn far out at sea: a low, soft tone that swells and dies away.
       shipHorn: { gap: 20, layers: [

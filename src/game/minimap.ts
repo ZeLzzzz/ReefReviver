@@ -152,6 +152,8 @@ export interface MinimapState {
   nets: MapMark[];
   /** Empty while cleanliness is below the threshold (AC-4); otherwise every item still on the floor. */
   trash: MapMark[];
+  /** REQ-036 AC-1: the dumping boat, while it is in the bay and upright. */
+  dumper?: MapPoint | null;
 }
 
 export interface MinimapInput {
@@ -163,6 +165,8 @@ export interface MinimapInput {
   patches: readonly PatchSite[];
   nets: readonly Net[];
   trash: readonly TrashItem[];
+  /** REQ-036: the dumping boat, while it is in the bay and upright. */
+  dumper?: { x: number; z: number } | null;
   /** Cleanliness in percent, as the HUD shows it. */
   cleanliness: number;
 }
@@ -172,7 +176,7 @@ export function trashVisible(cleanliness: number): boolean {
   return cleanliness >= minimap.trashFromCleanliness;
 }
 
-export function buildMinimap({ rov, sub = null, frames, patches, nets, trash, cleanliness }: MinimapInput): MinimapState {
+export function buildMinimap({ rov, sub = null, frames, patches, nets, trash, cleanliness, dumper = null }: MinimapInput): MinimapState {
   const marks: MapMark[] = [];
   if (trashVisible(cleanliness)) {
     // Only items lying on the floor: one being pulled in is already gone from the map.
@@ -185,5 +189,6 @@ export function buildMinimap({ rov, sub = null, frames, patches, nets, trash, cl
     patches: patches.map((site) => ({ ...mapPoint(site.x, site.z), status: patchStatus(site) })),
     nets: nets.filter((net) => !net.cut).map((net) => ({ id: net.id, ...mapPoint(net.center.x, net.center.z) })),
     trash: marks,
+    dumper: dumper ? mapPoint(dumper.x, dumper.z) : null,
   };
 }

@@ -7,7 +7,7 @@ import { areaReach, headland, inDiveArea, inland } from "./terrain";
 import { counterPosition, stationPosition } from "./station";
 import { pickNearestInCone } from "./vacuum";
 
-const { trash, vacuum, station } = config;
+const { trash, vacuum, station, dumper } = config;
 const { beach, surface } = trash;
 const { dock } = config.bay;
 
@@ -269,11 +269,36 @@ const easeIn = (t: number) => t * t;
 /** The trash on the floor and the vacuum's pull on it. Pure: no rendering, no DOM. */
 export class TrashField {
   readonly items: TrashItem[];
+  /** The dive's own trash; any after these were dropped by the dumping boat (REQ-036) and go at the next dive. */
+  private readonly laid: number;
 
   constructor(seed: number = trash.seed) {
     this.items = generateTrash(seed);
+    this.laid = this.items.length;
   }
   private cooldown = 0;
+
+  /**
+   * REQ-036 AC-2: a piece of trash thrown overboard at (x, z). A floating one (bottle or bag) bobs at the waterline at once;
+   * a sinking one (any kind) starts at the surface and sinks to the floor (see update).
+   */
+  drop(x: number, z: number, floating: boolean): TrashItem {
+    const kinds = floating ? FLOATING_KINDS : KINDS;
+    const home = floating ? new Vector3(x, config.bay.surfaceY - surface.sink, z) : new Vector3(x, floorHeight(x, z) + trash.restHeight, z);
+    const item: TrashItem = {
+      id: this.items.length,
+      kind: kinds[this.items.length % kinds.length],
+      position: new Vector3(x, floating ? home.y : config.bay.surfaceY - surface.sink, z),
+      home,
+      rotation: (this.items.length * 2.39996) % (Math.PI * 2),
+      state: "free",
+      pull: 0,
+      onBeach: false,
+      floating,
+    };
+    this.items.push(item);
+    return item;
+  }
 
   get total(): number {
     return this.items.length;
@@ -306,6 +331,8 @@ export class TrashField {
 
     const arrived: TrashItem[] = [];
     for (const item of this.items) {
+      // REQ-036: dropped trash sinks to the floor.
+      if (item.state === "free" && item.position.y > item.home.y) item.position.y = Math.max(item.home.y, item.position.y - dumper.sinkSpeed * dt);
       if (item.state === "lifting") {
         item.pull = Math.min(1, item.pull + dt / beach.liftSeconds);
         item.position.copy(item.home);
@@ -332,6 +359,7 @@ export class TrashField {
   /** Puts every item back on the floor for a new dive; REQ-012: a new seed lays them somewhere else. */
   reset(seed?: number): void {
     this.cooldown = 0;
+    this.items.length = this.laid;
     if (seed !== undefined) {
       generateTrash(seed).forEach((fresh, i) => {
         const item = this.items[i];

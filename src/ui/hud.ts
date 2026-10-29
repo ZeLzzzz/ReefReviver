@@ -83,6 +83,18 @@ export function createHud(lang: Lang, touch: TouchHud | null = null): HudView {
   phase2List.hidden = true;
   const phase3List = h("ul", { class: "goal-list goal-list-phase3" });
   phase3List.hidden = true;
+  // REQ-036 AC-1: while a dumping boat is in the bay, an urgent goal tops the list (marked "!" and said in words).
+  const dumperGoal = h(
+    "ul",
+    { class: "goal-alert-list" },
+    h(
+      "li",
+      { class: "goal-alert", "data-goal": "dumper" },
+      h("span", { class: "goal-alert-mark", "aria-hidden": "true" }, "!"),
+      h("span", { class: "goal-alert-text" }, t(lang, "objectives.dumper")),
+    ),
+  );
+  dumperGoal.hidden = true;
 
   const score = stat(t(lang, "hud.score"), "stat-score");
   const materials = stat(t(lang, "hud.materials"), "stat-materials");
@@ -115,7 +127,7 @@ export function createHud(lang: Lang, touch: TouchHud | null = null): HudView {
   );
   cutProgress.hidden = true;
 
-  const goalsPanel = h("section", { class: "hud-panel hud-goals", "aria-label": t(lang, "objectives.title") }, h("h2", {}, t(lang, "objectives.title")), goalList, phase2List, phase3List);
+  const goalsPanel = h("section", { class: "hud-panel hud-goals", "aria-label": t(lang, "objectives.title") }, h("h2", {}, t(lang, "objectives.title")), dumperGoal, goalList, phase2List, phase3List);
   const statsPanel = h("section", { class: "hud-panel hud-stats" }, tank.row, meter, materials.row, score.row, cleanliness.row);
 
   // REQ-015: the screen fades out and back in while the player gets out of the submarine or back in (no flash).
@@ -170,6 +182,7 @@ export function createHud(lang: Lang, touch: TouchHud | null = null): HudView {
       setHidden(goalList, afterBloom);
       setHidden(phase2List, afterBloom || phase2.length === 0);
       setHidden(phase3List, !afterBloom);
+      setHidden(dumperGoal, !state.dumper?.active);
       // The rows are built when the list first appears, so before the first deposit only the Phase 1 goals exist.
       if (phase2.length > 0 && phase2List.childElementCount === 0) addGoals(phase2List, PHASE2_GOALS);
       if (afterBloom && phase3List.childElementCount === 0) addGoals(phase3List, PHASE3_GOALS);
@@ -218,7 +231,7 @@ export function createHud(lang: Lang, touch: TouchHud | null = null): HudView {
       const percent = Math.floor(progress * 100);
       setHidden(cutProgress, progress <= 0);
       if (progress > 0) {
-        const label = t(lang, scanning ? "scanner.progress" : "cutter.progress");
+        const label = t(lang, scanning ? "scanner.progress" : state.dumper?.atBoat ? "dumper.progress" : "cutter.progress");
         cutProgress.setAttribute("aria-label", label);
         cutProgress.setAttribute("aria-valuenow", String(percent));
         cutRing.style.setProperty("--cut", progress.toFixed(3));

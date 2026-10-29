@@ -36,6 +36,8 @@ import { createSeaLifeView } from "./sea-life-model";
 import { naturalTargets } from "./nature";
 import { createNatureView } from "./nature-model";
 import { createRovModel, setHeadlight, updateRovPropellers } from "./rov-model";
+import { Dumper } from "./dumper";
+import { createDumperView } from "./dumper-model";
 import { FLOAT_Y, constrainRov, createRovState, rightVector, steer, stepRov, surfaceBob, type Bob, type RovState } from "./rov";
 import { ashoreSpot, canBoard, createWalker, eyePosition, lookWalker, onDock, standable, stepWalker, type AshoreSpot, type Walker } from "./land";
 import { Rescue } from "./rescue";
@@ -158,6 +160,9 @@ export class Game implements GameView {
   private sucking = false;
   /** REQ-035: ship horns played since the page opened (for the tests). */
   private horns = 0;
+  /** REQ-036: the boat that comes to dump trash in the bay, and its model with the crew. */
+  private readonly dumper = new Dumper();
+  private readonly dumperView = createDumperView();
   /** REQ-026: the vacuum button was held last frame (a press on a full tank sounds the buzzer), and how far the player has walked since the last footstep. */
   private vacuumHeld = false;
   private stride = 0;
@@ -196,7 +201,7 @@ export class Game implements GameView {
     this.trashView.sync(this.field.items);
     this.natureView.setTrash(this.floorHomes()); // REQ-021 AC-6
     this.world.beach.setTrash(this.field.items.filter((item) => item.onBeach).map((item) => item.home));
-    this.scene.add(this.reefView.group, this.seedView.group, this.seaLifeView.group, this.natureView.group);
+    this.scene.add(this.reefView.group, this.seedView.group, this.seaLifeView.group, this.natureView.group, this.dumperView.group);
     this.scene.add(this.caveView.group);
     this.reefView.sync(this.reef);
     this.input = new Input(canvas.ownerDocument);
@@ -406,6 +411,20 @@ export class Game implements GameView {
         ships: () => ({ visible: this.world.ships.group.visible, list: this.world.ships.shown() }),
         horns: () => this.horns,
         hurryHorn: (seconds: number) => this.world.ships.hurryHorn(seconds),
+        // REQ-036: the dumping boat (phase, where it is, how much it dropped, its crew), and ways to bring it or its next drop now.
+        dumper: () => ({
+          phase: this.dumper.phase,
+          position: this.dumper.position.toArray(),
+          yaw: this.dumper.yaw,
+          roll: this.dumper.roll,
+          dumped: this.dumper.dumped,
+          crew: this.dumper.crew.map((person) => ({ phase: person.phase, position: person.position.toArray() })),
+        }),
+        summonDumper: (x?: number, z?: number) => {
+          const player = this.ashore ? this.ashore.walker.position : this.rov.position;
+          this.dumper.summon(player, x === undefined || z === undefined ? undefined : { x, z });
+        },
+        hurryDrop: (seconds: number) => this.dumper.hurryDrop(seconds),
         // REQ-032 AC-3: how far each propeller has turned (radians; left, right).
         propellers: () => ["propeller-left", "propeller-right"].map((name) => this.rovModel.getObjectByName(name)?.rotation.z ?? null),
         inTransition: () => this.transition !== null,
@@ -568,6 +587,7 @@ export class Game implements GameView {
     const seed = TEST_SEED !== null ? TEST_SEED + this.dives : Math.floor(Math.random() * 2 ** 31);
     const layout = chooseLayout(seed);
     this.world.ships.reset(seed); // REQ-035 AC-4: a ship is already out at sea
+    this.dumper.reset(seed); // REQ-036: the first dumping boat comes a while into the dive
     this.session = new Session(this.field.total);
     this.field.reset(layout.trashSeed);
     this.trashView.sync(this.field.items);
@@ -632,6 +652,7 @@ export class Game implements GameView {
         this.checkDiveEdge();
       }
       this.stepTools(dt);
+      if (!this.cine) this.stepDumper(dt); // REQ-036: its clock runs only while the player plays
       this.stepBloom(dt); // REQ-005
       this.stepEnd(dt, real); // REQ-008
       this.syncRovModel();
@@ -646,6 +667,7 @@ export class Game implements GameView {
     if (this.mode !== "paused") {
       this.stepCave(dt);
       this.trashView.sync(this.field.items, performance.now() / 1000); // REQ-025 AC-2: the floating items bob
+      this.dumperView.sync(this.dumper, performance.now() / 1000); // REQ-036
       this.world.update(dt, this.camera.position);
       updateRovPropellers(this.rovModel, dt, this.mode === "playing" && !this.ashore ? this.rov.velocity.length() : 0);
       // REQ-035 AC-5: a ship's horn now and then, heard above the water only (the world counts only then).
@@ -733,6 +755,20 @@ export class Game implements GameView {
    * The vacuum, the tool keys and E, for one simulated frame. On the land and while getting in or out the tools do
    * nothing, and E only boards the submarine (REQ-015 AC-2, AC-4).
    */
+  /**
+   * REQ-036: the dumping boat comes, drops trash (there is more to clean, AC-2) and, once the Cutter turned it over, sinks
+   * while its crew swims ashore. Its notice tells the player it came (AC-1).
+   */
+  private stepDumper(dt: number): void {
+    const player = this.ashore ? this.ashore.walker.position : this.rov.position;
+    const { arrived, drop } = this.dumper.update(dt, this.bloom.state !== "idle", player);
+    if (arrived) this.session.say({ key: "dumper.arrived" }, config.dumper.noticeSeconds);
+    if (drop) {
+      this.field.drop(drop.x, drop.z, drop.floating);
+      this.session.addTrash(1);
+    }
+  }
+
   private stepTools(dt: number): void {
     const { session, rov } = this;
     // REQ-027 AC-4: during a cinematic the keys and the button do nothing.
@@ -775,7 +811,12 @@ export class Game implements GameView {
     this.audio.loop("vacuum", this.sucking ? 1 : 0);
     // REQ-003: the cutter, the nets and the animals.
     const netsCut = session.netsCut;
-    this.rescue.step(dt, rov, this.aim, primary && session.tool === "cutter", this.floorItems, session);
+    // REQ-036 AC-4: the cutter also turns the dumping boat over.
+    if (this.rescue.step(dt, rov, this.aim, primary && session.tool === "cutter", this.floorItems, session, this.dumper.hull)) {
+      this.dumper.capsize();
+      session.capsizedBoat();
+      this.audio.play("capsize");
+    }
     if (session.netsCut > netsCut) {
       this.audio.play("netCut"); // REQ-026
       this.audio.play("animalFreed", 0.25);
@@ -1102,6 +1143,7 @@ export class Game implements GameView {
       marker: placeMarker(this.viewPoint, tanHalfFov, window.innerWidth, window.innerHeight, config.hud.markerMargin, config.hud.markerBottomMargin),
       sucking: this.sucking,
       cutProgress: this.rescue.progress, // REQ-003
+      dumper: { active: this.dumper.active, atBoat: this.rescue.atBoat }, // REQ-036
       scanProgress: this.scanner.progress, // REQ-006
       unlocked: LOGBOOK_ENTRIES.filter((entry) => session.unlocked.has(entry.id)).map((entry) => entry.id),
       reef: {
@@ -1130,6 +1172,7 @@ export class Game implements GameView {
         nets: this.rescue.nets.nets,
         trash: this.field.items,
         cleanliness: session.cleanliness,
+        dumper: this.dumper.active ? { x: this.dumper.position.x, z: this.dumper.position.z } : null,
       }),
     };
     this.lastHud = state;

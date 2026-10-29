@@ -29,6 +29,8 @@ export interface HudState {
   reef?: ReefHud;
   /** REQ-005: the Phase 3 list ("Pindai 0/7"), present once the Bloom is over; it replaces the Phase 1 and 2 lists (D-049). */
   phase3?: Objective[];
+  /** REQ-036: a dumping boat is in the bay (its goal shows), and whether the cutter is working on its hull (`cutProgress`). */
+  dumper?: { active: boolean; atBoat: boolean };
   /** REQ-006: how far the scanner has scanned what the crosshair aims at, 0 (not scanning) to 1. */
   scanProgress?: number;
   /** REQ-006: the Logbook entries scanned so far, in the order of the Logbook; the Logbook screen reads them. */

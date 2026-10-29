@@ -378,6 +378,29 @@ kbd {
   color: var(--ink-soft);
 }
 
+.goal-alert {
+  display: flex;
+  gap: 8px;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.goal-alert-mark {
+  width: 1.1em;
+  flex: none;
+  text-align: center;
+}
+
+.goal-alert-list {
+  margin: 0 0 4px;
+  padding: 0;
+  list-style: none;
+}
+
+.goal-alert-list[hidden] {
+  display: none;
+}
+
 .goal.done .goal-mark {
   color: var(--accent);
   font-weight: 800;
@@ -736,6 +759,13 @@ kbd {
 
 .mm-site[data-status="planted"] .mm-check {
   display: block;
+}
+
+.mm-dumper {
+  fill: #ff9a7a;
+  stroke: #1d1a12;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
 }
 
 .mm-x {

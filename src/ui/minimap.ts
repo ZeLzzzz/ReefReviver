@@ -105,6 +105,17 @@ export function createMinimap(lang: Lang): MinimapView {
   );
   sub.style.display = "none";
 
+  // REQ-036 AC-1: the dumping boat while it is in the bay: a small boat seen from above, in the nets' warning colour.
+  const b = icon.sub;
+  const dumper = svg(
+    "g",
+    { class: "mm-icon", "data-kind": "dumper" },
+    svg("title", {}),
+    svg("path", { class: "mm-dumper", d: `M0 ${-b * 1.2} L${b * 0.7} ${-b * 0.3} L${b * 0.7} ${b} L${-b * 0.7} ${b} L${-b * 0.7} ${-b * 0.3}Z` }),
+  );
+  dumper.firstChild!.textContent = t(lang, "minimap.dumper");
+  dumper.style.display = "none";
+
   const map = svg(
     "svg",
     { class: "mm-map", viewBox: `0 0 ${layout.size} ${layout.size}`, role: "img", "aria-label": t(lang, "minimap.label") },
@@ -119,6 +130,7 @@ export function createMinimap(lang: Lang): MinimapView {
     ...frames,
     ...patches,
     netLayer,
+    dumper,
     sub,
     rov,
   );
@@ -165,6 +177,9 @@ export function createMinimap(lang: Lang): MinimapView {
       setSites(patches, state.patches);
       setNets(state.nets);
       setTrash(state.trash);
+      const showDumper = state.dumper ? "" : "none";
+      if (dumper.style.display !== showDumper) dumper.style.display = showDumper;
+      if (state.dumper) setAttr(dumper, "transform", at(state.dumper));
     },
   };
 }
