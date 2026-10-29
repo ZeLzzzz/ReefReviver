@@ -1,8 +1,9 @@
-import { Vector3 } from "three";
+import { Mesh, Vector3 } from "three";
 import { describe, expect, it } from "vitest";
 import { config } from "../../src/config";
 import { floorHeight } from "../../src/game/bay";
-import { ashoreSpot, createWalker, groundHeight, insideShed, onDock, standable, stepWalker, type Walker } from "../../src/game/land";
+import { ashoreSpot, createWalker, groundHeight, insideShed, landObstacles, onDock, standable, stepWalker, type Walker } from "../../src/game/land";
+import { buildStationMesh } from "../../src/game/station-model";
 import { avoidRects, type ScreenRect } from "../../src/game/marker";
 import { mapPoint, minimapLayout } from "../../src/game/minimap";
 import { Session } from "../../src/game/session";
@@ -136,5 +137,45 @@ describe("the marker keeps off the HUD panels (REQ-016 AC-5)", () => {
   it("ignores hidden panels, which have no size", () => {
     const hidden: ScreenRect = { left: 0, top: 0, right: 0, bottom: 0 };
     expect(avoidRects(5, 5, 20, 10, [hidden], screen.width, screen.height)).toEqual({ x: 5, y: 5 });
+  });
+});
+
+describe("the coastal timber house (REQ-031 AC-5)", () => {
+  const vertices = () => {
+    const house = buildStationMesh();
+    house.updateMatrixWorld(true);
+    const points: Vector3[] = [];
+    house.traverse((node) => {
+      if (!(node instanceof Mesh)) return;
+      const position = node.geometry.getAttribute("position");
+      for (let i = 0; i < position.count; i++) points.push(new Vector3().fromBufferAttribute(position, i).applyMatrix4(node.matrixWorld));
+    });
+    return points;
+  };
+
+  it("keeps everything at body height within half a metre of the walls, or within the bins' obstacle", () => {
+    // The bins' obstacle in the land (REQ-016), relative to the shed's centre.
+    const bins = landObstacles[landObstacles.length - 1];
+    const binX = bins.x - station.x, binZ = bins.z - station.z;
+    let checked = 0;
+    for (const p of vertices()) {
+      if (p.y < 0.35 || p.y > 1.9) continue;
+      checked++;
+      if (Math.hypot(p.x - binX, p.z - binZ) <= bins.radius + land.radius) continue;
+      expect(Math.abs(p.x)).toBeLessThanOrEqual(station.halfX + 0.5);
+      expect(Math.abs(p.z)).toBeLessThanOrEqual(station.halfZ + 0.5);
+    }
+    expect(checked).toBeGreaterThan(1000);
+  });
+
+  it("raises the beacon's mast to the lantern, clear above the roof", () => {
+    const { dx, dz, height } = station.mast;
+    let mast = 0, roof = 0;
+    for (const p of vertices()) {
+      if (Math.hypot(p.x - dx, p.z - dz) < 0.6) mast = Math.max(mast, p.y);
+      else roof = Math.max(roof, p.y);
+    }
+    expect(mast).toBeGreaterThanOrEqual(height);
+    expect(roof).toBeLessThan(height - 1);
   });
 });

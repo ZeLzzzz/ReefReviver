@@ -5,6 +5,11 @@ import { allSpots } from "./layout";
 const { bay, station, land } = config;
 const { shore, area, headland: headlandSpec } = bay;
 
+/** Shared by the detailed terrain mesh and small props that must rest on its triangles. */
+export const TERRAIN_STEP = 2.5;
+// Coarse corners must also be detailed-grid vertices, or a bend between fine vertices leaves a crack at the seam.
+export const OUTER_TERRAIN_STEP = TERRAIN_STEP * 4;
+
 const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value));
 
 function smoothstep(edge0: number, edge1: number, x: number): number {
@@ -40,11 +45,36 @@ export function inland(x: number, z: number): number {
   return shore.waterlineX + shore.wiggle * Math.sin(z * 0.031 + 0.6) + 2 * Math.sin(z * 0.07) - x;
 }
 
+/** The cliff recedes into shallow coves, leaving the existing beach and buildings in front of it. */
+export function cliffFootX(z: number): number {
+  return land.cliffX - 1.5 + 1.2 * Math.sin(z * 0.075 + 0.9) + 0.8 * Math.sin(z * 0.19 - 0.5);
+}
+
+function inlandRelief(x: number, z: number): number {
+  const foot = cliffFootX(z);
+  if (x >= foot) return 0;
+  const width = land.cliffWidth + 1.2 * Math.cos(z * 0.08);
+  const t = clamp((foot - x) / width, 0, 1);
+  const crest = land.cliffHeight * (0.96 + 0.23 * Math.sin(z * 0.044 + 1.1) + 0.14 * Math.sin(z * 0.115 - 0.5));
+  // A steep lower face and a short shelf keep the boundary physical while breaking up its profile.
+  let height = crest * (0.78 * smoothstep(0, 0.6, t) + 0.22 * smoothstep(0.65, 1, t));
+  height += Math.sin(z * 0.37 + t * 2) * 0.7 * Math.sin(t * Math.PI) ** 2;
+  let hills = 0;
+  for (const hill of land.backdrop.hills) {
+    const dx = (x - hill.x) / hill.radiusX;
+    const dz = (z - hill.z) / hill.radiusZ;
+    const radius = dx * dx + dz * dz;
+    if (radius >= 1) continue;
+    const ridge = 1 + 0.1 * Math.sin(z * 0.037 + x * 0.025) + 0.055 * Math.cos(z * 0.085 - x * 0.041);
+    hills += hill.height * (1 - radius) ** 2 * ridge;
+  }
+  return height + hills * smoothstep(land.cliffWidth, land.cliffWidth + 10, foot - x);
+}
+
 /** The shore's own profile: the shelf rising to the waterline, then the land above it, closed by a cliff at the west (REQ-015). */
 function shoreHeight(s: number, x: number, z: number): number {
   if (s >= 0) {
-    const cliff = land.cliffHeight * smoothstep(land.cliffX, land.cliffX - land.cliffWidth, x + Math.sin(z * 0.09) * 1.5);
-    return Math.min(shore.landHeight, s * shore.landRise) + 0.4 * Math.sin(x * 0.13) * Math.sin(z * 0.11) * Math.min(1, s / 6) + cliff;
+    return Math.min(shore.landHeight, s * shore.landRise) + 0.4 * Math.sin(x * 0.13) * Math.sin(z * 0.11) * Math.min(1, s / 6) + inlandRelief(x, z);
   }
   const t = Math.min(1, -s / shore.shelfWidth);
   return shore.shelfDepth * t * (2 - t);

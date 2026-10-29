@@ -150,6 +150,19 @@ export const config = {
     cliffX: -150,
     cliffWidth: 8,
     cliffHeight: 12,
+    backdrop: {
+      // Broad hills behind the walkable shore; the higher, distant ridges remain visible over the nearer canopy.
+      hills: [
+        { x: -199, z: -67, radiusX: 48, radiusZ: 67, height: 23 },
+        { x: -211, z: 67, radiusX: 52, radiusZ: 73, height: 31 },
+        { x: -255, z: -125, radiusX: 68, radiusZ: 81, height: 50 },
+        { x: -269, z: 4, radiusX: 69, radiusZ: 85, height: 68 },
+        { x: -337, z: -63, radiusX: 85, radiusZ: 93, height: 96 },
+        { x: -337, z: 109, radiusX: 81, radiusZ: 87, height: 77 },
+      ],
+      forest: { seed: 117, spacing: 10, westX: -348, eastX: -169, halfLength: 154 },
+      lighthouse: { x: -114, z: -121, height: 24, baseRadius: 3 },
+    },
     // The submarine parks at least this far to the side of the dock, never under it (REQ-016).
     dockGap: 2.5,
     // Coconut palms (height in metres, lean toward the sea in radians) and rocks on the land (D-081).
@@ -168,33 +181,22 @@ export const config = {
       { x: -142, z: 46, radius: 1 },
       { x: -145, z: 62, radius: 1.4 },
     ],
-    // REQ-018: grass on the land (D-097), from `fromInland` metres inland from the waterline to the foot of the cliff, at
-    // most `maxHeight` tall and always green. The ground is cut into `spacing` squares; each holds a tuft of `bladesPerTuft`
-    // blades with the chance `tuftChance`, the blades within `tuftRadius` of its centre.
-    grass: {
-      seed: 53,
-      fromInland: 8,
-      spacing: 0.5,
-      tuftChance: 0.85,
-      bladesPerTuft: 5,
-      tuftRadius: 0.3,
-      minHeight: 0.18,
-      maxHeight: 0.5,
-      // Metres across a blade's base, and how far (radians) a blade leans off upright.
-      width: 0.09,
-      lean: 0.25,
-      // The ground may rise by no more than this per metre; the steep foot of the cliff is steeper.
-      maxSlope: 0.5,
-      // Clear of the shed's walls and the dock by `structureClear`, of the counter's zone ring by `counterClear` beyond the
-      // ring, and of palm trunks and rocks by `obstacleClear`.
-      structureClear: 0.8,
-      counterClear: 0.5,
-      obstacleClear: 0.2,
-      // Each blade takes a shade between these two greens.
-      shades: [0x3f7d2e, 0x8dbb4e],
-      // The wind (AC-4): it bends each tip sideways by up to `amplitude` metres in a gust. A gust comes round every `period`
-      // seconds, its waves are `waveLength` metres long, and the wind blows toward (x, z).
-      sway: { amplitude: 0.06, period: 6, waveLength: 6, wind: { x: 0.8, z: 0.6 } },
+    // Shells gather in loose patches along the tide line; coconuts stay around their parent palms.
+    beachDecor: {
+      seed: 71,
+      halfLength: 91,
+      minInland: 1.3,
+      maxInland: 7,
+      shellPatches: 38,
+      shellsPerPatch: [16, 30],
+      looseShells: 110,
+      shellSize: [0.13, 0.36],
+      coconutsPerPalm: 4,
+      coconutSize: [0.36, 0.49],
+      coconutSpread: 3.2,
+      maxSlope: 0.6,
+      structureClear: 0.7,
+      trashClear: 1,
     },
     // Above the water: the haze over the bay, which is also the sky's colour at the horizon (REQ-023 AC-1), and the sea
     // seen from above.
@@ -246,6 +248,8 @@ export const config = {
     reflection: { murky: 0.5, clear: 1 },
     // Seen from below: the ripples of light (their size in metres and how bright they are).
     ripples: { size: 3, brightness: 0.55 },
+    // Small waves break along the open beach; distances and height are metres, period is seconds.
+    surf: { halfLength: 97, endFade: 12, offshore: 11, runup: 1.1, height: 0.24, wavelength: 5.4, period: 6.2 },
   },
   rov: {
     radius: 0.8,

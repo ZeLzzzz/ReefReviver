@@ -193,6 +193,7 @@ export class Game implements GameView {
     this.scene.add(this.rovModel, createStationModel(), buildDockMesh(), this.trashView.group, this.beam, this.rescue.group, this.scanBeam);
     this.trashView.sync(this.field.items);
     this.natureView.setTrash(this.floorHomes()); // REQ-021 AC-6
+    this.world.beach.setTrash(this.field.items.filter((item) => item.onBeach).map((item) => item.home));
     this.scene.add(this.reefView.group, this.seedView.group, this.seaLifeView.group, this.natureView.group);
     this.scene.add(this.caveView.group);
     this.reefView.sync(this.reef);
@@ -499,8 +500,8 @@ export class Game implements GameView {
         naturalTargets: () => naturalTargets.map((t) => ({ ...t })),
         // REQ-021: the decoration shown this dive (after the trash rule), as plain pieces.
         decorItems: () => this.natureView.decorItems().map((d) => ({ ...d })),
-        // REQ-018: the grass on the land: how many blades, their average colour, and the wind's clock.
-        grass: () => this.world.grass.look(),
+        beach: () => this.world.beach.look(),
+        beachItems: () => this.world.beach.shown(),
         // REQ-023: the sky (drawn or not, the sun's direction, the clock) and the sea surface's mirror.
         sky: () => ({ ...this.world.sky.look(), sea: this.world.sea.look(), lightDirection: this.sunDirection() }),
         reefLook: () => ({ ...this.reefView.look(), coral: this.reefView.coralMaterials.map((m) => m.color.getHex()), markers: this.reefView.markerOpacity() }),
@@ -561,6 +562,7 @@ export class Game implements GameView {
     this.field.reset(layout.trashSeed);
     this.trashView.sync(this.field.items);
     this.natureView.setTrash(this.floorHomes()); // REQ-021 AC-6: no decoration over this dive's trash
+    this.world.beach.setTrash(this.field.items.filter((item) => item.onBeach).map((item) => item.home));
     this.rescue.reset(layout); // REQ-003
     this.resetReef(layout);
     this.resetBloom(); // REQ-005

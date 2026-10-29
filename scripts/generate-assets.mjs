@@ -83,13 +83,19 @@ try {
     { id: "spinner-dolphin", build: () => buildDolphinMesh() },
   ];
 
+  const requested = new Set(process.argv.slice(2));
+  for (const id of requested) {
+    if (!models.some((model) => model.id === id)) throw new Error(`Unknown model: ${id}`);
+  }
+  const selected = requested.size ? models.filter(({ id }) => requested.has(id)) : models;
+
   const outDir = join(process.cwd(), "public", "assets", "models");
   mkdirSync(outDir, { recursive: true });
 
   const exporter = new GLTFExporter();
   const manifestFiles = [];
 
-  for (const { id, build } of models) {
+  for (const { id, build } of selected) {
     const scene = build();
     const triangles = countTriangles(scene);
     const arrayBuffer = await exporter.parseAsync(scene, { binary: true });
@@ -100,14 +106,17 @@ try {
     console.log(`${id.padEnd(18)} | ${String(triangles).padStart(5)} tris | ${(buffer.byteLength / 1024).toFixed(1).padStart(6)} KB`);
   }
 
-  const terrainTris = buildTerrainChunks().reduce((sum, mesh) => sum + countTriangles(mesh), 0);
-  console.log(`bay-terrain (proc) | ${String(terrainTris).padStart(5)} tris`);
-
-  writeFileSync(
-    join(process.cwd(), "public", "assets", "manifest.json"),
-    JSON.stringify({ files: manifestFiles }, null, 2) + "\n",
-  );
-  console.log(`\nWrote ${manifestFiles.length} GLB models and public/assets/manifest.json`);
+  if (requested.size) {
+    console.log(`\nWrote ${manifestFiles.length} GLB models; kept the existing manifest`);
+  } else {
+    const terrainTris = buildTerrainChunks().reduce((sum, mesh) => sum + countTriangles(mesh), 0);
+    console.log(`bay-terrain (proc) | ${String(terrainTris).padStart(5)} tris`);
+    writeFileSync(
+      join(process.cwd(), "public", "assets", "manifest.json"),
+      JSON.stringify({ files: manifestFiles }, null, 2) + "\n",
+    );
+    console.log(`\nWrote ${manifestFiles.length} GLB models and public/assets/manifest.json`);
+  }
 } finally {
   await server.close();
 }
