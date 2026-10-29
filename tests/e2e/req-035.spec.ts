@@ -7,7 +7,7 @@ import { goAshore } from "./ashore";
 
 const reef = <T>(page: Page, fn: (hook: any, arg: any) => T, arg?: unknown) =>
   page.evaluate(`(${fn.toString()})(window.__reef, ${JSON.stringify(arg ?? null)})`) as Promise<T>;
-type Shown = { visible: boolean; list: { kind: string; distance: number; bearing: number; x: number; z: number }[] };
+type Shown = { visible: boolean; list: { kind: string; distance: number; bearing: number; x: number; z: number; drawn: number }[] };
 const ships = (page: Page) => reef(page, (h) => h.ships()) as Promise<Shown>;
 const horns = (page: Page) => reef(page, (h) => h.horns()) as Promise<number>;
 const { bay, rov } = config;
@@ -36,8 +36,10 @@ test.describe("Indonesian", () => {
     expect(shown.visible).toBe(true);
     expect(shown.list).toHaveLength(1);
     const [ship] = shown.list;
-    expect(ship.distance).toBeGreaterThan(100);
+    expect(ship.distance).toBeGreaterThan(1000);
     expect(ship.distance).toBeLessThan(config.ships.horn.sight);
+    // Drawn a tenth as far, inside the haze and the camera's reach (D-133).
+    expect(ship.drawn).toBeCloseTo(ship.distance * config.ships.scale, 3);
     expect(ship.bearing).toBeGreaterThan(5);
     expect(ship.bearing).toBeLessThan(175);
     // Out at sea, east of the bay's dive area.
@@ -48,7 +50,7 @@ test.describe("Indonesian", () => {
     expect((await ships(page)).visible).toBe(false);
   });
 
-  test("the ships sail on, keep their distance as the submarine moves, and stop while paused (AC-3, AC-6)", async ({ page }) => {
+  test("the ships sail on, come nearer or go farther as a real ship would when the submarine moves, and stop while paused (AC-3, AC-6, D-133)", async ({ page }) => {
     test.setTimeout(60_000);
     await startDive(page);
     await float(page);
@@ -56,11 +58,12 @@ test.describe("Indonesian", () => {
     await page.waitForTimeout(1500);
     const later = (await ships(page)).list[0];
     expect(later.bearing).not.toBeCloseTo(first.bearing, 3);
-    // The lane moves with the camera: across the bay, the ship is as far away as before.
-    await reef(page, (h, a) => h.placeRov(-90, a.y, 60, Math.PI / 2, 0.02), { y: bay.surfaceY - rov.floatDepth });
+    // The lane stays out at sea: 110 m back toward the beach, the ship is about that much farther away, and drawn so.
+    await reef(page, (h, a) => h.placeRov(-90, a.y, 0, Math.PI / 2, 0.02), { y: bay.surfaceY - rov.floatDepth });
     await page.waitForTimeout(300);
     const moved = (await ships(page)).list[0];
-    expect(Math.abs(moved.distance - later.distance)).toBeLessThan(15);
+    expect(moved.distance - later.distance).toBeGreaterThan(60);
+    expect(moved.drawn).toBeCloseTo(moved.distance * config.ships.scale, 3);
 
     await page.keyboard.press("Escape");
     await expect.poll(() => reef(page, (h) => h.mode())).toBe("paused");

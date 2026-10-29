@@ -644,27 +644,29 @@ export const config = {
       climb: { fromX: -60, fromY: -5, fromZ: 30, toX: -118, toY: 11, toZ: 8, lookX: -146, lookY: 6 },
     },
   },
-  // REQ-035 (D-130, D-131): ships passing far out at sea, seen and heard above the water only. Their lanes move with the
-  // camera, as the sky does, so they always look far away and cannot be reached. A lane runs square to a line `lane` m
-  // long from the camera, pointing `bearing` degrees from north toward east (the open sea); a ship comes out of the haze
-  // at one end (`end` m from the camera, past `land.hazeFar`) and goes back into it at the other, where it is removed.
+  // REQ-035 (D-130, D-133): ships passing far out at sea, seen and heard above the water only. Each sails a lane fixed out
+  // at sea, `lane` m from the middle of the bay, `bearing` degrees from north toward east (the open sea), and runs along it
+  // until it is `end` m away, deep in the haze, where it is removed. As the haze and the camera's reach end within 450 m,
+  // a ship is drawn `scale` times as far from the camera as it is (on the same line of sight) and `scale` times as big, so
+  // it looks, and shifts as the player moves, just as a ship that far would (a "3D skybox").
   ships: {
     bearing: [80, 100],
-    end: 440,
+    scale: 0.1,
+    end: 4400,
     maxShips: 2,
     // Seconds until the next ship, counted while there is room for one.
     spawn: [45, 75],
     // A new dive starts with one ship already out at sea, at most this share of the way from the middle of its lane.
     startAlong: 0.3,
     // A horn sounds every `interval` seconds while the camera is above the water and a ship is closer than `sight` m.
-    horn: { interval: [40, 90], sight: 390 },
-    // `length` is the model's length in metres (a big ship is far smaller than real, and as near as `lane`, so it looks like
-    // a real one a few kilometres away); `speed` is in m/s along the lane.
+    horn: { interval: [40, 90], sight: 3900 },
+    // `length` is the ship's length in metres; `speed` is in m/s along the lane, a few times a real ship's, so that a big
+    // ship crosses the view in two to three minutes.
     kinds: {
-      container: { weight: 0.3, length: 44, lane: [190, 230], speed: 3.8 },
-      tanker: { weight: 0.25, length: 38, lane: [190, 230], speed: 3.6 },
-      cruise: { weight: 0.2, length: 42, lane: [200, 240], speed: 4.4 },
-      fishing: { weight: 0.25, length: 8, lane: [130, 150], speed: 8 },
+      container: { weight: 0.3, length: 440, lane: [1900, 2300], speed: 38 },
+      tanker: { weight: 0.25, length: 380, lane: [1900, 2300], speed: 36 },
+      cruise: { weight: 0.2, length: 420, lane: [2000, 2400], speed: 44 },
+      fishing: { weight: 0.25, length: 80, lane: [1300, 1500], speed: 80 },
     },
   },
   hud: {

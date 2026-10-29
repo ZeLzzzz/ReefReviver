@@ -1,4 +1,4 @@
-import { BoxGeometry, BufferGeometry, Float32BufferAttribute, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, type Material, type Vector3 } from "three";
+import { BoxGeometry, BufferGeometry, Float32BufferAttribute, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, Vector3, type Material } from "three";
 import { config } from "../config";
 import { compactGroup } from "./model-utils";
 import { ShipTraffic, shipPlace, type ShipKind } from "./ships";
@@ -52,7 +52,7 @@ function hullOutline(width: number, shoulder: number, bluntness = 0.5): Outline 
   ];
 }
 
-/** A ship one unit long, bow toward +z, waterline at y = 0; instances scale it to `config.ships.kinds[kind].length`. */
+/** A ship one unit long, bow toward +z, waterline at y = 0; it is drawn `length` × `config.ships.scale` long (D-133). */
 export function buildShipMesh(kind: ShipKind): Group {
   const ship = new Group();
   ship.name = `ship-${kind}`;
@@ -144,12 +144,15 @@ export interface ShipsView {
   update(dt: number, around: Vector3, above: boolean): void;
   /** True once after a horn came due (REQ-035 AC-5); the game plays it. */
   takeHorn(): boolean;
-  /** For the tests: the ships, where they are from the camera and in the world. */
-  shown(): { kind: ShipKind; distance: number; bearing: number; x: number; z: number }[];
+  /** For the tests: the ships, their real distance and bearing from the camera, and where they are drawn. */
+  shown(): { kind: ShipKind; distance: number; bearing: number; x: number; z: number; drawn: number }[];
   hurryHorn(seconds: number): void;
 }
 
-/** REQ-035: the ships at sea, drawn above the water only, each a copy of its kind's model (shared geometry and paint). */
+/**
+ * REQ-035: the ships at sea, drawn above the water only, each a copy of its kind's model (shared geometry and paint). D-133:
+ * each is drawn `config.ships.scale` times as far from the camera and as big as it really is, on its real line of sight.
+ */
 export function createShipsView(): ShipsView {
   const group = new Group();
   group.name = "ships";
@@ -158,6 +161,8 @@ export function createShipsView(): ShipsView {
   const models = new Map<ShipKind, Group>();
   const placed = new Map<number, Group>();
   let horn = false;
+  // The camera at the last update, which the ships were drawn around.
+  const last = new Vector3();
   return {
     group,
     reset(seed) {
@@ -165,7 +170,8 @@ export function createShipsView(): ShipsView {
       horn = false;
     },
     update(dt, around, above) {
-      if (traffic.update(dt, above)) horn = true;
+      if (traffic.update(dt, above, around)) horn = true;
+      last.copy(around);
       const alive = new Set(traffic.ships.map((ship) => ship.id));
       for (const [id, model] of placed) {
         if (alive.has(id)) continue;
@@ -177,11 +183,11 @@ export function createShipsView(): ShipsView {
         if (!model) {
           if (!models.has(ship.kind)) models.set(ship.kind, buildShipMesh(ship.kind));
           model = models.get(ship.kind)!.clone();
-          model.scale.setScalar(config.ships.kinds[ship.kind].length);
+          model.scale.setScalar(config.ships.kinds[ship.kind].length * config.ships.scale);
           group.add(model);
           placed.set(ship.id, model);
         }
-        const place = shipPlace(ship);
+        const place = shipPlace(ship, around);
         model.position.set(around.x + place.x, config.bay.surfaceY, around.z + place.z);
         model.rotation.y = place.yaw;
       }
@@ -193,7 +199,7 @@ export function createShipsView(): ShipsView {
     },
     shown() {
       return traffic.ships.map((ship) => {
-        const place = shipPlace(ship);
+        const place = shipPlace(ship, last);
         const model = placed.get(ship.id);
         return {
           kind: ship.kind,
@@ -201,6 +207,7 @@ export function createShipsView(): ShipsView {
           bearing: (Math.atan2(place.x, -place.z) * 180) / Math.PI,
           x: model?.position.x ?? NaN,
           z: model?.position.z ?? NaN,
+          drawn: Math.hypot(place.x, place.z),
         };
       });
     },

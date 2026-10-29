@@ -6,11 +6,11 @@ const { ships: tuning } = config;
 export type ShipKind = keyof typeof tuning.kinds;
 export const SHIP_KINDS = Object.keys(tuning.kinds) as ShipKind[];
 
-/** A ship on its lane, seen from the camera (REQ-035). */
+/** A ship on its lane out at sea (REQ-035). */
 export interface Ship {
   id: number;
   kind: ShipKind;
-  /** Where the lane is: its nearest point lies `lane` m from the camera, `bearing` radians from north toward east. */
+  /** Where the lane is: its nearest point lies `lane` m from the middle of the bay, `bearing` radians from north toward east. */
   bearing: number;
   lane: number;
   /** How far along the lane the ship is, in metres from its nearest point; it runs toward +along (`direction` 1) or back. */
@@ -18,7 +18,10 @@ export interface Ship {
   direction: 1 | -1;
 }
 
-/** Where a ship is from the camera: the offset on the ground plane (east = +x, north = -z), its heading and distance. */
+/**
+ * Where to draw a ship (D-133): its offset from the camera on the ground plane (east = +x, north = -z), `scale` times its
+ * real offset, so it lies on the real line of sight; its heading; and its real distance from the camera.
+ */
 export interface ShipPlace {
   x: number;
   z: number;
@@ -29,22 +32,31 @@ export interface ShipPlace {
 
 const range = (random: () => number, [low, high]: readonly [number, number]) => low + random() * (high - low);
 
-/** How far along its lane a ship is still out of the haze: where it is `end` m from the camera. */
+/** How far along its lane a ship goes before it is removed, deep in the haze: where it is `end` m from the bay's middle. */
 export function laneReach(lane: number): number {
   return Math.sqrt(Math.max(0, tuning.end ** 2 - lane ** 2));
 }
 
-export function shipPlace(ship: Ship): ShipPlace {
-  // Toward the lane, and along it: with the lane due east, `along` grows to the south.
+/** Where the ship really is, from the middle of the bay. With the lane due east, `along` grows to the south. */
+export function shipPosition(ship: Ship): { x: number; z: number } {
   const nx = Math.sin(ship.bearing), nz = -Math.cos(ship.bearing);
   const tx = Math.cos(ship.bearing), tz = Math.sin(ship.bearing);
-  const x = nx * ship.lane + tx * ship.along;
-  const z = nz * ship.lane + tz * ship.along;
-  return { x, z, yaw: Math.atan2(tx * ship.direction, tz * ship.direction), distance: Math.hypot(x, z) };
+  return { x: nx * ship.lane + tx * ship.along, z: nz * ship.lane + tz * ship.along };
+}
+
+export function shipPlace(ship: Ship, camera: { x: number; z: number } = { x: 0, z: 0 }): ShipPlace {
+  const { x, z } = shipPosition(ship);
+  const dx = x - camera.x, dz = z - camera.z;
+  return {
+    x: dx * tuning.scale,
+    z: dz * tuning.scale,
+    yaw: Math.atan2(Math.cos(ship.bearing) * ship.direction, Math.sin(ship.bearing) * ship.direction),
+    distance: Math.hypot(dx, dz),
+  };
 }
 
 /**
- * REQ-035 (D-130, D-131): the ships passing far out at sea. At most `maxShips` at a time; a new one comes `spawn` seconds
+ * REQ-035 (D-130, D-133): the ships passing far out at sea. At most `maxShips` at a time; a new one comes `spawn` seconds
  * after there is room, of a kind picked by weight, on a lane and in a direction picked by chance. A dive starts with one
  * already out at sea. While the camera is above the water and a ship is in sight, a horn is due every `horn.interval`.
  */
@@ -65,8 +77,8 @@ export class ShipTraffic {
     this.untilHorn = range(this.random, tuning.horn.interval);
   }
 
-  /** Moves the ships on; returns true when a horn sounds now (only while `above` and a ship is in sight). */
-  update(dt: number, above: boolean): boolean {
+  /** Moves the ships on; returns true when a horn sounds now (only while `above` and a ship is in sight of `camera`). */
+  update(dt: number, above: boolean, camera: { x: number; z: number } = { x: 0, z: 0 }): boolean {
     for (const ship of this.ships) ship.along += ship.direction * tuning.kinds[ship.kind].speed * dt;
     this.ships = this.ships.filter((ship) => ship.direction * ship.along < laneReach(ship.lane));
     if (this.ships.length < tuning.maxShips) {
@@ -76,7 +88,7 @@ export class ShipTraffic {
         this.untilSpawn = range(this.random, tuning.spawn);
       }
     }
-    if (!above || !this.ships.some((ship) => shipPlace(ship).distance < tuning.horn.sight)) return false;
+    if (!above || !this.ships.some((ship) => shipPlace(ship, camera).distance < tuning.horn.sight)) return false;
     this.untilHorn -= dt;
     if (this.untilHorn > 0) return false;
     this.untilHorn = range(this.random, tuning.horn.interval);

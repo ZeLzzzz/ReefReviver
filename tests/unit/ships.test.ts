@@ -2,7 +2,7 @@ import { Box3, Mesh, MeshStandardMaterial, Scene, Vector3 } from "three";
 import { describe, expect, it } from "vitest";
 import { config } from "../../src/config";
 import { buildShipMesh } from "../../src/game/ship-model";
-import { SHIP_KINDS, ShipTraffic, laneReach, shipPlace, type Ship } from "../../src/game/ships";
+import { SHIP_KINDS, ShipTraffic, laneReach, shipPlace, shipPosition, type Ship } from "../../src/game/ships";
 import { buildWorld } from "../../src/game/world";
 
 const { ships: tuning } = config;
@@ -100,9 +100,27 @@ describe("ships passing far out at sea (REQ-035)", () => {
     const moved = Math.atan2(after.x - before.x, after.z - before.z);
     expect(Math.cos(moved - before.yaw)).toBeCloseTo(1, 5);
     // The ends of the lane are past the haze, so ships come and go out of sight, never popping in or out.
-    for (const lane of [140, 280]) expect(Math.hypot(lane, laneReach(lane))).toBeCloseTo(tuning.end, 6);
-    expect(tuning.end).toBeGreaterThan(config.land.hazeFar);
-    expect(tuning.end).toBeLessThan(config.camera.far);
+    for (const lane of [1300, 2400]) expect(Math.hypot(lane, laneReach(lane))).toBeCloseTo(tuning.end, 6);
+    expect(tuning.end * tuning.scale).toBeGreaterThan(config.land.hazeFar);
+    expect(tuning.end * tuning.scale).toBeLessThan(config.camera.far);
+  });
+
+  it("draws a ship on its real line of sight, a tenth as far and as big, so it shifts as a real one would when the player moves (D-133)", () => {
+    const traffic = new ShipTraffic();
+    traffic.reset(6);
+    const [ship] = traffic.ships;
+    const real = shipPosition(ship);
+    for (const camera of [{ x: 0, z: 0 }, { x: -140, z: 30 }, { x: 140, z: -120 }]) {
+      const place = shipPlace(ship, camera);
+      expect(place.x).toBeCloseTo((real.x - camera.x) * tuning.scale, 6);
+      expect(place.z).toBeCloseTo((real.z - camera.z) * tuning.scale, 6);
+      expect(place.distance).toBeCloseTo(Math.hypot(real.x - camera.x, real.z - camera.z), 6);
+    }
+    // Sailing 140 m toward it from the beach brings it about 140 m nearer: it looks a few percent bigger, as a real one would.
+    const beach = shipPlace(ship, { x: -140, z: 0 });
+    const out = shipPlace(ship, { x: 0, z: 0 });
+    expect(beach.distance - out.distance).toBeGreaterThan(100);
+    expect(beach.distance / out.distance).toBeLessThan(1.15);
   });
 
   it("sounds a horn every 40 to 90 seconds of a ship in sight above the water, and never below it (AC-5)", () => {
