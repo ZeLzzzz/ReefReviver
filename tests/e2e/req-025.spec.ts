@@ -239,7 +239,7 @@ test.describe("Indonesian", () => {
   test("and after the Bloom, with the clear water (AC-3)", async ({ page }) => {
     test.setTimeout(240_000);
     await startDive(page);
-    // The floor's 44 and the beach's 8 are cleaned up: 83% with the floating ones still there.
+    // The floor's 40, the 4 oil slicks (REQ-038) and the beach's 8 are cleaned up: 83% with the floating ones still there.
     await reef(page, (h) => {
       h.removeTrash(44);
       h.removeTrash(8, true);
@@ -328,7 +328,7 @@ test.describe("Indonesian", () => {
     test.setTimeout(120_000);
     await startDive(page);
     const dots = page.locator('.hud-minimap [data-kind="trash"]');
-    // The floor's 44 gone: 44 of 62 is 70%, so every item left shows: 8 floating and 8 on the beach.
+    // The floor's 40 and the 4 oil slicks (REQ-038) gone: 44 of 62 is 70%, so every item left shows: 8 floating and 8 on the beach.
     await reef(page, (h) => h.removeTrash(43));
     await expect(stat(page, "cleanliness")).toHaveText("69%");
     await page.waitForTimeout(400);

@@ -10,14 +10,15 @@ import { FLOAT_Y } from "../../src/game/rov";
 import { findAimPoint } from "../../src/game/seed-launcher";
 import { Session } from "../../src/game/session";
 import { headland, inDiveArea, inland, squareRadius } from "../../src/game/terrain";
-import { TrashField, generateTrash, type TrashItem } from "../../src/game/trash";
+import { TrashField, floatingTrash, generateTrash, type TrashItem } from "../../src/game/trash";
 import { createTrashView } from "../../src/game/trash-model";
 
 const { trash, vacuum, bay, rov } = config;
 const { surface } = trash;
 const seeds = Array.from({ length: 200 }, (_, i) => i * 7919 + 3);
 const layoutOf = (seed: number) => generateTrash(chooseLayout(seed).trashSeed);
-const floating = (items: readonly TrashItem[]) => items.filter((item) => item.floating);
+// The bottles and bags at the surface; REQ-038's oil slicks float too, and are checked in oil.test.ts.
+const floating = (items: readonly TrashItem[]) => items.filter(floatingTrash);
 
 /** Items within a few metres of each other make one group; groups are far apart (groupSpacing). */
 function groupsOf(items: readonly TrashItem[]): TrashItem[][] {
@@ -54,17 +55,19 @@ function suck(field: TrashField, session: Session, nozzle: Vector3, aim: Vector3
 }
 
 describe("the surface's share of the trash (REQ-025 AC-1)", () => {
-  it("is 8 of the 60 items, 44 on the floor (6 in the cave) and 8 on the beach, for every seed", () => {
+  it("is 8 of the 60 items, 40 on the floor (6 in the cave), 4 oil slicks (REQ-038) and 8 on the beach, for every seed", () => {
     for (const seed of seeds) {
       const items = layoutOf(seed);
       expect(items).toHaveLength(trash.count);
       expect(floating(items)).toHaveLength(8);
       expect(items.filter((i) => i.onBeach)).toHaveLength(8);
       const floor = items.filter((i) => !i.floating && !i.onBeach);
-      expect(floor).toHaveLength(44);
+      expect(floor).toHaveLength(40);
+      expect(items.filter((i) => i.kind === "oil")).toHaveLength(trash.oil.count);
       expect(floor.filter((i) => i.home.y < bay.cave.floorY + 2 && Math.hypot(i.home.x - bay.cave.x, i.home.z - bay.cave.z) < bay.cave.clear)).toHaveLength(6);
-      // The beach's items keep ids from 52 on; the floating ones come between the floor's and the beach's.
+      // The beach's items keep ids from 52 on; the oil slicks, then the floating ones, come between the floor's and the beach's.
       expect(items.filter((i) => i.onBeach).every((i) => i.id >= 52)).toBe(true);
+      expect(items.filter((i) => i.kind === "oil").map((i) => i.id)).toEqual([40, 41, 42, 43]);
       expect(floating(items).map((i) => i.id)).toEqual([44, 45, 46, 47, 48, 49, 50, 51]);
       expect(items.every((item, i) => item.id === i)).toBe(true);
     }

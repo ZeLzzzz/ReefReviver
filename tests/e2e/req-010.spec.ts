@@ -250,7 +250,7 @@ test.describe("Indonesian", () => {
     await page.screenshot({ path: "test-results/req-010-trash.png" });
 
     // Suck one item (one with no other item in the cone: the trash lies in groups): its dot goes. The 44 removed are the
-    // floor's, so the ones left to the vacuum are the 8 floating at the surface (REQ-025).
+    // floor's 40 and the 4 oil slicks (REQ-038), so the ones left to the vacuum are the 8 floating at the surface (REQ-025).
     expect(await page.evaluate(() => (window as any).__reef.aimAtSurfaceTrash(3, 0, true))).not.toBeNull();
     await page.mouse.down();
     await expect(stat(page, "tank")).toHaveText("1/12", { timeout: 30_000 });

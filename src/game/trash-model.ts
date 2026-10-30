@@ -1,14 +1,17 @@
 import {
   BoxGeometry,
+  BufferGeometry,
+  Color,
   ConeGeometry,
   CylinderGeometry,
   DodecahedronGeometry,
+  DoubleSide,
+  Float32BufferAttribute,
   Group,
   IcosahedronGeometry,
   Mesh,
   MeshStandardMaterial,
   TorusGeometry,
-  type BufferGeometry,
   type Material,
 } from "three";
 import { assets } from "../assets";
@@ -36,6 +39,66 @@ const materials = {
   canMetal: new MeshStandardMaterial({ color: 0xe6e9ed, emissive: 0x55585c, flatShading: true, metalness: 0.45, roughness: 0.35 }),
 };
 
+// REQ-038: an oil slick is dark, with a thin rainbow sheen round its top's rim, and glossy so the sun glints on it. Its faces
+// are drawn from both sides, so none is lost to its winding.
+const oilSlick = new MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.25, side: DoubleSide });
+const OIL_DARK = [0x17110d, 0x1f1812];
+const OIL_SHEEN = [0x4b3a63, 0x2f6b6a, 0x7a6a2e, 0x6b3550, 0x34507a];
+
+/**
+ * REQ-038: an irregular slick about `config.trash.oil.size` m across, a slab `config.trash.oil.thickness` deep with its
+ * top at y = 0: on top a dark middle and a band of sheen round it, one colour per face; dark sides and underside, which
+ * is what shows from under the water. Each variant has its own outline.
+ */
+function buildOilSlick(variant: number): Group {
+  const points = 10;
+  const radius = config.trash.oil.size / 2;
+  // A fixed wobble per variant: the outline's reach at each point, and how long the slick is drawn out.
+  const wobble = (i: number) => {
+    const h = Math.sin((i + 1) * 12.9898 + variant * 78.233) * 43758.5453;
+    return 0.72 + 0.4 * (h - Math.floor(h));
+  };
+  const stretch = [1.1, 0.95, 1.2][variant];
+  const rim = Array.from({ length: points }, (_, i) => {
+    const angle = (i / points) * Math.PI * 2;
+    const reach = radius * wobble(i);
+    return [Math.cos(angle) * reach * stretch, Math.sin(angle) * reach / stretch];
+  });
+  const positions: number[] = [];
+  const colors: number[] = [];
+  const color = new Color();
+  const bottom = -config.trash.oil.thickness;
+  const face = (hex: number, ...corners: number[][]) => {
+    color.setHex(hex);
+    for (const [x, y, z] of corners) {
+      positions.push(x, y, z);
+      colors.push(color.r, color.g, color.b);
+    }
+  };
+  for (let i = 0; i < points; i++) {
+    const [ax, az] = rim[i], [bx, bz] = rim[(i + 1) % points];
+    const innerA = [ax * 0.6, 0, az * 0.6], innerB = [bx * 0.6, 0, bz * 0.6];
+    const a = [ax, 0, az], b = [bx, 0, bz];
+    // The top, wound to face up (+y).
+    face(OIL_DARK[i % 2], [0, 0, 0], innerB, innerA);
+    face(OIL_SHEEN[(i + variant) % OIL_SHEEN.length], innerA, innerB, b);
+    face(OIL_SHEEN[(i + variant + 2) % OIL_SHEEN.length], innerA, b, a);
+    // The side and the underside, dark.
+    const lowA = [ax, bottom, az], lowB = [bx, bottom, bz];
+    face(OIL_DARK[0], a, b, lowB);
+    face(OIL_DARK[0], a, lowB, lowA);
+    face(OIL_DARK[1], [0, bottom, 0], lowA, lowB);
+  }
+  const geometry = new BufferGeometry();
+  geometry.setAttribute("position", new Float32BufferAttribute(positions, 3));
+  geometry.setAttribute("color", new Float32BufferAttribute(colors, 3));
+  geometry.computeVertexNormals();
+  const group = new Group();
+  group.name = `trash-oil-${variant}`;
+  group.add(new Mesh(geometry, oilSlick));
+  return group;
+}
+
 function part(geometry: BufferGeometry, material: Material, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0): Mesh {
   const mesh = new Mesh(geometry, material);
   mesh.position.set(x, y, z);
@@ -45,6 +108,7 @@ function part(geometry: BufferGeometry, material: Material, x = 0, y = 0, z = 0,
 
 export function buildTrashMesh(kind: TrashKind, variant = 0): Group {
   const v = ((variant % 3) + 3) % 3;
+  if (kind === "oil") return buildOilSlick(v);
   const group = new Group();
   group.name = `trash-${kind}-${v}`;
 
@@ -175,16 +239,25 @@ export function createTrashView(items: readonly TrashItem[]): TrashView {
         if (!model.visible) continue;
         model.position.copy(item.position);
         model.rotation.set(0, item.rotation + item.pull * 9, item.pull * 6);
+        const slick = item.kind === "oil";
         if (item.floating) {
           // Each item rocks on its own phase; the rocking dies away as it is sucked in.
           const { period, amplitude, roll, pitch } = config.trash.surface.bob;
           const phase = (seconds / period) * Math.PI * 2 + item.id * 1.7;
           const weight = 1 - item.pull;
-          model.position.y += weight * amplitude * Math.sin(phase);
-          model.rotation.x += weight * roll * Math.sin(phase * 0.8 + 1);
-          model.rotation.z += weight * pitch * Math.sin(phase * 0.6 + 2);
+          if (slick) {
+            // REQ-038 AC-2: an oil slick lies flat on the water, rising and falling a little but never tilting through it.
+            const { lift, bob } = config.trash.oil;
+            model.position.y += weight * (config.trash.surface.sink + lift + bob * amplitude * Math.sin(phase));
+          } else {
+            model.position.y += weight * amplitude * Math.sin(phase);
+            model.rotation.x += weight * roll * Math.sin(phase * 0.8 + 1);
+            model.rotation.z += weight * pitch * Math.sin(phase * 0.6 + 2);
+          }
         }
-        model.scale.setScalar((item.floating ? config.trash.surface.displayScale : DISPLAY_SCALE) * (1 - 0.7 * item.pull));
+        // A slick is modelled at its real size; the other placeholders are drawn larger to read through the murk.
+        const scale = slick ? 1 : item.floating ? config.trash.surface.displayScale : DISPLAY_SCALE;
+        model.scale.setScalar(scale * (1 - 0.7 * item.pull));
       }
       // Dropped trash of an earlier dive is gone.
       for (let id = current.length; id < models.length; id++) models[id].visible = false;

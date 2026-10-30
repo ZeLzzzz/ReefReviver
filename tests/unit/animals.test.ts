@@ -137,7 +137,7 @@ describe("animals are not trash (REQ-003 AC-5, REQ-002 AC-7)", () => {
   it("the vacuum's field holds only trash: no animal is ever a candidate to be sucked", () => {
     const field = new AnimalField();
     const trash = generateTrash();
-    for (const item of trash) expect(["bottle", "bag", "can"]).toContain(item.kind);
+    for (const item of trash) expect(["bottle", "bag", "can", "oil"]).toContain(item.kind);
     for (const animal of field.animals) {
       for (const item of trash) expect(item.position.distanceTo(animal.position)).toBeGreaterThan(2);
     }

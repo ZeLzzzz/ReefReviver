@@ -154,7 +154,8 @@ test.describe("Indonesian", () => {
     await startDive(page);
     // The pieces in the bay's water (not the ones on the beach or in the cave, which have their own rules).
     const trash = ((await reef(page, (h) => h.trash())) as Vec[]).filter(([x, y, z]) => y < -2 && Math.hypot(x - config.bay.cave.x, z - config.bay.cave.z) > config.bay.cave.clear);
-    expect(trash.length).toBeGreaterThan(35);
+    // 40 on the floor since REQ-038 (D-140), 6 of them in the cave.
+    expect(trash.length).toBeGreaterThan(30);
     for (const [x, y, z] of trash) expect(await reef(page, (h, a) => h.fits(a[0], a[1], a[2]), [x, y + 2, z])).toBe(true);
     await bloomNow(page);
     // The densest view: where the most colonies lie within 14 m of a point, looked at from 9 m away and above.

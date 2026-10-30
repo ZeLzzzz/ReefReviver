@@ -1,5 +1,6 @@
 import {
   AdditiveBlending,
+  Box3,
   ConeGeometry,
   type Color,
   DirectionalLight,
@@ -46,7 +47,7 @@ import { Session, type SessionSummary } from "./session";
 import { counterPosition, distanceToStation, inStationZone, stationPosition } from "./station";
 import { buildDockMesh, createStationModel, STATION_MARKER_HEIGHT } from "./station-model";
 import { toolForKey } from "./tools";
-import { TrashField, aimedBeachItem, type TrashItem } from "./trash";
+import { TrashField, aimedBeachItem, floatingTrash, type TrashItem } from "./trash";
 import { createTrashView } from "./trash-model";
 import { inVacuumCone, pickNearestInCone } from "./vacuum";
 import { buildWorld, type World } from "./world";
@@ -227,13 +228,23 @@ export class Game implements GameView {
         // a way to stand `distance` m from the `index`th of them, looking at it.
         beachTrash: () => this.field.items.filter((i) => i.state === "free" && i.onBeach).map((i) => i.position.toArray()),
         beachTotal: () => this.field.items.filter((i) => i.onBeach).length,
-        // REQ-025: the items floating at the surface (free ones' positions, all of them counted, their kinds and states), the
-        // height of each one's model, and a way to put the submarine `distance` m from the nearest free one, aimed at it,
-        // floating or `below` m deeper; with `alone`, only from where no other free floating item is in the vacuum's cone.
-        surfaceTrash: () => this.field.items.filter((i) => i.state === "free" && i.floating).map((i) => i.position.toArray()),
-        surfaceTotal: () => this.field.items.filter((i) => i.floating).length,
-        surfaceKinds: () => this.field.items.filter((i) => i.floating).map((i) => i.kind),
-        surfaceModels: () => this.trashView.group.children.filter((_, id) => this.field.items[id].floating).map((model) => model.position.toArray()),
+        // REQ-025: the bottles and bags floating at the surface (free ones' positions, all of them counted, their kinds and
+        // states), the height of each one's model, and a way to put the submarine `distance` m from the nearest free one,
+        // aimed at it, floating or `below` m deeper; with `alone`, only from where no other free floating item (oil
+        // included) is in the vacuum's cone; with `oil`, the same for the nearest oil slick (REQ-038).
+        surfaceTrash: () => this.field.items.filter((i) => i.state === "free" && floatingTrash(i)).map((i) => i.position.toArray()),
+        surfaceTotal: () => this.field.items.filter(floatingTrash).length,
+        surfaceKinds: () => this.field.items.filter(floatingTrash).map((i) => i.kind),
+        surfaceModels: () => this.trashView.group.children.filter((_, id) => floatingTrash(this.field.items[id])).map((model) => model.position.toArray()),
+        // REQ-038: the oil slicks (every one, with its state and where it is now) and their models' heights and sizes.
+        oil: () => this.field.items.filter((i) => i.kind === "oil").map((i) => ({ id: i.id, state: i.state, position: i.position.toArray(), home: i.home.toArray() })),
+        oilModels: () =>
+          this.trashView.group.children
+            .filter((_, id) => this.field.items[id]?.kind === "oil")
+            .map((model) => {
+              const size = new Box3().setFromObject(model).getSize(new Vector3());
+              return { y: model.position.y, tilt: Math.hypot(model.rotation.x, model.rotation.z), width: Math.max(size.x, size.z), visible: model.visible };
+            }),
         // Where a point shows on the screen in CSS pixels from the top left, or null when it is behind the camera.
         screenOf: (x: number, y: number, z: number) => {
           const p = new Vector3(x, y, z).project(this.camera);
@@ -253,12 +264,13 @@ export class Game implements GameView {
           this.trashView.sync(this.field.items);
           return removed;
         },
-        aimAtSurfaceTrash: (distance = 3, below = 0, alone = false) => {
+        aimAtSurfaceTrash: (distance = 3, below = 0, alone = false, oil = false) => {
           const free = this.field.items.filter((i) => i.state === "free" && i.floating);
           free.sort((a, b) => a.position.distanceTo(this.rov.position) - b.position.distanceTo(this.rov.position));
+          const targets = free.filter((i) => (i.kind === "oil") === oil);
           const from = new Vector3();
           const aim = new Vector3();
-          for (const item of free) {
+          for (const item of targets) {
             for (let k = 0; k < 16; k++) {
               const yaw = (k / 16) * Math.PI * 2;
               from.set(item.position.x - Math.sin(yaw) * distance, FLOAT_Y - below, item.position.z - Math.cos(yaw) * distance);
@@ -952,7 +964,7 @@ export class Game implements GameView {
     if (kind === "opening") {
       // REQ-027 AC-8, D-115: the path follows this dive's floating trash near the beach, the floor trash nearest the start, and
       // the turtle in its net (net 0 always traps it; the animals and nets were laid out for this dive just before).
-      const group = beachGroup(this.field.items.filter((item) => item.floating).map((item) => item.home));
+      const group = beachGroup(this.field.items.filter(floatingTrash).map((item) => item.home));
       const turtle = this.rescue.animals.animals.find((animal) => animal.species === "turtle") ?? this.rescue.animals.animals[0];
       this.openingShot = openingPlan({
         group: group ?? new Vector3(config.bay.shore.waterlineX + 20, config.bay.surfaceY, 0),

@@ -358,6 +358,26 @@ export const config = {
       sink: 0.03,
       bob: { period: 3.4, amplitude: 0.04, roll: 0.14, pitch: 0.1 },
     },
+    // REQ-038 (D-140, D-141): `count` of the items are oil slicks at the sea surface, taken from the floor's share. They go
+    // where floating trash may (surfaceSpotOk), in `groups` groups within `groupRadius`, the first within `nearShore` m of the
+    // west beach's waterline (its centre within `nearShoreCentre`) like the floating trash's; slicks keep `spacing` m apart
+    // and `clearOfTrash` m from the floating trash. A slick is a thin slab about `size` m across and `thickness` m deep, its
+    // top `lift` m over the sea surface (a flat plane: the waves are only shading); it rises and falls by `bob` of the
+    // floating trash's bob but does not tilt, so its top always shows above the water and its underside below it.
+    oil: {
+      count: 4,
+      groups: 2,
+      groupRadius: 4,
+      groupSpacing: 30,
+      spacing: 3,
+      clearOfTrash: 3,
+      nearShore: 50,
+      nearShoreCentre: 30,
+      size: 2,
+      thickness: 0.07,
+      lift: 0.03,
+      bob: 0.5,
+    },
   },
   vacuum: {
     // Trash within this distance of the ROV and this angle around the aim direction (crosshair) can be sucked.

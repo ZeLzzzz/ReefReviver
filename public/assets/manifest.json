@@ -53,6 +53,18 @@
       "url": "models/trash-can-2.glb"
     },
     {
+      "id": "trash-oil-0",
+      "url": "models/trash-oil-0.glb"
+    },
+    {
+      "id": "trash-oil-1",
+      "url": "models/trash-oil-1.glb"
+    },
+    {
+      "id": "trash-oil-2",
+      "url": "models/trash-oil-2.glb"
+    },
+    {
       "id": "station",
       "url": "models/station.glb"
     },

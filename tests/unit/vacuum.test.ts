@@ -36,9 +36,9 @@ function run(field: TrashField, session: Session, nozzle: Vector3, aim: Vector3,
 describe("trash layout (D-012)", () => {
   const items = generateTrash();
 
-  it("lays 60 items of three kinds, the same every time (D-066)", () => {
+  it("lays 60 items of four kinds (with REQ-038's oil slicks), the same every time (D-066, D-140)", () => {
     expect(items).toHaveLength(trash.count);
-    expect(new Set(items.map((i) => i.kind))).toEqual(new Set(["bottle", "bag", "can"]));
+    expect(new Set(items.map((i) => i.kind))).toEqual(new Set(["bottle", "bag", "can", "oil"]));
     expect(generateTrash().map((i) => i.home.toArray())).toEqual(items.map((i) => i.home.toArray()));
   });
 
@@ -228,7 +228,7 @@ describe("only trash is sucked (REQ-002 AC-7)", () => {
   it("only ever has trash to pick: the field holds nothing but trash items at their own spots", () => {
     const field = new TrashField();
     for (const item of field.items) {
-      expect(["bottle", "bag", "can"]).toContain(item.kind);
+      expect(["bottle", "bag", "can", "oil"]).toContain(item.kind);
       for (const rock of rocks) expect(Math.hypot(item.home.x - rock.x, item.home.z - rock.z)).toBeGreaterThan(rock.size);
     }
   });

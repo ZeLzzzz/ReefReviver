@@ -8,15 +8,18 @@ import { counterPosition, stationPosition } from "./station";
 import { pickNearestInCone } from "./vacuum";
 
 const { trash, vacuum, station, dumper } = config;
-const { beach, surface } = trash;
+const { beach, surface, oil } = trash;
 const { dock } = config.bay;
 
-export type TrashKind = "bottle" | "bag" | "can";
+/** REQ-038: "oil" is a slick at the sea surface; it floats like the floating trash and is sucked up the same way. */
+export type TrashKind = "bottle" | "bag" | "can" | "oil";
 const KINDS: readonly TrashKind[] = ["bottle", "bag", "can"];
 /** REQ-025 AC-2: what floats. */
 const FLOATING_KINDS: readonly TrashKind[] = ["bottle", "bag"];
 /** Mixed into the dive's seed for the floating items' own random stream, so they draw nothing from the floor's and the beach's. */
 const SURFACE_STREAM = 0x5f3759df;
+/** REQ-038: the oil slicks' own stream, so they move none of the other items. */
+const OIL_STREAM = 0x2c1b3c6d;
 
 export interface TrashItem {
   id: number;
@@ -33,8 +36,16 @@ export interface TrashItem {
   pull: number;
   /** REQ-017: lies on the sand of the west beach, picked up on foot, never sucked by the vacuum. */
   onBeach: boolean;
-  /** REQ-025: floats at the sea surface (bottles and bags only); `home` is at the waterline, sucked up like floor trash. */
+  /**
+   * REQ-025: floats at the sea surface (bottles and bags, and REQ-038's oil slicks); `home` is at the waterline, sucked up
+   * like floor trash.
+   */
   floating: boolean;
+}
+
+/** REQ-025: a bottle or bag floating at the surface (not an oil slick, REQ-038). */
+export function floatingTrash(item: TrashItem): boolean {
+  return item.floating && item.kind !== "oil";
 }
 
 function mulberry32(seed: number): () => number {
@@ -154,28 +165,43 @@ export function surfaceSpotOk(x: number, z: number): boolean {
  * the beach; the others are anywhere in the bay.
  */
 function surfaceSpots(random: () => number): { x: number; z: number }[] {
-  const spots: { x: number; z: number }[] = [];
-  const centres: { x: number; z: number }[] = [];
   const [fewest, most] = surface.groups;
   const groups = fewest + Math.floor(random() * (most - fewest + 1));
+  return surfaceGroups(random, { ...surface, groups }, []);
+}
+
+/**
+ * Lays `spec.count` spots at the sea surface in `spec.groups` groups (as even in size as can be), every spot good (see
+ * surfaceSpotOk), `spec.spacing` apart and `clear` m from every spot in `taken`. The first group lies near the west beach's
+ * waterline, so it is seen from the beach; the others are anywhere in the bay.
+ */
+function surfaceGroups(
+  random: () => number,
+  spec: { count: number; groups: number; groupRadius: number; groupSpacing: number; spacing: number; nearShore: number; nearShoreCentre: number },
+  taken: readonly { x: number; z: number }[],
+  clear = 0,
+): { x: number; z: number }[] {
+  const spots: { x: number; z: number }[] = [];
+  const centres: { x: number; z: number }[] = [];
   const reach = areaReach(surface.edgeMargin);
-  const nearBeach = (x: number, z: number) => -inland(x, z) <= surface.nearShore && Math.abs(z) <= surface.beachHalfLength;
-  for (let attempts = 0; spots.length < surface.count && attempts < 5000; attempts++) {
+  const nearBeach = (x: number, z: number) => -inland(x, z) <= spec.nearShore && Math.abs(z) <= surface.beachHalfLength;
+  const free = (x: number, z: number) => taken.every((other) => Math.hypot(x - other.x, z - other.z) >= clear);
+  for (let attempts = 0; spots.length < spec.count && attempts < 5000; attempts++) {
     const first = centres.length === 0;
     const cz = first ? (random() * 2 - 1) * surface.beachHalfLength : (random() * 2 - 1) * reach;
-    const cx = first ? inland(0, cz) + random() * surface.nearShoreCentre : (random() * 2 - 1) * reach;
+    const cx = first ? inland(0, cz) + random() * spec.nearShoreCentre : (random() * 2 - 1) * reach;
     if (!surfaceSpotOk(cx, cz) || (first && !nearBeach(cx, cz))) continue;
-    if (centres.some((c) => Math.hypot(cx - c.x, cz - c.z) < surface.groupSpacing)) continue;
+    if (centres.some((c) => Math.hypot(cx - c.x, cz - c.z) < spec.groupSpacing)) continue;
     centres.push({ x: cx, z: cz });
-    const wanted = Math.ceil((surface.count - spots.length) / Math.max(1, groups - centres.length + 1));
+    const wanted = Math.ceil((spec.count - spots.length) / Math.max(1, spec.groups - centres.length + 1));
     let placed = 0;
     for (let tries = 0; placed < wanted && tries < 80; tries++) {
       const angle = random() * Math.PI * 2;
-      const distance = tries === 0 ? 0 : Math.sqrt(random()) * surface.groupRadius;
+      const distance = tries === 0 ? 0 : Math.sqrt(random()) * spec.groupRadius;
       const x = cx + Math.cos(angle) * distance;
       const z = cz + Math.sin(angle) * distance;
-      if (!surfaceSpotOk(x, z) || (first && !nearBeach(x, z))) continue;
-      if (spots.some((other) => Math.hypot(x - other.x, z - other.z) < surface.spacing)) continue;
+      if (!surfaceSpotOk(x, z) || (first && !nearBeach(x, z)) || !free(x, z)) continue;
+      if (spots.some((other) => Math.hypot(x - other.x, z - other.z) < spec.spacing)) continue;
       spots.push({ x, z });
       placed += 1;
     }
@@ -187,20 +213,22 @@ function surfaceSpots(random: () => number): { x: number; z: number }[] {
  * Lays the trash on the floor in small groups (D-066): always the same layout for the same seed, every item on a
  * good spot (see trashSpotOk) and apart from the others. REQ-014: the first few lie on the cave's tunnel floor
  * (the cave itself is kept clear of the rest); the dive's seed moves them about in it. REQ-025: the next `surface.count`
- * float at the sea surface (bottles and bags), laid from a stream of their own. REQ-017: the last `beach.count` lie on the
- * sand of the west beach, laid after the others.
+ * float at the sea surface (bottles and bags), laid from a stream of their own. REQ-038: `oil.count` oil slicks at the
+ * surface, from a stream of their own too and clear of the floating trash, take the place of the floor's last items; they
+ * come between the floor's and the floating ones. REQ-017: the last `beach.count` lie on the sand of the west beach, laid
+ * after the others.
  */
 export function generateTrash(seed: number = trash.seed): TrashItem[] {
   const random = mulberry32(seed);
   const reach = areaReach(6);
   const items: TrashItem[] = [];
   const centres: { x: number; z: number }[] = [];
-  const add = (x: number, z: number, onBeach = false, floating = false, spin: () => number = random) => {
+  const add = (x: number, z: number, onBeach = false, floating = false, spin: () => number = random, kind?: TrashKind) => {
     // REQ-025 AC-2: a floating item sits half under water at the waterline; only bottles and bags float, cans stay down.
     const home = floating ? new Vector3(x, config.bay.surfaceY - surface.sink, z) : new Vector3(x, floorHeight(x, z) + trash.restHeight, z);
     items.push({
       id: items.length,
-      kind: floating ? FLOATING_KINDS[items.length % FLOATING_KINDS.length] : KINDS[items.length % KINDS.length],
+      kind: kind ?? (floating ? FLOATING_KINDS[items.length % FLOATING_KINDS.length] : KINDS[items.length % KINDS.length]),
       position: home.clone(),
       home,
       rotation: spin() * Math.PI * 2,
@@ -210,6 +238,8 @@ export function generateTrash(seed: number = trash.seed): TrashItem[] {
       floating,
     });
   };
+  // REQ-038: the floor is laid as before and its last `oil.count` spots are then left empty for the oil slicks, so the
+  // beach's items, drawn from the same stream after the floor's, stay where they were.
   const floorCount = trash.count - beach.count - surface.count;
   for (const spot of caveTrashSpots(random, trash.spacing)) add(spot.x, spot.z);
   let attempts = 0;
@@ -235,7 +265,11 @@ export function generateTrash(seed: number = trash.seed): TrashItem[] {
     }
   }
   const floatRandom = mulberry32((seed ^ SURFACE_STREAM) | 0);
-  for (const spot of surfaceSpots(floatRandom)) add(spot.x, spot.z, false, true, floatRandom);
+  items.length = Math.min(items.length, floorCount - oil.count);
+  const floats = surfaceSpots(floatRandom);
+  const oilRandom = mulberry32((seed ^ OIL_STREAM) | 0);
+  for (const spot of surfaceGroups(oilRandom, oil, floats, oil.clearOfTrash)) add(spot.x, spot.z, false, true, oilRandom, "oil");
+  for (const spot of floats) add(spot.x, spot.z, false, true, floatRandom);
   for (const spot of beachSpots(random)) add(spot.x, spot.z, true);
   return items;
 }
