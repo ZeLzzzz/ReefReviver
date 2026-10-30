@@ -361,22 +361,21 @@ export const config = {
     // REQ-038 (D-140, D-141): `count` of the items are oil slicks at the sea surface, taken from the floor's share. They go
     // where floating trash may (surfaceSpotOk), in `groups` groups within `groupRadius`, the first within `nearShore` m of the
     // west beach's waterline (its centre within `nearShoreCentre`) like the floating trash's; slicks keep `spacing` m apart
-    // and `clearOfTrash` m from the floating trash. A slick is a thin slab about `size` m across and `thickness` m deep, its
-    // top `lift` m over the sea surface (a flat plane: the waves are only shading); it rises and falls by `bob` of the
-    // floating trash's bob but does not tilt, so its top always shows above the water and its underside below it.
+    // and `clearOfTrash` m from the floating trash. Each film has two transparent faces `thickness` m apart, straddling
+    // the sea's depth plane. `lift` and the small `bob` keep those faces clear of the water without a raised solid rim.
     oil: {
       count: 4,
       groups: 2,
       groupRadius: 4,
       groupSpacing: 30,
-      spacing: 3,
-      clearOfTrash: 3,
+      spacing: 3.5,
+      clearOfTrash: 3.5,
       nearShore: 50,
       nearShoreCentre: 30,
-      size: 2,
-      thickness: 0.07,
-      lift: 0.03,
-      bob: 0.5,
+      size: 2.6,
+      thickness: 0.016,
+      lift: 0.008,
+      bob: 0.025,
     },
   },
   vacuum: {

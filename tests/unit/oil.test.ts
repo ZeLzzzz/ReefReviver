@@ -1,6 +1,9 @@
-import { Box3, DoubleSide, Mesh, Vector3, type MeshStandardMaterial } from "three";
+import { readFileSync } from "node:fs";
+import { Box3, DoubleSide, Mesh, Scene, ShaderLib, Vector3, type MeshBasicMaterial, type WebGLProgramParametersWithUniforms, type WebGLRenderer } from "three";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { describe, expect, it } from "vitest";
 import { config } from "../../src/config";
+import { assets } from "../../src/assets";
 import { aimDirection } from "../../src/game/follow-camera";
 import { chooseLayout } from "../../src/game/layout";
 import { buildMinimap } from "../../src/game/minimap";
@@ -9,6 +12,7 @@ import { Session } from "../../src/game/session";
 import { inland } from "../../src/game/terrain";
 import { TrashField, floatingTrash, generateTrash, surfaceSpotOk, type TrashItem } from "../../src/game/trash";
 import { buildTrashMesh, createTrashView } from "../../src/game/trash-model";
+import { buildWorld } from "../../src/game/world";
 
 // REQ-038: oil slicks at the sea surface, a kind of trash of their own that is cleaned up like the floating trash.
 
@@ -73,7 +77,43 @@ describe("where the oil slicks lie (REQ-038 AC-1, AC-5)", () => {
 });
 
 describe("an oil slick's look (REQ-038 AC-2)", () => {
-  it("is a thin, glossy, low-poly slab about 2 m across, dark with a sheen on top, in three shapes", () => {
+  it("retains the exported film's alpha and shares the sea's clock and Bloom reflections at runtime", async () => {
+    const field = new TrashField(chooseLayout(9).trashSeed);
+    const item = slicks(field.items)[0];
+    const variant = Math.floor(item.id / 3) % 3;
+    const bytes = readFileSync(`public/assets/models/trash-oil-${variant}.glb`);
+    const buffer = new ArrayBuffer(bytes.byteLength);
+    new Uint8Array(buffer).set(bytes);
+    const gltf = await new GLTFLoader().parseAsync(buffer, "");
+    let exported: Mesh | undefined;
+    gltf.scene.traverse((node) => { if (node instanceof Mesh) exported = node; });
+    assets.add(`trash-oil-${variant}`, gltf.scene);
+    try {
+      const world = buildWorld(new Scene());
+      const view = createTrashView(field.items, world.sea);
+      const meshes: Mesh[] = [];
+      view.group.children[item.id].traverse((node) => { if (node instanceof Mesh) meshes.push(node); });
+      const [mesh] = meshes;
+      expect(mesh.geometry).toBe(exported!.geometry);
+      expect(mesh.geometry.attributes.color.itemSize).toBe(4);
+      expect(mesh.renderOrder).toBeGreaterThan(0);
+      const material = mesh.material as MeshBasicMaterial;
+      expect(material.depthWrite).toBe(false);
+      const shader = { uniforms: {}, vertexShader: ShaderLib.basic.vertexShader, fragmentShader: ShaderLib.basic.fragmentShader } as WebGLProgramParametersWithUniforms;
+      material.onBeforeCompile(shader, {} as WebGLRenderer);
+      expect(shader.uniforms.uTime).toBe(world.sea.sky.uTime);
+      expect(shader.uniforms.uWaves).toBe(world.sea.uniforms.uWaves);
+      world.update(0.25, new Vector3());
+      view.sync(field.items, 1000);
+      expect(shader.uniforms.uTime.value).toBe(0.25);
+      world.setClarity(1);
+      expect(shader.uniforms.uMirror.value).toBe(config.sea.reflection.clear);
+    } finally {
+      assets.clear();
+    }
+  });
+
+  it("is a translucent film about 2 m across with feathered edges, in three shapes", () => {
     const outlines = new Set<string>();
     for (const variant of [0, 1, 2]) {
       const model = buildTrashMesh("oil", variant);
@@ -87,16 +127,21 @@ describe("an oil slick's look (REQ-038 AC-2)", () => {
       });
       expect(meshes).toHaveLength(1);
       const [mesh] = meshes;
-      expect(mesh.geometry.attributes.position.count / 3).toBeLessThanOrEqual(60);
-      const material = mesh.material as MeshStandardMaterial;
+      expect(mesh.geometry.index!.count / 3).toBeLessThanOrEqual(1600);
+      const material = mesh.material as MeshBasicMaterial;
       expect(material.vertexColors).toBe(true);
-      expect(material.flatShading).toBe(true);
+      expect(material.transparent).toBe(true);
+      expect(material.depthWrite).toBe(false);
       expect(material.side).toBe(DoubleSide);
-      // Dark in the middle, with colour in the sheen.
       const colors = mesh.geometry.attributes.color;
+      expect(colors.itemSize).toBe(4);
+      const opacity = Array.from({ length: colors.count }, (_, i) => colors.getW(i));
+      expect(Math.min(...opacity)).toBe(0);
+      expect(Math.max(...opacity)).toBeGreaterThan(0.6);
+      expect(Math.max(...opacity)).toBeLessThan(0.9);
       const brightness = Array.from({ length: colors.count }, (_, i) => colors.getX(i) + colors.getY(i) + colors.getZ(i));
-      expect(Math.min(...brightness)).toBeLessThan(0.05);
-      expect(Math.max(...brightness)).toBeGreaterThan(0.1);
+      expect(Math.max(...brightness)).toBeLessThan(0.2);
+      expect(Math.max(...brightness) - Math.min(...brightness)).toBeGreaterThan(0.005);
       outlines.add(JSON.stringify(Array.from(mesh.geometry.attributes.position.array).map((v) => v.toFixed(3))));
     }
     expect(outlines.size).toBe(3);

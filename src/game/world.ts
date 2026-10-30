@@ -348,7 +348,7 @@ export interface World {
   /** REQ-035: the ships passing far out at sea. */
   ships: ShipsView;
   /** REQ-023: for the tests, the sea surface's material and what its shader mirrors of the sky. */
-  sea: { material: MeshBasicMaterial; look(): { mirror: number; time: number } };
+  sea: { material: MeshBasicMaterial; sky: SkyUniforms; uniforms: SeaUniforms; look(): { mirror: number; time: number } };
 }
 
 /** The bay before the Bloom: murky green-grey water with short visibility (REQ-001 AC-3). */
@@ -426,7 +426,7 @@ export function buildWorld(scene: Scene): World {
     beach,
     sky,
     ships,
-    sea: { material: surface, look: () => ({ mirror: seaUniforms.uMirror.value, time: skyUniforms.uTime.value }) },
+    sea: { material: surface, sky: skyUniforms, uniforms: seaUniforms, look: () => ({ mirror: seaUniforms.uMirror.value, time: skyUniforms.uTime.value }) },
     update(dt, around) {
       snow.update(dt, around);
       // The clouds drift and the waves move by this clock; the dome follows the camera.

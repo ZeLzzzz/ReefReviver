@@ -1,23 +1,24 @@
 import {
   BoxGeometry,
   BufferGeometry,
-  Color,
   ConeGeometry,
   CylinderGeometry,
   DodecahedronGeometry,
-  DoubleSide,
-  Float32BufferAttribute,
   Group,
   IcosahedronGeometry,
   Mesh,
   MeshStandardMaterial,
   TorusGeometry,
   type Material,
+  type MeshBasicMaterial,
 } from "three";
 import { assets } from "../assets";
 import { config } from "../config";
 import { compactGroup, hasMesh } from "./model-utils";
 import type { TrashItem, TrashKind } from "./trash";
+import { buildOilSlick, createOilMaterial, type OilSurface } from "./oil-model";
+import { createSeaUniforms } from "./sea-surface";
+import { createSkyUniforms } from "./sky";
 
 /**
  * Low-poly trash models with 3 variations per kind (bottle, bag, can; D-022, DESIGN). Bright colours and
@@ -38,66 +39,6 @@ const materials = {
   canBlue: new MeshStandardMaterial({ color: 0x3b8dff, emissive: 0x10356b, flatShading: true, metalness: 0.3, roughness: 0.45 }),
   canMetal: new MeshStandardMaterial({ color: 0xe6e9ed, emissive: 0x55585c, flatShading: true, metalness: 0.45, roughness: 0.35 }),
 };
-
-// REQ-038: an oil slick is dark, with a thin rainbow sheen round its top's rim, and glossy so the sun glints on it. Its faces
-// are drawn from both sides, so none is lost to its winding.
-const oilSlick = new MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.25, side: DoubleSide });
-const OIL_DARK = [0x17110d, 0x1f1812];
-const OIL_SHEEN = [0x4b3a63, 0x2f6b6a, 0x7a6a2e, 0x6b3550, 0x34507a];
-
-/**
- * REQ-038: an irregular slick about `config.trash.oil.size` m across, a slab `config.trash.oil.thickness` deep with its
- * top at y = 0: on top a dark middle and a band of sheen round it, one colour per face; dark sides and underside, which
- * is what shows from under the water. Each variant has its own outline.
- */
-function buildOilSlick(variant: number): Group {
-  const points = 10;
-  const radius = config.trash.oil.size / 2;
-  // A fixed wobble per variant: the outline's reach at each point, and how long the slick is drawn out.
-  const wobble = (i: number) => {
-    const h = Math.sin((i + 1) * 12.9898 + variant * 78.233) * 43758.5453;
-    return 0.72 + 0.4 * (h - Math.floor(h));
-  };
-  const stretch = [1.1, 0.95, 1.2][variant];
-  const rim = Array.from({ length: points }, (_, i) => {
-    const angle = (i / points) * Math.PI * 2;
-    const reach = radius * wobble(i);
-    return [Math.cos(angle) * reach * stretch, Math.sin(angle) * reach / stretch];
-  });
-  const positions: number[] = [];
-  const colors: number[] = [];
-  const color = new Color();
-  const bottom = -config.trash.oil.thickness;
-  const face = (hex: number, ...corners: number[][]) => {
-    color.setHex(hex);
-    for (const [x, y, z] of corners) {
-      positions.push(x, y, z);
-      colors.push(color.r, color.g, color.b);
-    }
-  };
-  for (let i = 0; i < points; i++) {
-    const [ax, az] = rim[i], [bx, bz] = rim[(i + 1) % points];
-    const innerA = [ax * 0.6, 0, az * 0.6], innerB = [bx * 0.6, 0, bz * 0.6];
-    const a = [ax, 0, az], b = [bx, 0, bz];
-    // The top, wound to face up (+y).
-    face(OIL_DARK[i % 2], [0, 0, 0], innerB, innerA);
-    face(OIL_SHEEN[(i + variant) % OIL_SHEEN.length], innerA, innerB, b);
-    face(OIL_SHEEN[(i + variant + 2) % OIL_SHEEN.length], innerA, b, a);
-    // The side and the underside, dark.
-    const lowA = [ax, bottom, az], lowB = [bx, bottom, bz];
-    face(OIL_DARK[0], a, b, lowB);
-    face(OIL_DARK[0], a, lowB, lowA);
-    face(OIL_DARK[1], [0, bottom, 0], lowA, lowB);
-  }
-  const geometry = new BufferGeometry();
-  geometry.setAttribute("position", new Float32BufferAttribute(positions, 3));
-  geometry.setAttribute("color", new Float32BufferAttribute(colors, 3));
-  geometry.computeVertexNormals();
-  const group = new Group();
-  group.name = `trash-oil-${variant}`;
-  group.add(new Mesh(geometry, oilSlick));
-  return group;
-}
 
 function part(geometry: BufferGeometry, material: Material, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0): Mesh {
   const mesh = new Mesh(geometry, material);
@@ -195,15 +136,21 @@ export function buildTrashMesh(kind: TrashKind, variant = 0): Group {
   return compactGroup(group);
 }
 
-function createModel(kind: TrashKind, id: number): Group {
+function createModel(kind: TrashKind, id: number, oilMaterial: MeshBasicMaterial): Group {
   const variant = Math.floor(id / 3) % 3;
   const loaded = assets.model(`trash-${kind}-${variant}`);
+  let model: Group;
   if (hasMesh(loaded)) {
     const wrapper = new Group();
     wrapper.add(loaded);
-    return wrapper;
-  }
-  return buildTrashMesh(kind, variant);
+    model = wrapper;
+  } else model = buildTrashMesh(kind, variant);
+  if (kind === "oil") model.traverse((part) => {
+    if (!(part instanceof Mesh)) return;
+    part.material = oilMaterial;
+    part.renderOrder = 1;
+  });
+  return model;
 }
 /** The placeholders are drawn a bit larger than life so they read through the murk. */
 const DISPLAY_SCALE = 1.4;
@@ -217,10 +164,12 @@ export interface TrashView {
   sync(items: readonly TrashItem[], seconds?: number): void;
 }
 
-export function createTrashView(items: readonly TrashItem[]): TrashView {
+export function createTrashView(items: readonly TrashItem[], surface?: OilSurface): TrashView {
   const group = new Group();
+  const oilSurface = surface ?? { sky: createSkyUniforms(), uniforms: createSeaUniforms(config.bay.surfaceY) };
+  const oilMaterial = createOilMaterial(oilSurface);
   const models = items.map((item) => {
-    const model = createModel(item.kind, item.id);
+    const model = createModel(item.kind, item.id, oilMaterial);
     group.add(model);
     return model;
   });
@@ -228,10 +177,11 @@ export function createTrashView(items: readonly TrashItem[]): TrashView {
   return {
     group,
     sync(current, seconds = 0) {
+      if (!surface) oilSurface.sky.uTime.value = seconds;
       for (const item of current) {
         // REQ-036: trash the dumping boat drops gets its model the first time it shows.
         if (!models[item.id]) {
-          models[item.id] = createModel(item.kind, item.id);
+          models[item.id] = createModel(item.kind, item.id, oilMaterial);
           group.add(models[item.id]);
         }
         const model = models[item.id];

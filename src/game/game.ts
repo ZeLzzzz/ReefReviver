@@ -123,7 +123,7 @@ export class Game implements GameView {
   private readonly world: World;
   private readonly input: Input;
   private readonly field = new TrashField();
-  private readonly trashView = createTrashView(this.field.items);
+  private readonly trashView: ReturnType<typeof createTrashView>;
   /** REQ-025 AC-8: the items that lie on the floor or the sand; the ones floating at the surface never hide a net from the cutter. */
   private readonly floorItems = this.field.items.filter((item) => !item.floating);
   private readonly beam = createVacuumBeam();
@@ -203,6 +203,7 @@ export class Game implements GameView {
     this.renderer = new WebGLRenderer({ canvas, context, antialias: options.touch ? touch.antialias : true });
     this.renderer.setPixelRatio(options.touch ? touch.pixelRatio : Math.min(window.devicePixelRatio, 2));
     this.world = buildWorld(this.scene);
+    this.trashView = createTrashView(this.field.items, this.world.sea);
     this.scene.add(this.rovModel, createStationModel(), buildDockMesh(), this.trashView.group, this.beam, this.rescue.group, this.scanBeam);
     this.trashView.sync(this.field.items);
     this.natureView.setTrash(this.floorHomes()); // REQ-021 AC-6
