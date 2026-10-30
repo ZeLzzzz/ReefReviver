@@ -1,5 +1,6 @@
 import type { SessionSummary } from "../game/session";
 import { t, type Lang, type StringKey } from "../i18n/i18n";
+import { UN_SDG14_URL } from "../logbook/entries";
 import { h } from "./screens";
 
 export interface EndProps {
@@ -17,7 +18,10 @@ export function formatPlayTime(seconds: number): string {
   return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
 }
 
-/** The end screen (REQ-008 AC-2): the session in numbers, then Main lagi (AC-3) or Lanjut menjelajah (AC-5). */
+/**
+ * The end screen (REQ-008 AC-2): the session in numbers, then Main lagi (AC-3) or Lanjut menjelajah (AC-5). REQ-039 AC-2,
+ * AC-3: between them, what restoring a bay takes in real life, what the player can do, and SDG 14 on the UN's site.
+ */
 export function endScreen({ lang, summary: s, notice, onReplay, onExplore }: EndProps): HTMLElement {
   const rows: [StringKey, string][] = [
     ["end.trash", `${s.trashRemoved}/${s.trashTotal}`],
@@ -36,6 +40,14 @@ export function endScreen({ lang, summary: s, notice, onReplay, onExplore }: End
       h("h1", {}, t(lang, "end.title")),
       h("p", {}, t(lang, "end.body")),
       h("dl", { class: "end-stats" }, ...rows.map(([key, value]) => h("div", {}, h("dt", {}, t(lang, key)), h("dd", {}, value)))),
+      h(
+        "section",
+        { class: "end-real" },
+        h("h2", {}, t(lang, "end.realTitle")),
+        h("p", {}, t(lang, "end.realBody")),
+        h("ul", {}, ...(["end.action1", "end.action2", "end.action3"] as const).map((key) => h("li", {}, t(lang, key)))),
+        h("a", { href: UN_SDG14_URL, target: "_blank", rel: "noopener noreferrer" }, t(lang, "end.sdgLink")),
+      ),
       h(
         "div",
         { class: "end-actions" },

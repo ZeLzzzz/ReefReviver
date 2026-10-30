@@ -1115,6 +1115,37 @@ kbd {
   flex: 1 1 160px;
 }
 
+/* REQ-039 AC-2, AC-3: what restoring a bay takes in real life, what the player can do, and SDG 14 on the UN's site. */
+.end-real {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.panel .end-real h2 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.end-real ul {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--ink-soft);
+  line-height: 1.45;
+}
+
+.end-real a {
+  color: var(--ink);
+}
+
+.end-real a:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
 @media (max-height: 520px) {
   .panel.end {
     gap: 8px;
@@ -1123,6 +1154,10 @@ kbd {
 
   .end-stats > div {
     padding: 3px 0;
+  }
+
+  .end-real {
+    padding: 8px 12px;
   }
 }
 
@@ -1169,6 +1204,21 @@ kbd {
   border-radius: 8px;
   background: rgba(0, 0, 0, 0.25);
   font-size: 14px;
+}
+
+/* At 720 px tall the card with its SDG line (REQ-039) and the dumping boat's sentence (REQ-037) still fits unscrolled. */
+@media (max-height: 760px) {
+  .panel.mission {
+    padding-top: 22px;
+    padding-bottom: 22px;
+  }
+}
+
+/* REQ-039 AC-1: the goal the game serves, right under the card's title. */
+.panel p.mission-sdg {
+  margin-top: -6px;
+  color: var(--accent);
+  font-weight: 700;
 }
 
 .panel p.mission-closing {
@@ -1651,6 +1701,21 @@ html.touch {
 }
 
 /* Development only: the frame rate (`?fps`, REQ-030 AC-7). */
+/* REQ-040: presenter mode's reminder of its keys, in the bottom-left corner over every screen. */
+.presenter-tag {
+  position: fixed;
+  left: 12px;
+  bottom: 10px;
+  margin: 0;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--ink-soft);
+  font-size: 14px;
+  pointer-events: none;
+  z-index: 20;
+}
+
 .fps {
   position: fixed;
   left: 50%;

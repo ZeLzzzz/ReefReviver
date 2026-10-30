@@ -69,6 +69,8 @@ export interface GameView {
   onOpeningEnd?(listener: () => void): void;
   /** REQ-030: where the touch controls send the joystick, the drags and the buttons. */
   touchInput?(): TouchInput;
+  /** REQ-040: presenter mode's shortcuts (the app only calls it with `?presenter` in the address, while playing). */
+  presenter?(action: "phase" | "boat"): void;
 }
 
 export interface GameOptions {
@@ -503,27 +505,7 @@ export class Game implements GameView {
         },
         // Installs and plants the frames and/or the seagrass patches that are not planted yet.
         // The Session's counts stay right, so the goal lists and the Bloom see it like real planting.
-        plantAll: (what: "all" | "frames" | "patches" = "all") => {
-          const { session, reef } = this;
-          if (what !== "patches") {
-            for (const frame of reef.frames) {
-              if (framePlanted(frame)) continue;
-              if (!frame.installed) session.framesInstalled += 1;
-              frame.installed = true;
-              frame.fragments = config.reef.fragmentsPerFrame;
-              session.framesPlanted += 1;
-            }
-            setFrameColumns(reef.columns());
-          }
-          if (what !== "frames") {
-            for (const patch of reef.patches) {
-              if (patchPlanted(patch)) continue;
-              patch.seeds = config.reef.seedsPerPatch;
-              session.patchesPlanted += 1;
-            }
-          }
-          this.reefView.sync(reef);
-        },
+        plantAll: (what: "all" | "frames" | "patches" = "all") => this.plantSites(what),
         // Starts a new dive, as "main lagi" will (REQ-005: it must come back murky, with nothing planted).
         newDive: () => this.play(),
         // REQ-012: how many dives have started, and the layout's seed for the browser tests.
@@ -551,14 +533,7 @@ export class Game implements GameView {
         unlocked: () => [...this.session.unlocked],
         // Opens entries without scanning, to read the Logbook without a Bloom (the Logbook screen reads the HUD state).
         unlockEntries: (ids: LogbookId[]) => ids.forEach((id) => this.session.unlocked.add(id)),
-        freeAnimals: () => {
-          for (const net of this.rescue.nets.nets) {
-            if (net.cut) continue;
-            this.rescue.nets.cut(net.id);
-            this.rescue.animals.free(net.id, this.rov.position);
-            this.session.freeAnimal(net.species);
-          }
-        },
+        freeAnimals: () => this.freeAllAnimals(),
         // REQ-008: open an entry as a scan would (the end screen follows the 7th), and read the play time.
         scanEntry: (id: LogbookId) => this.session.scanned({ kind: "scanned", entry: id }),
         playSeconds: () => this.session.playSeconds,
@@ -590,6 +565,83 @@ export class Game implements GameView {
 
   touchInput(): TouchInput {
     return this.input;
+  }
+
+  /**
+   * REQ-040: the presenter's shortcuts for a live demo. "phase" finishes Phase 1 as if played (the nets cut, trash taken
+   * and deposited until the bay is clean enough for the Bloom, the materials earned), and the next time Phase 2 (every
+   * frame and patch planted, so the Bloom begins); "boat" calls the dumping boat now. Nothing happens during a cinematic,
+   * once the Bloom has begun, or while not playing.
+   */
+  presenter(action: "phase" | "boat"): void {
+    if (this.mode !== "playing" || this.cine || this.bloom.state !== "idle") return;
+    const { session } = this;
+    if (action === "boat") {
+      if (!this.dumper.active) this.dumper.summon(this.ashore ? this.ashore.walker.position : this.rov.position);
+      return;
+    }
+    const phase1Done = session.objectives.every((objective) => objective.done);
+    this.finishCleanup();
+    if (!phase1Done) {
+      session.say({ key: "presenter.phase1" });
+      return;
+    }
+    this.plantSites("all");
+    session.say({ key: "presenter.phase2" });
+  }
+
+  /**
+   * REQ-040: Phase 1 done as if played: every net cut, the tank's load and then free trash deposited at the shed until the
+   * bay is clean enough for the Bloom (and at least one deposit made), with the materials it earns.
+   */
+  private finishCleanup(): void {
+    const { session } = this;
+    this.freeAllAnimals();
+    let deposited = session.tank;
+    session.tank = 0;
+    for (const item of this.field.items) {
+      if (session.cleanliness >= config.phase1.cleanTarget && session.trashDeposited + deposited > 0) break;
+      if (item.state !== "free") continue;
+      item.state = "collected";
+      session.trashRemoved += 1;
+      deposited += 1;
+    }
+    session.trashDeposited += deposited;
+    session.materials += deposited * config.rewards.materialPerTrash;
+    this.trashView.sync(this.field.items);
+  }
+
+  /** Cuts every net that still traps an animal and frees it (REQ-003), as the Cutter would. */
+  private freeAllAnimals(): void {
+    for (const net of this.rescue.nets.nets) {
+      if (net.cut) continue;
+      this.rescue.nets.cut(net.id);
+      this.rescue.animals.free(net.id, this.rov.position);
+      this.session.freeAnimal(net.species);
+    }
+  }
+
+  /** Sets up and plants the frames and/or the seagrass patches not planted yet; the Session counts it like real planting. */
+  private plantSites(what: "all" | "frames" | "patches"): void {
+    const { session, reef } = this;
+    if (what !== "patches") {
+      for (const frame of reef.frames) {
+        if (framePlanted(frame)) continue;
+        if (!frame.installed) session.framesInstalled += 1;
+        frame.installed = true;
+        frame.fragments = config.reef.fragmentsPerFrame;
+        session.framesPlanted += 1;
+      }
+      setFrameColumns(reef.columns());
+    }
+    if (what !== "frames") {
+      for (const patch of reef.patches) {
+        if (patchPlanted(patch)) continue;
+        patch.seeds = config.reef.seedsPerPatch;
+        session.patchesPlanted += 1;
+      }
+    }
+    this.reefView.sync(reef);
   }
 
   play(): void {

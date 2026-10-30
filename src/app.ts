@@ -3,7 +3,7 @@ import type { GameView } from "./game/game";
 import type { HudState } from "./game/hud-state";
 import type { SessionSummary } from "./game/session";
 import type { LogbookId } from "./logbook/entries";
-import { initialLanguage, saveLanguage, type Lang, type StorageLike, type StringKey } from "./i18n/i18n";
+import { initialLanguage, saveLanguage, t, type Lang, type StorageLike, type StringKey } from "./i18n/i18n";
 import type { Orientation } from "./platform";
 import type { PointerLock } from "./ui/pointer-lock";
 import { credits } from "./credits";
@@ -13,7 +13,7 @@ import { createHud, type HudView } from "./ui/hud";
 import { createLoadingScreen, type LoadingView } from "./ui/loading";
 import { logbookScreen } from "./ui/logbook";
 import { missionScreen } from "./ui/mission";
-import { messageScreen, pauseMenu, rotateMessage, titleScreen, type PauseView } from "./ui/screens";
+import { h, messageScreen, pauseMenu, rotateMessage, titleScreen, type PauseView } from "./ui/screens";
 import type { TouchHud } from "./ui/touch";
 
 export type Screen = "loading" | "title" | "credits" | "playing" | "mission" | "paused" | "logbook" | "end" | "noWebgl" | "assetError";
@@ -34,6 +34,8 @@ export interface AppDeps {
   loadAssets?: (onProgress: (fraction: number) => void) => Promise<void>;
   /** The game's sound (REQ-026); without it the screens are silent. */
   audio?: AppAudio;
+  /** REQ-040: `?presenter` in the address: P skips a phase and B calls the dumping boat while playing, and a tag says so. */
+  presenter?: boolean;
 }
 
 /** Screen flow around the game: loading, title, credits, playing, the mission card, pause, the Marine Logbook, the end screen, and the messages for unsupported browsers and for a phone held upright. */
@@ -236,6 +238,10 @@ export class App {
       return;
     }
     if (event.code === "KeyM" && !event.repeat && this.screen === "playing") this.toggleMute();
+    // REQ-040: the presenter's shortcuts, only in presenter mode and while playing (the game ignores them in a cinematic).
+    if (this.deps.presenter && this.screen === "playing" && !event.repeat && (event.code === "KeyP" || event.code === "KeyB")) {
+      this.game?.presenter?.(event.code === "KeyP" ? "phase" : "boat");
+    }
     if (event.code === "KeyL" && !event.repeat) {
       // REQ-027 AC-4: during a cinematic L does nothing.
       if (this.screen === "playing" && !this.game?.cinematic?.()) this.openLogbook();
@@ -352,7 +358,9 @@ export class App {
         break;
     }
     // REQ-030 AC-6: held upright, the message covers whatever screen is up.
-    if (touch && this.deps.orientation?.portrait()) this.deps.ui.replaceChildren(content, rotateMessage(lang));
-    else this.deps.ui.replaceChildren(content);
+    // REQ-040: in presenter mode a tag in the corner reminds the presenter of the keys, over every screen.
+    const tag = this.deps.presenter ? [h("p", { class: "presenter-tag" }, t(lang, "presenter.tag"))] : [];
+    if (touch && this.deps.orientation?.portrait()) this.deps.ui.replaceChildren(content, rotateMessage(lang), ...tag);
+    else this.deps.ui.replaceChildren(content, ...tag);
   }
 }

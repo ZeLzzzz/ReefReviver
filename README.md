@@ -1,131 +1,125 @@
 # ReefReviver
 
-Game browser 3D low-poly: pemain mengemudikan kapal selam mini untuk membersihkan teluk yang tercemar, memulihkan terumbunya, lalu memindai satwa yang kembali. Dibuat untuk lomba, dengan Three.js + Vite + TypeScript.
+**Clean a polluted bay, rebuild its reef, and watch the sea come back to life.**
 
-## Yang sudah bisa dimainkan
+ReefReviver is a low-poly 3D game that runs in the browser, on a computer or on a phone or tablet held sideways. The player pilots a small crewed submarine through a murky tropical bay: vacuuming up trash and oil, cutting animals free from ghost nets, setting up reef frames and planting coral and seagrass. When the bay is clean enough and every site is planted, the water clears in the *Bloom*, sea life returns, and the player scans it into a Marine Logbook of sourced facts about SDG 14.
 
-- Layar loading dengan progres saat file game dimuat. Kalau ada file yang gagal dimuat, muncul pesan dengan tombol Muat ulang.
-- Layar judul dengan pilihan bahasa Indonesia/English. Bahasa awal mengikuti bahasa browser, dan pilihan yang diganti diingat browser.
-- Sinematik pembuka (±32 detik) setelah Mulai pertama sejak halaman dibuka: kamera memperlihatkan pesisir barat dan sampah yang mengapung dari ketinggian, melayang rendah melewati sampah apung, lalu dengan potongan layar memudar memperlihatkan sekelompok sampah di dasar laut, penyu yang meronta di jaring hantu, dan berakhir di belakang kapal selam. Tiga kalimat narasi muncul di pita hitam bawah, HUD disembunyikan, dan klik atau Spasi melewatinya. Main lagi langsung bermain; refresh memutarnya lagi. Waktu bermain dihitung setelah sinematik.
-- Kartu misi setelah sinematik pembuka (selesai atau dilewati): menjelaskan keadaan teluk dan empat misi (bersihkan sampai 80% dan setor di gudang, bebaskan penyu dan hiu karang, pasang rangka serta tanam koral dan lamun, lalu pindai 7 entri setelah Bloom), satu kalimat tentang kapal pembuang sampah yang sesekali datang (REQ-037), dan satu baris kontrol. Angkanya diambil dari `src/config.ts`. Klik "Mulai menyelam" atau tekan Enter untuk mulai; selama kartu terbuka permainan berhenti, waktu bermain belum berjalan, dan musik pelan. Main lagi langsung bermain tanpa kartu.
-- Menyelam dengan kapal selam mini low-poly berbadan tertutup (kuning dengan perut hijau tua dan palka di atap), yang dua baling-balingnya di belakang berputar saat kapal bergerak, di teluk yang keruh selebar ±300 m: dasarnya naik turun dengan bukit, lembah pasir, bongkahan batu tak beraturan dengan puncak dan sisi miring, dan lengkungan batu, dari ±8 m sampai ±25 m di bawah permukaan. Sisi barat berupa pantai yang naik ke daratan, diapit tanjung batu di kedua ujungnya; ke utara, timur, dan selatan laut terbuka sampai cakrawala, dengan dasar yang menurun ke laut dalam di luar area penyelaman. Di tepi area penyelaman (±147 m dari tengah) kapal melambat lalu berhenti di batas tak terlihat, dan muncul pesan "Batas area penyelaman" selama 2 detik. Kamera orang ketiga dan crosshair di tengah layar. Kapal selam bisa naik sampai permukaan dan mengapung dengan palka di atas air, bergoyang pelan; kamera ikut keluar dari air, dan tampilannya berganti antara bawah air dan atas air tanpa berkedip di garis air. Kapal selam mulai di laut dekat dermaga di pantai barat, menghadap ke timur. Kapal selam tidak bisa menembus dasar laut, lereng, batu, tanjung, pantai, tiang dermaga, atau permukaan air, tapi bisa lewat di bawah lengkungan batu. Kamera mendekat ke kapal selam kalau di belakangnya ada lereng, batu, atau dinding.
-- Naik ke darat: di air dangkal sekitar 10 m dari pantai barat, E membawa pemain ke pantai dengan sudut pandang orang pertama (layar memudar sebentar). Kapal selam ditinggal terapung di dekat pantai. Di darat ada langit bergradasi dengan awan yang bergerak pelan dan matahari yang berpendar (dibuat dengan shader), permukaan laut yang bergelombang dengan kilau matahari, pohon kelapa berbatang melengkung dengan pelepah yang bergoyang pelan, batu, serta pasir tanpa rumput. Kerang kipas, cangkang oval, cangkang spiral, dan pecahannya berkelompok dekat garis air; kelapa cokelat dan hijau jatuh di sekitar pohon. Dekorasi ini bisa dilewati, tidak masuk tangki, dan menyisakan ruang di sekitar sampah, loket, serta jalur dermaga. Laut terlihat keruh sebelum Bloom dan biru jernih sesudahnya. Dari bawah air, permukaannya terlihat beriak. Pemain berjalan dengan WASD dan menengok dengan mouse, tanpa lari atau lompat, dan berhenti di tepi air, di tebing barat, di tanjung batu di kedua ujung pantai, di gudang, serta di pohon dan batu; dermaga bisa dipijak sampai ujungnya. Alat tidak bisa dipakai di darat dan panelnya disembunyikan. E di dekat kapal selam (±3,5 m) membawa pemain kembali ke dalamnya. Di minimap, panah menunjukkan pemain dan kapal selam punya tandanya sendiri.
-- Di belakang pantai, tebing barat berlekuk dengan tinggi yang beragam, di baliknya bukit-bukit berhutan berlapis yang memudar dalam kabut, dan mercusuar setinggi 24 m berdiri di tanjung utara. Tebing dan bukit tidak bisa didaki. Ombak kecil (paling tinggi ±24 cm) bergerak ke pasir di sepanjang pantai terbuka, pecah jadi buih, dan memudar di tepinya; di tanjung batu tidak ada ombak. Ombak ikut warna laut, keruh sebelum Bloom dan jernih sesudahnya, dan berhenti saat dijeda. Pohon latar, mercusuar, dan ombak hanya digambar di atas air.
-- Kapal melintas jauh di laut lepas (REQ-035): kapal kontainer dengan tumpukan kontainer warna-warni, tanker minyak merah-hitam, kapal pesiar putih bertingkat, dan perahu nelayan kecil yang lebih cepat. Biasanya 1–2 kapal terlihat sekaligus, melintas dari utara ke selatan atau sebaliknya di antara timur laut dan tenggara, muncul perlahan dari kabut cakrawala dan hilang lagi ke dalamnya. Jalur kapal tetap di laut, ±1,3–2,4 km di timur, jadi saat pemain maju, mundur, atau bergeser, ukuran dan arah kapal berubah seperti kapal sungguhan; kapal tidak bisa didekati karena batas area menyelam. Supaya tetap terlihat di balik kabut, kapal digambar sebagai miniatur 1/10 pada 1/10 jaraknya di garis pandang yang sama. Saat dive dimulai satu kapal sudah di tengah jalurnya. Kapal hanya digambar di atas air dan berhenti saat dijeda.
-- Kapal pembuang sampah (REQ-036): ±2 menit setelah menyelam, sebuah kapal kecil berawak dua orang datang dari laut lepas, berhenti di permukaan teluk, dan membuang 1 sampah tiap 15 detik (paling banyak 20), sebagian mengapung dan sebagian tenggelam ke dasar, sehingga persentase kebersihan turun. Kedatangannya diberi tahu, baris tujuan mendesak "! Balikkan kapal pembuang sampah" tampil di atas daftar tujuan dengan penjelasan caranya di bawahnya, dan minimap menandainya. Seperti penanda gudang, penanda berwarna aksen dengan "!" yang berkedip menunjuk ke kapal beserta jaraknya, juga saat di darat (REQ-037); kalau perangkat meminta animasi dikurangi, "!" tidak berkedip. Pegang Cutter, bidik lambungnya dari dekat, dan tahan klik kiri (PAKAI di HP) sampai cincin "Membalikkan kapal" penuh: kapal terbalik (+100), lalu tenggelam, sementara kedua awaknya berenang selamat ke pantai. Kapal berikutnya datang ±3–4 menit kemudian, paling banyak satu sekaligus, dan tidak ada lagi setelah Bloom; kapal yang masih membuang sampah saat Bloom dimulai pergi ke laut.
-- Menyedot sampah dengan Vacuum (tahan klik kiri). Sekitar 60 sampah tersebar dalam kelompok-kelompok kecil: 40 di dasar laut, 8 mengapung di permukaan, 4 tumpahan minyak di permukaan, dan 8 di pasir pantai. Sampah apung (hanya botol dan kantong plastik) bergoyang di tempatnya dalam 2–3 kelompok, salah satunya cukup dekat pantai sehingga terlihat dari darat. Tumpahan minyak (REQ-038) berupa genangan pipih ±2 m berwarna cokelat-hitam dengan kilau pelangi di pinggirnya, dalam 2 kelompok berisi 2, satu kelompok terlihat dari pantai. Genangan itu rata di air, ikut naik-turun dengan ombak, dan dari bawah air tampak sebagai bayangan gelap. Sampah apung dan minyak disedot Vacuum dari kapal yang mengapung atau dari bawah permukaan; satu tumpahan mengisi satu tempat di tangki, seperti sampah lain. Sampah di pasir pantai barat terletak sampai ±7 m dari tepi air, dan hanya bisa dipungut dengan berjalan kaki: bidik dengan crosshair dari jarak ≤3 m lalu tekan E (Vacuum tidak bisa menyedotnya). Sampah yang dipungut masuk tangki yang sama dan ikut dihitung dalam kebersihan. Tangki muat 12 item; kalau penuh, naik ke darat dan setor di loket gudang daur ulang dengan E untuk mendapat bahan (E di bawah laut tidak pernah menyetor). Gudangnya berupa rumah kayu pesisir (dinding papan krem, atap genteng terakota, jendela berjalusi, kanopi bergaris di atas loket, dan penjaga berkacamata di balik loketnya) di pantai barat dekat dermaga kayu, bersuar di atap dan bertanda cincin kuning di depan loket. Penanda di layar menunjukkan arah dan jarak gudang, dan tidak pernah menutupi panel HUD atau pesan.
-- Setiap sesi baru (Mulai, Main lagi, atau refresh), 2 jaring, 3 titik terumbu, 2 petak lamun, dan sekitar 60 sampah ditaruh di tempat lain: titik-titiknya dipilih acak dari titik calon yang sudah dipastikan layak, dan selalu tersebar di minimal 3 perempat teluk. Gudang, dermaga, titik mulai, medan, dan goa tidak berubah.
-- Memotong jaring hantu dengan Cutter (tahan klik kiri pada jaring 2 detik) untuk membebaskan penyu hijau dan hiu sirip hitam karang. Satwa yang bebas terus berkeliaran di teluk.
-- Memasang rangka terumbu baja/beton di 3 titik bertanda dengan E (5 bahan), lalu menembakkan bibit dengan Seed launcher: kena rangka jadi fragmen koral, kena petak pasir jadi biji lamun. Kelima titik calon petak lamun ada di dataran pasir dangkal depan pantai barat (±4 m), di sela padang lamun alami. 3 fragmen menanami satu rangka, 3 biji menanami satu petak.
-- The Bloom: begitu kebersihan teluk mencapai 80% dan ketiga rangka serta kedua petak lamun sudah ditanami, dalam ±6 detik air berubah dari keruh hijau-abu ke biru jernih, koral berwarna merah muda, oker, ungu, hijau laut, krem, dan biru; fragmen tanam membesar, lamun tumbuh tinggi, dan penanda titik tanam memudar (letaknya tetap ada di minimap). Setelah itu ikan badut muncul di anemon dekat rangka, kawanan ikan ekor kuning, pari manta, dan lumba-lumba berenang di teluk, dan Scanner terbuka. Sisa sampah masih bisa disedot. Selama transisi ini kendali berhenti dan kamera menjauh memperlihatkan teluk yang berubah: di bawah air mengitari terumbu di sekitar pemain, di permukaan atau di darat naik memperlihatkan laut yang membiru, dan di dalam goa tetap di lorong. Klik atau Spasi mengembalikan kendali lebih cepat.
-- Goa: lorong tembus sepanjang 35 m di bukit batu timur laut, dengan dua mulut. Di dalamnya gelap kecuali berkas cahaya dari lubang kecil di atap, dan ada 6 dari 60 sampah. Lampu depan kapal selam menyala sendiri di dalam goa dan padam di luar. Dinding, lantai, dan atap goa padat bagi kapal maupun kamera, dan lubang atapnya terlalu sempit untuk dilewati. Di minimap kedua mulutnya tampil sebagai lengkung dan lorongnya sebagai garis samar.
-- Terumbu alami: sabuk terumbu karang di tepi dataran dangkal barat (sedalam 7–12,5 m, terlihat dari titik mulai) dan 10 gosong karang di puncak bukit, batu besar, dan lengkungan batu, berisi ribuan koloni karang meja, bercabang, otak, dan jari (0,4–2,1 m, dengan koloni besar ditempatkan lebih dahulu) serta 5 bongkah *Porites* besar; lembah pasir yang dalam hampir kosong. Alga tropis (rumpun hijau *Halimeda*, kipas *Padina*, semak cokelat *Sargassum*) tumbuh di batu dan dataran dangkal, spons tong menempel di batu dan lereng, dan kipas laut berdiri tegak di batu besar, lengkungan batu, dan lereng yang lebih dalam dari 10 m, semuanya menghadap arus yang sama; hiasan tidak pernah menutupi sampah. Padang lamun tumbuh rapat di dataran pasir dangkal depan pantai barat (10 padang, sedalam 1–7 m), dengan daun pita yang bergoyang oleh arus, pasir kehijauan di bawahnya, dan rumpun *Enhalus* yang lebih tinggi di bagian paling dangkal. Sebelum Bloom karangnya pucat, lamunnya jarang dan cokelat, dan spons serta kipas lautnya kusam; selama Bloom karang berubah warna-warni, lamun tumbuh lebat dan hijau, dan hiasan berwarna, lalu berkas sinar cahaya masuk dari permukaan. Sabuk, gosong, dan bongkah karang padat seperti batu (kapal bisa melayang di atasnya), hiasan kecil bisa dilewati, dan bibit yang mengenai karang atau padang lamun alami hilang tanpa dihitung.
-- Memindai dengan Scanner setelah Bloom (tahan klik kiri pada sasaran 1,5 detik, paling jauh 14 m): penyu, hiu karang, ikan badut, pari manta, lumba-lumba, karang, dan lamun. Tiap sasaran baru membuka satu entri Marine Logbook; karang dan padang lamun alami juga membuka entri Karang dan Lamun. Lamun (alami maupun yang ditanam) dipindai dengan membidik dasarnya, jadi bisa dari samping maupun dari tepat di atasnya. Satwa yang masih terjerat harus dibebaskan dulu, dan ikan ekor kuning tidak bisa dipindai.
-- Marine Logbook (L): permainan berhenti, entri yang belum dipindai tampil sebagai siluet "???", dan entri yang terbuka berisi nama, fakta, kaitan dengan target SDG 14, serta sumbernya (tautan dibuka di tab baru). L atau Esc menutupnya.
-- Sinematik penutup (±18,5 detik), sekitar 3 detik setelah entri ketujuh: kamera terbang di atas terumbu yang pulih, kawanan ikan, pari manta, dan lumba-lumba, lalu naik ke permukaan memperlihatkan pantai, dengan kalimat "Teluk ini hidup kembali." Klik atau Spasi langsung ke layar akhir.
-- Layar akhir: setelah sinematik penutup (yang dimulai sekitar 3 detik setelah entri ketujuh terpindai), tampil ringkasan sesi (sampah terangkat, satwa diselamatkan, rangka koral dan petak lamun yang ditanami, waktu bermain, skor). Waktu bermain dihitung dari Mulai sampai entri ketujuh, tanpa waktu jeda dan saat Logbook terbuka. Main lagi memulai sesi baru dengan bahasa yang sama; Lanjut menjelajah kembali ke teluk yang sudah pulih.
-- HUD berisi tangki, bahan, skor, kebersihan teluk, hotbar alat, daftar tujuan Fase 1, dan daftar tujuan Fase 2 setelah setoran pertama. Setelah Bloom, kedua daftar itu diganti tujuan Fase 3 (Pindai 0/7).
-- Hotbar alat (REQ-033) di tengah bawah layar: empat slot bergambar dengan angkanya (1 Cutter, 2 Vacuum, 3 Seed launcher, 4 Scanner). Alat yang dipegang berbingkai oranye, dan slotnya terisi oranye selama alat bekerja. Nama dan petunjuk alat muncul di atas hotbar saat alat berganti, saat menyelam dimulai, saat kembali masuk kapal, dan setelah jeda, lalu memudar setelah ±4 detik; selama ada pesan, keduanya menyingkir dan pesan tampil tepat di atas hotbar. Sebelum Bloom, slot Scanner redup bergembok. Di HP dan tablet hotbar ada di samping joystick, dan slotnya diketuk untuk memilih alat. Di darat dan selama sinematik hotbar disembunyikan.
-- Minimap di pojok kanan atas (utara di atas), dengan panel statistik tepat di bawahnya. Peta menampilkan seluruh teluk: daratan di barat beserta tanjungnya, garis tipis tepi area penyelaman, dan dasar laut yang makin terang di bagian yang makin dangkal (puncak bukit), lalu arah kapal selam (atau pemain saat di darat), gudang daur ulang (kotak), dermaga (garis), titik terumbu (belah ketupat), petak lamun (lingkaran), dan jaring yang masih menjerat satwa (X). Tanda titik berubah saat rangka terpasang dan saat titik ditanami. Sisa sampah baru tampil sebagai titik setelah kebersihan mencapai 70%.
-- Layar Kredit (dari layar judul): anggota tim, aset pihak ketiga, dan kode pihak ketiga beserta lisensinya. Isinya dibaca dari `CREDITS.md` saat build.
-- Suara: di bawah air terdengar gemuruh laut dan gelembung, di atas air dan di darat ombak dan angin. Setiap aksi punya efek suara (Vacuum, sampah masuk tangki, tangki penuh, memotong jaring, satwa bebas, tembakan bibit, titik tertanam, Scanner, entri Logbook baru, setor, memungut sampah, langkah di pasir dan dermaga, keluar/masuk kapal, tombol menu, Bloom). Semua efek dibuat dengan Web Audio di kode (`src/audio/`), tanpa file. Musik latar "Underwater Ambient Pad" (isaiah658, CC0) diputar berulang: teredam sebelum Bloom, lalu jernih. Suara baru mulai setelah Mulai ditekan. Di atas air, selama ada kapal di kejauhan, klakson kapal sesekali terdengar sayup (±tiap 40–90 detik, REQ-035). M mematikan/menyalakan suara; volume musik dan efek diatur di menu jeda (awal 60% dan 80%), dan kembali ke awal setelah refresh. Saat jeda, Logbook, dan layar akhir hanya musik yang terdengar, lebih pelan. Kalau musik gagal dimuat (mis. Safari yang tidak bisa memutar OGG) atau browser tidak punya Web Audio, game tetap jalan tanpa musik atau tanpa suara.
-- Menu jeda (Esc, atau tombol jeda di HP/tablet) berisi Lanjut, Kontrol, Bahasa, dan Suara. Game juga otomatis berhenti kalau kursor lepas, misalnya karena alt-tab, atau kalau pemain pindah ke aplikasi atau tab lain.
-- Di HP dan tablet (REQ-030), game dimainkan dalam posisi mendatar dengan kontrol sentuh (lihat Kontrol). Ketukan di mana saja melewati sinematik, dan Mulai meminta layar penuh kalau browser mengizinkan (kalau ditolak, game tetap jalan di tampilan biasa). Teks yang menyebut tombol keyboard atau mouse memakai versi sentuh, misalnya "Ketuk E untuk menyetor sampah" dan "Tahan PAKAI untuk menyedot sampah". Kalau perangkat dipegang tegak, muncul pesan "Putar perangkat ke posisi mendatar" dan permainan berhenti; setelah diputar kembali, menu jeda tampil. Supaya ringan, gambar di HP/tablet dirender satu piksel perangkat per piksel CSS dan tanpa antialias. Di HP (layar sentuh setinggi ≤480 px, REQ-034) HUD ±20% lebih kecil: teks 13 px, panel lebih rapat, joystick 96 px, PAKAI 68 px, ▲/▼ 44 px, E 46 px, tombol menu 36 px, slot hotbar 40 px, dan minimap ±26% tinggi layar; di tablet ukurannya tetap. Laptop berlayar sentuh tetap memakai keyboard dan mouse. Di layar sentuh yang lebih kecil dari 800×360, penanda arah ke gudang bisa menumpuk di panel statistik karena tidak ada celah selebar labelnya. Di iPhone, Safari tidak mengizinkan halaman web tampil layar penuh, jadi game tetap berada di bawah bilah alamat dan bilah tab. Dalam posisi mendatar dengan bilah tab tampil, area game bisa tinggal ±283 px. Sejak HUD di HP diperkecil (REQ-034), di ukuran itu tidak ada lagi tombol yang bertumpuk (diuji dengan emulasi iPhone di Chromium, belum di iPhone sungguhan), tetapi pandangannya tetap sempit. Pemain iPhone sebaiknya menyembunyikan bilah Safari, atau mematikan bilah tab untuk posisi mendatar di pengaturan Safari, supaya area game lebih tinggi.
-- Di browser tanpa WebGL 2 muncul penjelasan, bukan layar hitam.
+**Play it:** https://reef-reviver.vercel.app (no install; a recent Chrome, Edge or Firefox with WebGL 2)
 
-Model 3D memakai gaya low-poly; model GLB dari artist bisa menggantikan aset buatan kode. Batu besar menggunakan permukaan yang sama untuk gambar, tabrakan, dan tempat menempel biota. Karang alami memiliki dua variasi bentuk per jenis: cabang dengan percabangan tidak seragam, lempeng tipis bertumpuk dengan tepian bergelombang, bongkah berlekuk, dan jari bercabang. Koloni kecil mengisi sela di antara koloni besar; warna berkelompok dengan pangkal lebih gelap dan ujung lebih terang. Kipas laut bercabang terbuka, spons memiliki bibir tebal dan rongga gelap, dan sinar bawah air memudar lembut di tepinya.
+*Bahasa Indonesia: [README.id.md](README.id.md)*
 
-## Kontrol
+| Before: a turtle trapped in a ghost net | After the Bloom: the restored reef | The coast from the sea |
+|---|---|---|
+| ![A green turtle trapped in a ghost net in murky water](media/ghost-net.jpg) | ![The reef in clear blue water after the Bloom](media/restored-reef.jpg) | ![The beach, the hills and the lighthouse seen from the submarine at the surface](media/coast.jpg) |
 
-| Tombol | Fungsi |
+## Why: SDG 14, Life Below Water
+
+Marine litter, abandoned fishing gear ("ghost nets") and damaged coral reefs and seagrass meadows are among the threats to ocean life that the UN's [Sustainable Development Goal 14](https://sdgs.un.org/goals/goal14) sets out to tackle. ReefReviver turns them into one short session that the player solves with their own hands: not a lecture, but a bay they clean and restore, and a reward of sea life and facts.
+
+| SDG 14 target | In the game |
 |---|---|
-| W A S D | Maju, mundur, geser ke samping; di darat: berjalan |
-| Spasi / Shift | Naik / turun; Spasi sampai mengapung di permukaan |
-| Mouse | Mengarahkan kapal selam; di darat: menengok |
-| Klik kiri (tahan) | Pakai alat |
-| 1 | Pilih Cutter |
-| 2 | Pilih Vacuum |
-| 3 | Pilih Seed launcher |
-| 4 | Pilih Scanner (setelah Bloom) |
-| E | Pasang rangka di titik terumbu, naik ke darat di dekat pantai barat; di darat: pungut sampah di pasir yang dibidik, setor sampah di loket gudang daur ulang, atau masuk kapal selam |
-| L | Buka/tutup Marine Logbook |
-| M | Matikan atau nyalakan suara |
-| Esc | Jeda, atau tutup Logbook |
+| **14.1** Reduce marine pollution, including marine debris | Trash on the sea floor, floating at the surface and lying on the beach; oil slicks; a boat that dumps trash into the bay. Collected trash is taken to a recycling shed on land and becomes building material. |
+| **14.2** Protect and restore marine and coastal ecosystems | Steel-and-concrete reef frames planted with coral fragments, seagrass sown on the sand, and the Bloom that brings the bay back. |
+| **14.4** End destructive fishing practices | Ghost nets that trap a green turtle and a blacktip reef shark, cut free with the Cutter. |
+| **14.a** Increase scientific knowledge | The Scanner and the Marine Logbook: seven entries (green turtle, blacktip reef shark, clownfish, reef manta ray, spinner dolphin, coral, seagrass), each with facts, its SDG 14 target and the sources (IUCN, NOAA, FishBase, UNEP, the UN and others). |
 
-Di HP dan tablet (posisi mendatar):
+## How it plays
 
-| Kontrol sentuh | Fungsi |
+1. **Clean up.** Vacuum the trash on the floor, at the surface and the oil slicks. When the 12-item tank is full, go ashore, walk to the recycling shed's counter and deposit it for materials. Pick up the trash on the beach on foot. Cut the ghost nets to free the turtle and the shark. Now and then a boat comes to dump more trash; a blinking marker points to it.
+2. **Restore.** With the materials, set up reef frames at the three marked sites, then shoot coral fragments onto them and seagrass seeds onto two sandy patches with the Seed launcher.
+3. **Bloom and scan.** Once the bay is 80% clean and every site is planted, the water turns clear, the corals take on colour and clownfish, yellowtail, manta rays and dolphins return. Scan them to fill the Marine Logbook; the seventh entry ends the session with a summary.
+
+A full session takes about 10–15 minutes. The trash, nets and planting sites are laid out differently every session.
+
+### Features
+
+- A ±300 m bay with hills, valleys, boulders, rock arches, a cave lit by a shaft of light through its roof, a reef belt and seagrass meadows, open sea to the horizon with ships passing far out, and a beach with a timber recycling shed, a dock, palms and a lighthouse.
+- Underwater and above water: the submarine floats at the surface, and the player can go ashore and walk on the beach in first person.
+- Opening and Bloom cinematics, a mission card, a minimap, a tool hotbar, and markers that never cover the HUD.
+- Sound: ambience, effects generated in code with the Web Audio API, and a CC0 music track.
+- The mission card names SDG 14, and the end screen points to the real world: reefs and seagrass take years to recover, three things a player can do, and SDG 14 on the UN's website.
+- English and Indonesian, switchable on the title screen.
+- Touch controls on phones and tablets held sideways (joystick, drag to steer, USE button, tappable hotbar), with lighter rendering.
+
+## Controls
+
+| Keyboard and mouse | Action |
 |---|---|
-| Joystick (kiri bawah; jari di mana saja di separuh kiri layar) | Maju, mundur, geser ke samping; di darat: berjalan. Makin jauh didorong, makin cepat |
-| Geser jari di separuh kanan layar | Mengarahkan kapal selam; di darat: menengok |
-| ▲ / ▼ (tahan) | Naik / turun |
-| PAKAI (tahan) | Pakai alat; menggeser jari di atasnya sekaligus mengarahkan |
-| Slot hotbar 1–4 di samping joystick | Pilih Cutter, Vacuum, Seed launcher, Scanner |
-| E | Sama seperti tombol E |
-| Tombol jeda, buku, dan suara di samping minimap | Jeda, buka Marine Logbook, matikan atau nyalakan suara |
+| W A S D | Move forward, back and sideways; on land: walk |
+| Space / Shift | Rise / dive; Space all the way up floats at the surface |
+| Mouse | Steer the submarine; on land: look around |
+| Left click (hold) | Use the tool |
+| 1 / 2 / 3 / 4 | Cutter / Vacuum / Seed launcher / Scanner (after the Bloom) |
+| E | Set up a reef frame at a site, go ashore near the west beach; on land: pick up beach trash, deposit at the shed's counter, board the submarine |
+| L | Open or close the Marine Logbook |
+| M | Mute or unmute |
+| Esc | Pause, or close the Logbook |
 
-Di darat, ▲/▼, PAKAI, dan hotbar disembunyikan. Selama sinematik semua tombol disembunyikan, dan ketukan di mana saja melewatinya.
+On a phone or tablet: the joystick (left half of the screen) moves, dragging on the right half steers, ▲/▼ rise and dive, USE uses the tool, the hotbar slots choose it, and E interacts.
 
-## Menjalankan
+## Technology
 
-Butuh Node.js 22.12 atau lebih baru, versi genap (22, 24, 26): itu syarat Vitest.
+| Part | What it uses |
+|---|---|
+| Language and build | TypeScript, [Vite](https://vite.dev); a static build of about 3 MB |
+| 3D | [Three.js](https://threejs.org) on WebGL 2. Every model (submarine, animals, coral, boats, buildings) is low-poly and built in code, then exported to glTF/GLB with `npm run generate:assets`; reefs, seagrass and beach decoration are instanced meshes; the sky, sea surface and surf are shaders |
+| Sound | Web Audio API: effects and ambience generated in code, one looping music file |
+| Tests | [Vitest](https://vitest.dev) unit tests (1,007) and [Playwright](https://playwright.dev) end-to-end tests (247, plus 7 against the production build) that play the game in a real Chromium on the GPU, including touch input as a phone |
+| Hosting | [Vercel](https://vercel.com): every push to `main` is deployed |
+
+Measured on a laptop with an NVIDIA GTX 1650 Mobile and an AMD Radeon Vega integrated GPU: 60 fps at 1280×720 and 1920×1080 in the busiest scenes after the Bloom, in Chromium and Firefox. On an Android phone: 60–90 fps (the screen's refresh rate).
+
+## Getting started
+
+You need [Node.js](https://nodejs.org) 22.12 or newer, an even version (22, 24, 26).
 
 ```sh
+git clone https://github.com/ZeLzzzz/ReefReviver.git
+cd ReefReviver
 npm install
-npm run dev        # server pengembangan, buka alamat yang muncul di terminal
-npm run build      # cek tipe + build statis ke dist/, gagal kalau dist/ lebih dari 50 MB
-npm run preview    # coba hasil build
+npm run dev        # development server; open the address shown in the terminal
+npm run build      # type check + static build into dist/ (fails if dist/ is over 50 MB)
+npm run preview    # try the build
 ```
 
-Mencoba di HP: jalankan `npm run dev -- --host`, lalu buka alamat "Network" yang muncul di browser HP yang tersambung ke Wi-Fi yang sama. Di mode dev, `?fps` di alamat menampilkan fps (rata-rata satu detik dan frame terlama), dan `?bloom` langsung membersihkan dan menanami teluk begitu menyelam dimulai, supaya adegan terberat setelah Bloom bisa diukur dalam semenit, misalnya `http://<alamat>:5173/?fps&bloom`.
+To try it on a phone, run `npm run dev -- --host` and open the "Network" address on a phone on the same Wi-Fi. In the development server, `?fps` in the address shows the frame rate, and `?bloom` cleans and plants the bay as soon as the dive starts.
 
-Build memakai path relatif, jadi isi `dist/` bisa diunggah ke itch.io (HTML5) atau hosting statis lain, di folder mana pun. Membuka `index.html` langsung dari disk (`file://`) tidak bisa, karena browser memblokir module script di sana. Untuk mencoba build dari sub-folder seperti di hosting: `node scripts/serve-dist.mjs` (melayani `dist/` di `/game/`).
+### Presenter mode (live demos)
 
-### Hosting di Vercel
+A full session takes 10–15 minutes. For a short live demo, open the game with `?presenter` in the address, for example https://reef-reviver.vercel.app/?presenter (it works in the built game too). A tag in the bottom-left corner lists the keys. While playing:
 
-Repo ini bisa langsung diimpor di Vercel (Add New → Project → pilih repo GitHub-nya), tanpa mengubah setelan apa pun. `vercel.json` menetapkan install `npm ci`, build `npm run build` (termasuk cek tipe dan batas 50 MB), dan hasilnya di `dist/`. Node.js bawaan Vercel (24.x) sudah cukup. Setiap push ke `main` menjadi deploy produksi, dan push ke branch lain mendapat URL pratinjau sendiri.
+- **P** finishes Phase 1 as if it had been played: the nets cut, the tank and free trash deposited at the shed until the bay is 80% clean, and the materials earned. Press **P** again to set up and plant every frame and patch: the Bloom and its cinematic begin.
+- **B** calls the dumping boat right away (if none is in the bay and the Bloom has not begun).
 
-### Model dari artist
+The keys do nothing during cinematics, in the pause menu, the Logbook or the menus, and without `?presenter` nothing changes.
 
-Model GLB/glTF diletakkan di `public/assets/` dan didaftarkan di `public/assets/manifest.json` sebagai `{ "id": "rov", "url": "rov.glb" }`. Semua file di daftar itu dimuat sebelum layar judul. Model yang tidak ada di daftar dibangun dari kode. `npm run generate:assets` mengekspor model buatan kode ke `public/assets/models/` dan menulis ulang seluruh `manifest.json`, jadi model artist yang sudah terdaftar perlu didaftarkan lagi setelahnya. Aset yang bukan buatan tim wajib dicatat di `CREDITS.md` beserta lisensinya.
+The build uses relative paths, so `dist/` can be served from any folder of a static host, such as Vercel or itch.io. Opening `index.html` straight from disk does not work, because browsers block module scripts on `file://`.
 
-Untuk memperbarui model tertentu saja, tambahkan ID-nya, misalnya `npm run generate:assets -- station`. Perintah ini hanya mengekspor model yang dipilih dan mempertahankan manifest beserta aset lainnya.
-
-Model kapal selam (`rov`) dari artist perlu palka bernama `deck-hatch` yang tetap di atas air saat kapal mengapung (lebih dari 0,4 m di atas titik pusat model), dan baling-baling berupa grup bernama `propeller-left` dan `propeller-right` yang berputar pada sumbu Z. Tanpa grup itu modelnya tetap dipakai, hanya baling-balingnya diam.
-
-Kapal pembuang sampah dibangun langsung dari `src/game/dumper-model.ts`: lambung melebar ke atas dengan haluan melengkung, dek kayu, ban pelindung, motor tempel, dan karung yang berkurang ketika sampah dibuang. Kedua awak di `src/game/dumper-crew-model.ts` punya wajah, rambut, dan topi berbeda dengan pakaian bergaris. Saat berenang, badan condong, lengan mengayuh bergantian dengan siku menekuk, dan kaki menendang; kepala tetap di atas air. Gerakan sendi mengikuti waktu permainan sehingga berhenti saat jeda. Seperti benda lain di teluk, kapal dan awaknya low-poly (D-136): kapal 1.484 segitiga dan tiap awak ±990, dengan satu bahan berwarna per titik sehingga lambung, tiap karung, baling-baling, dan tiap sendi masing-masing satu draw call. Penjaga loket di balik loket gudang (`src/game/station-attendant-model.ts`, D-137) dibuat dengan cara yang sama (1.028 segitiga, satu draw call) dan ikut tersimpan di `station.glb`.
-
-## Performa
-
-Diukur 2026-10-23 setelah peta diperluas (REQ-011), saat adegan terberat (setelah Bloom, semua satwa keluar) di dua titik terpadat, 1280×720 dan 1920×1080: Chromium dengan GPU NVIDIA 60 fps, Chromium dengan GPU AMD terintegrasi 60 fps, Firefox 60 fps. Medan terdiri dari 16 potongan (34.848 segitiga), dan potongan di luar pandangan tidak digambar. Rumput di darat (REQ-018) berupa satu instanced mesh berisi 29.463 helai, digoyang angin di shader; diukur di darat setelah Bloom dengan Chromium NVIDIA, tetap 60 fps. Setelah karang dan lamun mengikuti riset (REQ-019, REQ-020), satu layar bisa berisi ±900 ribu segitiga; diukur 2026-10-23 setelah Bloom di titik mulai, di sabuk karang terpadat, dan di atas padang lamun, 1280×720 dan 1920×1080: Chromium NVIDIA dan Chromium AMD terintegrasi tetap 60 fps. Laptop: AMD Ryzen 7 5800HS, RAM 16 GB, NVIDIA GTX 1650 Mobile + AMD Radeon Vega, Arch Linux (Wayland).
-
-Setelah revisi visual 2026-10-24 (batu tak beraturan, ±3.300 koloni karang dengan dua variasi bentuk per jenis, hiasan baru), satu layar bisa berisi ±1 juta segitiga dan ±370 draw call; diukur setelah Bloom di titik mulai, di sabuk karang terpadat, dan di atas padang lamun, 1280×720 dan 1920×1080: Chromium NVIDIA dan Chromium AMD terintegrasi tetap 60 fps, dan di darat 60 fps. Build 1,42 MB.
-
-Di HP dan tablet (REQ-030) gambar dirender satu piksel perangkat per piksel CSS dan tanpa antialias. Diukur 2026-10-26 di HP Android lewat server dev: 90 fps stabil (sama dengan refresh layarnya) sebelum Bloom, dan setelah Bloom di titik mulai, sabuk karang, padang lamun, dan di darat.
-
-Setelah pesisir dirombak (REQ-031, 2026-10-28/29) rumput tidak ada lagi. Di darat kini ada 812 kerang dan kelapa jatuh dalam 34 instanced mesh (per bentuk dan per enam bagian pantai), 7 pohon kelapa dengan 3 mesh masing-masing, gudang rumah kayu 9.524 segitiga, 273 pohon latar dalam instanced mesh yang dibagi per bentuk dan bagian bukit supaya kelompok di luar pandangan tidak digambar, mercusuar, dan jalur ombak. Pohon latar, mercusuar, dan ombak tidak digambar saat kamera di bawah air. Medan luar memakai kisi 10 m yang selaras dengan medan rinci, jadi sambungan tebing tidak bercelah. Diukur 2026-10-29 setelah Bloom, di permukaan depan pantai dan di darat (ke arah mercusuar, bukit, ombak, dan rumah kayu), 1280×720 dan 1920×1080: Chromium NVIDIA, Chromium AMD terintegrasi, dan Firefox 60 fps. Di HP Android user lewat server dev Wi-Fi, di permukaan dan di darat: 60 fps saat diam dan 90 fps saat bergerak. Karena fps justru naik saat bergerak, angka 60 itu kemungkinan besar refresh layar HP yang turun saat layar tidak disentuh, bukan beban game. Build 2,85 MB. Pada hari yang sama kerang, kelapa, pohon kelapa, dan pohon latar dibuat low-poly lagi (D-125), sehingga segitiga di darat turun dari ±390 ribu ke ±131 ribu.
-
-## Tes
+### Tests
 
 ```sh
-npm test           # unit test (Vitest)
-npm run test:e2e   # tes di Chromium sungguhan (Playwright)
-npm run test:e2e:dist   # build, lalu mainkan hasil build dari sub-folder /game/
+npm test                        # unit tests (Vitest)
+npx playwright install chromium # once, before the first end-to-end run
+npm run test:e2e                # end-to-end tests in Chromium (Playwright)
+npm run test:e2e:dist           # build, then play the build from a sub-folder
 ```
 
-Sebelum `test:e2e` pertama kali, pasang Chromium-nya dengan `npx playwright install chromium`. Tes e2e merender WebGL di GPU lewat ANGLE Vulkan. Di komputer tanpa GPU yang bisa dipakai, jalankan dengan `E2E_SWIFTSHADER=1` supaya WebGL dirender CPU lewat SwiftShader; cara ini jauh lebih lambat dan membuat CPU sibuk penuh selama tes. Tes menunggu ROV bergerak, bukan mengukur waktu. Server dev untuk tes e2e memakai seed tetap (`VITE_TEST_SEED=1`), jadi susunan jaring, titik tanam, dan sampah sama di setiap run. Paling banyak 4 browser berjalan bersamaan; lebih dari itu, halaman peta besar jadi terlalu lambat untuk tes yang menunggu waktu. Tes kontrol sentuh (`req-030.spec.ts`) memainkan game sebagai Pixel 7 mendatar dan mengirim sentuhan, satu jari atau lebih, lewat DevTools Protocol.
+The end-to-end tests render WebGL on the GPU. On a computer without a usable GPU, run them with `E2E_SWIFTSHADER=1` to render on the CPU instead (much slower).
 
-## Struktur
+## Project structure
 
-| Lokasi | Isi |
+| Path | Contents |
 |---|---|
-| `src/config.ts` | Semua angka yang bisa disetel saat playtest (ukuran dan bentuk teluk: bukit, lembah, pantai, dinding, batu besar, lengkungan; kecepatan kapal selam, kabut, kamera, daratan dan cara berjalan, kerang dan kelapa di pasir (`land.beachDecor`), bukit dan mercusuar (`land.backdrop`), ombak (`sea.surf`), Bloom, satwa yang kembali, scanner, minimap) |
-| `src/i18n/id.json`, `en.json` | Semua teks di game. Kedua file harus punya kunci yang sama |
-| `src/logbook/entries.ts` | Data tujuh entri Marine Logbook: nama ilmiah, target SDG 14, dan sumber tiap fakta. Teksnya ada di file string (`logbook.*`) |
-| `src/app.ts`, `src/ui/` | Alur layar: loading, judul, kredit, bermain (HUD dan minimap), jeda, Marine Logbook, pesan WebGL/gagal muat/putar perangkat. Kontrol sentuh untuk HP dan tablet ada di `src/ui/touch.ts`, dan angkanya di `config.touch` |
-| `src/assets.ts`, `public/assets/manifest.json` | Pemuat model artist dan daftar filenya |
-| `src/audio/`, `public/assets/audio/` | Suara (REQ-026): mesin Web Audio, resep efek dan suasana yang dibuat kode, dan file musik latar. Volume dan nada tiap efek ada di `config.audio` |
-| `CREDITS.md` | Sumber layar Kredit: tim, aset pihak ketiga, kode pihak ketiga dan teks lisensinya |
-| `scripts/` | Cek ukuran build, server lokal untuk mencoba build dari sub-folder, dan ekspor model buatan kode ke GLB (`generate-assets.mjs`) |
-| `src/game/` | Adegan Three.js dan aturan main: medan teluk (`terrain.ts`: bukit, lembah, pantai, tanjung, laut dalam di luar area, batas area penyelaman), batu besar dan lengkungan batu, kapal selam (di kode disebut ROV), daratan dan berjalan (`land.ts`), pohon kelapa (`palm-model.ts`), sebaran kerang dan kelapa jatuh (`beach.ts`, `beach-model.ts`), pohon latar dan mercusuar (`backdrop.ts`, `backdrop-model.ts`), ombak di tepi pantai (`shore-surf.ts`), tabrakan, kamera, input, sampah, vacuum, gudang daur ulang berupa rumah kayu dan dermaga (`station-model.ts`), jaring, satwa, cutter, titik terumbu, seed launcher, Bloom dan satwa yang kembali, scanner, sesi (tangki, skor, kebersihan, tujuan) |
-| `tests/unit/`, `tests/e2e/`, `tests/e2e-dist/` | Unit test, tes browser, dan tes hasil build |
+| `src/config.ts` | Every tunable number: the bay's shape, speeds, fog, the Bloom, sea life, sound levels, touch controls |
+| `src/game/` | The Three.js scene and the rules: terrain, submarine, land and walking, trash and vacuum, nets and animals, reef sites and seed launcher, the Bloom, scanner, the dumping boat, ships, session (tank, score, cleanliness, goals); `*-model.ts` files build the models |
+| `src/ui/` | Screens and HUD: loading, title, credits, mission card, HUD and minimap, hotbar, pause menu, Marine Logbook, end screen, touch controls |
+| `src/i18n/` | All in-game text, in English (`en.json`) and Indonesian (`id.json`) |
+| `src/logbook/entries.ts` | The Marine Logbook's seven entries: scientific names, SDG 14 targets and sources |
+| `src/audio/` | The Web Audio engine and the sound recipes |
+| `public/assets/` | Exported GLB models, the music, and `manifest.json` (models listed there replace the ones built in code, so an artist's GLB can be dropped in) |
+| `tests/unit/`, `tests/e2e/`, `tests/e2e-dist/` | Unit tests, browser tests, and tests of the build |
+| `CREDITS.md` | The team, third-party assets and code with their licences (read by the in-game Credits screen) |
+
+## Credits
+
+Third-party assets and code, with their licences, are listed in [CREDITS.md](CREDITS.md), and shown on the in-game Credits screen. The background music is "Underwater Ambient Pad" by isaiah658 (CC0).

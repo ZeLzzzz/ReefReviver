@@ -148,3 +148,35 @@ describe("end screen (REQ-008 AC-2, AC-3, AC-5)", () => {
     expect(el.querySelector('[role="alert"]')?.textContent).toBe("Kursor belum terkunci ke game. Klik tombolnya lagi.");
   });
 });
+
+describe("the end screen's look at real life (REQ-039 AC-2, AC-3)", () => {
+  const summary: SessionSummary = { trashRemoved: 50, trashTotal: 60, animalsFreed: 2, animalsTotal: 2, framesPlanted: 3, framesTotal: 3, patchesPlanted: 2, patchesTotal: 2, seconds: 600, score: 900 };
+  const screen = (lang: "id" | "en") => endScreen({ lang, summary, notice: null, onReplay: () => {}, onExplore: () => {} });
+
+  it("says recovery takes years, lists three things to do, and links SDG 14 on the UN's site in a new tab, between the numbers and the buttons", () => {
+    const element = screen("id");
+    const real = element.querySelector(".end-real")!;
+    expect(real.previousElementSibling?.matches(".end-stats")).toBe(true);
+    expect(real.nextElementSibling?.matches(".end-actions")).toBe(true);
+    expect(real.querySelector("h2")!.textContent).toBe("Di dunia nyata");
+    expect(real.querySelector("p")!.textContent).toBe("Terumbu karang dan padang lamun butuh bertahun-tahun untuk pulih. Yang bisa kamu lakukan:");
+    expect([...real.querySelectorAll("li")].map((li) => li.textContent)).toEqual([
+      "Kurangi plastik sekali pakai, seperti kantong, sedotan, dan botol.",
+      "Ikut bersih-bersih pantai, dan buang sampah pada tempatnya.",
+      "Pilih makanan laut yang ditangkap secara berkelanjutan.",
+    ]);
+    const link = real.querySelector("a")!;
+    expect(link.textContent).toBe("Pelajari SDG 14 di situs PBB");
+    expect(link.getAttribute("href")).toBe("https://sdgs.un.org/goals/goal14");
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(link.getAttribute("rel")).toBe("noopener noreferrer");
+  });
+
+  it("says it in English", () => {
+    const real = screen("en").querySelector(".end-real")!;
+    expect(real.querySelector("h2")!.textContent).toBe("In real life");
+    expect(real.querySelector("p")!.textContent).toBe("Coral reefs and seagrass meadows take years to recover. What you can do:");
+    expect(real.querySelectorAll("li")).toHaveLength(3);
+    expect(real.querySelector("a")!.textContent).toBe("Learn about SDG 14 on the UN website");
+  });
+});

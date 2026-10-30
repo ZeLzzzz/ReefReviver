@@ -29,7 +29,7 @@ export function logbookKeys(id: LogbookId): { name: LogbookTextKey; facts: Logbo
   return { name: `logbook.${id}.name`, facts: `logbook.${id}.facts`, sdg: `logbook.${id}.sdg` };
 }
 
-const UN_SDG14_URL = "https://sdgs.un.org/goals/goal14";
+export const UN_SDG14_URL = "https://sdgs.un.org/goals/goal14";
 
 function unTarget(target: string): LogbookSource {
   return {

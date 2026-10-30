@@ -22,7 +22,7 @@ function sentenceNumber(lang: Lang, n: number): string {
  * REQ-029 AC-2, AC-3: the texts of the mission card. Every number comes from the game's configuration (the trash, the
  * Bloom's threshold, the frames and patches, the nets, the Logbook's entries), so the card always matches the game.
  */
-export function missionTexts(lang: Lang, touch = false): { title: string; state: string; list: string; missions: string[]; dumper: string; controls: string; closing: string } {
+export function missionTexts(lang: Lang, touch = false): { title: string; sdg: string; state: string; list: string; missions: string[]; dumper: string; controls: string; closing: string } {
   const values = {
     trash: config.trash.count,
     nets: sentenceNumber(lang, config.phase1.nets),
@@ -33,6 +33,8 @@ export function missionTexts(lang: Lang, touch = false): { title: string; state:
   };
   return {
     title: t(lang, "mission.title"),
+    // REQ-039 AC-1: the goal the game serves, under the title.
+    sdg: t(lang, "mission.sdg"),
     state: format(lang, "mission.state", values),
     list: t(lang, "mission.list"),
     missions: (["mission.1", "mission.2", "mission.3", "mission.4"] as const).map((key) => format(lang, key, values)),
@@ -57,6 +59,7 @@ export function missionScreen({ lang, notice, onStart, touch = false }: MissionP
       "section",
       { class: "panel mission", role: "dialog", "aria-label": text.title },
       h("h1", {}, text.title),
+      h("p", { class: "mission-sdg" }, text.sdg),
       h("p", {}, text.state),
       h("h2", {}, text.list),
       h("ol", { class: "mission-list" }, ...text.missions.map((mission) => h("li", {}, mission))),

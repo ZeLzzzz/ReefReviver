@@ -48,7 +48,7 @@ function fakePointerLock(): FakePointerLock {
 function setup(overrides: Partial<AppDeps> = {}) {
   document.body.innerHTML = '<div id="ui"></div>';
   const ui = document.querySelector<HTMLElement>("#ui")!;
-  const game = { play: vi.fn(), pause: vi.fn(), resume: vi.fn(), onHud: vi.fn(), onEnd: vi.fn(), onOpeningEnd: vi.fn() };
+  const game = { play: vi.fn(), pause: vi.fn(), resume: vi.fn(), onHud: vi.fn(), onEnd: vi.fn(), onOpeningEnd: vi.fn(), presenter: vi.fn() };
   const lock = fakePointerLock();
   const deps: AppDeps = {
     ui,
@@ -664,5 +664,35 @@ describe("mission card (REQ-029)", () => {
     expect(setPhase).toHaveBeenLastCalledWith("quiet");
     await clickButton(ui, "Mulai menyelam");
     expect(setPhase).toHaveBeenLastCalledWith("playing");
+  });
+});
+
+describe("presenter mode (REQ-040 AC-1, AC-5)", () => {
+  const press = (code: string, repeat = false) => window.dispatchEvent(new KeyboardEvent("keydown", { code, repeat }));
+
+  it("with ?presenter, shows its tag on every screen and sends P and B to the game while playing, once per press", async () => {
+    const { ui, game } = setup({ presenter: true });
+    expect(ui.querySelector(".presenter-tag")?.textContent).toBe("Presenter · P: lewati fase · B: panggil kapal");
+    press("KeyP");
+    expect(game.presenter).not.toHaveBeenCalled();
+    await clickButton(ui, "Mulai");
+    expect(ui.querySelector(".presenter-tag")).not.toBeNull();
+    press("KeyP");
+    press("KeyP", true);
+    press("KeyB");
+    expect(game.presenter.mock.calls).toEqual([["phase"], ["boat"]]);
+    // Paused: nothing.
+    pressEscape();
+    press("KeyP");
+    expect(game.presenter).toHaveBeenCalledTimes(2);
+    expect(ui.querySelector(".presenter-tag")).not.toBeNull();
+  });
+
+  it("without it, there is no tag and P and B do nothing", async () => {
+    const { ui, game } = await startPlaying();
+    expect(ui.querySelector(".presenter-tag")).toBeNull();
+    press("KeyP");
+    press("KeyB");
+    expect(game.presenter).not.toHaveBeenCalled();
   });
 });

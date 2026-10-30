@@ -10,6 +10,7 @@ describe("the mission card's texts (REQ-029 AC-2, AC-3, AC-5)", () => {
   it("are the agreed Indonesian texts, with the game's numbers", () => {
     expect(missionTexts("id")).toEqual({
       title: "Misi: Pulihkan Teluk",
+      sdg: "ReefReviver mendukung SDG 14: Ekosistem Lautan",
       state:
         "Teluk ini keruh dan karangnya memucat. Sekitar 60 sampah berserakan di dasar laut, mengapung di permukaan, dan tergeletak di pantai. Dua jaring hantu menjerat seekor penyu dan seekor hiu karang.",
       list: "Misi",
@@ -28,6 +29,7 @@ describe("the mission card's texts (REQ-029 AC-2, AC-3, AC-5)", () => {
   it("are the agreed English texts, with the game's numbers", () => {
     expect(missionTexts("en")).toEqual({
       title: "Mission: Restore the Bay",
+      sdg: "ReefReviver supports SDG 14: Life Below Water",
       state:
         "The bay is murky and its corals are bleaching. About 60 pieces of trash lie on the sea floor, float on the surface and litter the beach. Two ghost nets have trapped a turtle and a reef shark.",
       list: "Mission",
@@ -104,6 +106,13 @@ describe("the mission card screen (REQ-029 AC-8)", () => {
     expect([...element.querySelectorAll("ol > li")].map((li) => li.textContent)).toEqual(missionTexts("id").missions);
     expect(element.querySelector("button.primary")?.textContent).toBe("Mulai menyelam");
     expect(element.querySelector('[role="alert"]')).toBeNull();
+  });
+
+  it("names SDG 14 right under the title (REQ-039 AC-1)", () => {
+    const element = missionScreen({ lang: "en", notice: null, onStart: () => {} });
+    const line = element.querySelector(".mission-sdg")!;
+    expect(line.previousElementSibling?.tagName).toBe("H1");
+    expect(line.textContent).toBe("ReefReviver supports SDG 14: Life Below Water");
   });
 
   it("warns of the dumping boat right after the missions (REQ-037 AC-6)", () => {

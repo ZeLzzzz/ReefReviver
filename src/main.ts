@@ -31,6 +31,8 @@ new App({
   pointerLock: touch ? touchPointerLock(document) : domPointerLock(canvas),
   loadAssets: (onProgress) => loadAssets(onProgress),
   audio,
+  // REQ-040: presenter mode for a live demo, in the built game too; without it P and B do nothing.
+  presenter: new URLSearchParams(location.search).has("presenter"),
 }).boot();
 
 if (import.meta.env.DEV) {

@@ -134,7 +134,7 @@ test.describe("Indonesian", () => {
     await startWithCinematics(page);
     await openingToCard(page);
     await expect(page.locator(".panel.mission h1")).toHaveText("Misi: Pulihkan Teluk");
-    await expect(page.locator(".panel.mission > p").first()).toHaveText(
+    await expect(page.locator(".panel.mission > p:not(.mission-sdg)").first()).toHaveText(
       `Teluk ini keruh dan karangnya memucat. Sekitar ${config.trash.count} sampah berserakan di dasar laut, mengapung di permukaan, dan tergeletak di pantai. Dua jaring hantu menjerat seekor penyu dan seekor hiu karang.`,
     );
     expect(config.phase1.nets).toBe(2); // the card says "Dua"
@@ -274,7 +274,7 @@ test.describe("English", () => {
     await openingToCard(page);
     await expect(page.getByRole("dialog", { name: "Mission: Restore the Bay" })).toBeVisible();
     await expect(page.locator(".panel.mission h1")).toHaveText("Mission: Restore the Bay");
-    await expect(page.locator(".panel.mission > p").first()).toHaveText(
+    await expect(page.locator(".panel.mission > p:not(.mission-sdg)").first()).toHaveText(
       `The bay is murky and its corals are bleaching. About ${config.trash.count} pieces of trash lie on the sea floor, float on the surface and litter the beach. Two ghost nets have trapped a turtle and a reef shark.`,
     );
     await expect(page.locator(".panel.mission h2")).toHaveText("Mission");
