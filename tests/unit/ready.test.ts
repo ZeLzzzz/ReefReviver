@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App, type AppDeps } from "../../src/app";
+import { credits } from "../../src/credits";
 import type { PointerLock } from "../../src/ui/pointer-lock";
 
 const pointerLock: PointerLock = { request: async () => true, exit: () => {}, onChange: () => {} };
@@ -141,13 +142,18 @@ describe("credits screen (REQ-009 AC-5)", () => {
     return env;
   }
 
-  it("opens from the title screen and lists the team marker, the assets and three.js with its licence", async () => {
+  it("opens from the title screen and lists the team, the assets and three.js with its licence", async () => {
     const { app, ui } = await openCredits();
     expect(app.screen).toBe("credits");
     expect(ui.querySelector("h1")?.textContent).toBe("Kredit");
     expect([...ui.querySelectorAll("h2")].map((h) => h.textContent)).toEqual(["Tim", "Aset pihak ketiga", "Kode pihak ketiga"]);
     // D-054: no invented names; a clear marker until the user fills in CREDITS.md.
-    expect(ui.querySelector(".credit-pending")?.textContent).toBe("Nama anggota tim belum diisi.");
+    // The team as CREDITS.md lists it: a name and a role per member, and no "not filled in" marker.
+    expect(ui.querySelector(".credit-pending")).toBeNull();
+    for (const [name, role] of credits.team.rows) {
+      const row = [...ui.querySelectorAll(".credit-team li")].find((li) => li.querySelector("strong")?.textContent === name);
+      expect(row?.textContent).toContain(role);
+    }
     // REQ-026 AC-4, G-005: the one third-party asset is the music.
     expect(ui.querySelector(".credit-none")).toBeNull();
     const music = ui.querySelector(".credit-list:not(.credit-team) li")!;
@@ -167,7 +173,8 @@ describe("credits screen (REQ-009 AC-5)", () => {
   it("is in English for an English browser", async () => {
     const { ui } = await openCredits(["en"]);
     expect([...ui.querySelectorAll("h2")].map((h) => h.textContent)).toEqual(["Team", "Third-party assets", "Third-party code"]);
-    expect(ui.querySelector(".credit-pending")?.textContent).toContain("have not been filled in yet");
+    expect(ui.querySelector(".credit-pending")).toBeNull();
+    expect(ui.querySelectorAll(".credit-team li")).toHaveLength(credits.team.rows.length);
     const lists = [...ui.querySelectorAll(".credit-list:not(.credit-team) li")].map((li) => li.textContent);
     expect(lists.some((text) => text?.includes("by isaiah658") && text.includes("Licence: CC0 1.0"))).toBe(true);
     expect(lists.some((text) => text?.includes("Licence: MIT"))).toBe(true);
