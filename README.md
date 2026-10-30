@@ -124,7 +124,7 @@ The end-to-end tests render WebGL on the GPU. On a computer without a usable GPU
 
 | Name | Role |
 |---|---|
-| Ahmad Zaki | Research & writing |
+| Zaki Luqmansyah | Research & writing |
 | Achmad Ramadhitya | 3D art & animation |
 | Hazel Avriel | Code & game design |
 

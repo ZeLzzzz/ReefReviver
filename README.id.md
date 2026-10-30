@@ -41,7 +41,7 @@ Model 3D memakai gaya low-poly; model GLB dari artist bisa menggantikan aset bua
 
 | Nama | Peran |
 |---|---|
-| Ahmad Zaki | Research & writing |
+| Zaki Luqmansyah | Research & writing |
 | Achmad Ramadhitya | 3D art & animation |
 | Hazel Avriel | Code & game design |
 
