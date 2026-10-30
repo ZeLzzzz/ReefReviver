@@ -1,4 +1,16 @@
 import { expect, test } from "@playwright/test";
+import { readFileSync } from "node:fs";
+
+/** The team as CREDITS.md lists it (name, role), so the test follows the file (D-054). */
+function creditedTeam(): [string, string][] {
+  const file = readFileSync("CREDITS.md", "utf8");
+  // The section's comment shows the format with a sample line; it is not part of the list.
+  const section = file.slice(file.indexOf("## Tim"), file.indexOf("## Aset pihak ketiga")).replace(/<!--[\s\S]*?-->/g, "");
+  return section
+    .split("\n")
+    .filter((line) => line.startsWith("- "))
+    .map((line) => line.slice(2).split("|").map((field) => field.trim()) as [string, string]);
+}
 
 // REQ-009 AC-1: the folder `vite build` makes is plain static files. Here it is served from /game/, the way
 // itch.io serves a game from a sub-path, and the server answers 404 for everything outside that folder.
@@ -52,7 +64,7 @@ test("the credits screen is part of the build (AC-5)", async ({ page }) => {
   await page.goto("/game/");
   await page.getByRole("button", { name: "Kredit" }).click();
   await expect(page.getByText("three.js", { exact: true })).toBeVisible();
-  await expect(page.getByText("Nama anggota tim belum diisi.")).toBeVisible();
+  for (const [name, role] of creditedTeam()) await expect(page.locator(".credit-team li").filter({ hasText: name })).toContainText(role);
 });
 
 test("a model listed in the manifest loads from the sub-path, with the glTF loader chunk (AC-1, AC-2)", async ({ page }) => {

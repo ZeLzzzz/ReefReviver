@@ -120,6 +120,14 @@ The end-to-end tests render WebGL on the GPU. On a computer without a usable GPU
 | `tests/unit/`, `tests/e2e/`, `tests/e2e-dist/` | Unit tests, browser tests, and tests of the build |
 | `CREDITS.md` | The team, third-party assets and code with their licences (read by the in-game Credits screen) |
 
+## Team
+
+| Name | Role |
+|---|---|
+| Ahmad Zaki | Research & writing |
+| Achmad Ramadhitya | 3D art & animation |
+| Hazel Avriel | Code & game design |
+
 ## Credits
 
 Third-party assets and code, with their licences, are listed in [CREDITS.md](CREDITS.md), and shown on the in-game Credits screen. The background music is "Underwater Ambient Pad" by isaiah658 (CC0).

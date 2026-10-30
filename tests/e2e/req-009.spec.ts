@@ -1,4 +1,16 @@
 import { expect, test, type Page } from "@playwright/test";
+import { readFileSync } from "node:fs";
+
+/** The team as CREDITS.md lists it (name, role), so the test follows the file (D-054). */
+function creditedTeam(): [string, string][] {
+  const file = readFileSync("CREDITS.md", "utf8");
+  // The section's comment shows the format with a sample line; it is not part of the list.
+  const section = file.slice(file.indexOf("## Tim"), file.indexOf("## Aset pihak ketiga")).replace(/<!--[\s\S]*?-->/g, "");
+  return section
+    .split("\n")
+    .filter((line) => line.startsWith("- "))
+    .map((line) => line.slice(2).split("|").map((field) => field.trim()) as [string, string]);
+}
 
 // The smallest valid GLB: a header and one JSON chunk describing an empty scene.
 function minimalGlb(): Buffer {
@@ -93,12 +105,15 @@ test.describe("Indonesian browser", () => {
     expect(new URL(manifestRequests[0]).pathname).toBe("/assets/manifest.json");
   });
 
-  test("the credits screen opens from the title, shows the team marker and the licences, and goes back (AC-5)", async ({ page }) => {
+  test("the credits screen opens from the title, shows the team and the licences, and goes back (AC-5)", async ({ page }) => {
     await page.goto("/");
     await page.getByRole("button", { name: "Kredit" }).click();
     await expect(page.getByRole("heading", { name: "Kredit", level: 1 })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Tim" })).toBeVisible();
-    await expect(page.getByText("Nama anggota tim belum diisi.")).toBeVisible();
+    const team = creditedTeam();
+    expect(team.length).toBeGreaterThan(0);
+    for (const [name, role] of team) await expect(page.locator(".credit-team li").filter({ hasText: name })).toContainText(role);
+    await expect(page.getByText("Nama anggota tim belum diisi.")).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "Aset pihak ketiga" })).toBeVisible();
     // REQ-026: the one third-party asset is the music (G-005).
     await expect(page.getByText("Underwater Ambient Pad (musik latar)")).toBeVisible();
@@ -135,6 +150,6 @@ test.describe("English browser", () => {
     await page.reload();
     await page.getByRole("button", { name: "Credits" }).click();
     await expect(page.getByRole("heading", { name: "Third-party code" })).toBeVisible();
-    await expect(page.getByText("The team members' names have not been filled in yet.")).toBeVisible();
+    for (const [name] of creditedTeam()) await expect(page.locator(".credit-team li").filter({ hasText: name })).toBeVisible();
   });
 });

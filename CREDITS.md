@@ -11,7 +11,9 @@ Ganti baris `- TODO` di bawah dengan satu baris per anggota tim, formatnya:
 Selama masih ada baris `- TODO`, layar Kredit menampilkan tanda "nama belum diisi" (D-054).
 -->
 
-- TODO
+- Ahmad Zaki | Research & writing
+- Achmad Ramadhitya | 3D art & animation
+- Hazel Avriel | Code & game design
 
 ## Aset pihak ketiga
 

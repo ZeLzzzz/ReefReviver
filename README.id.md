@@ -37,6 +37,14 @@ Game browser 3D low-poly: pemain mengemudikan kapal selam mini untuk membersihka
 
 Model 3D memakai gaya low-poly; model GLB dari artist bisa menggantikan aset buatan kode. Batu besar menggunakan permukaan yang sama untuk gambar, tabrakan, dan tempat menempel biota. Karang alami memiliki dua variasi bentuk per jenis: cabang dengan percabangan tidak seragam, lempeng tipis bertumpuk dengan tepian bergelombang, bongkah berlekuk, dan jari bercabang. Koloni kecil mengisi sela di antara koloni besar; warna berkelompok dengan pangkal lebih gelap dan ujung lebih terang. Kipas laut bercabang terbuka, spons memiliki bibir tebal dan rongga gelap, dan sinar bawah air memudar lembut di tepinya.
 
+## Tim
+
+| Nama | Peran |
+|---|---|
+| Ahmad Zaki | Research & writing |
+| Achmad Ramadhitya | 3D art & animation |
+| Hazel Avriel | Code & game design |
+
 ## Kontrol
 
 | Tombol | Fungsi |
